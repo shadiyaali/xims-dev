@@ -1,0 +1,104 @@
+<!-- templates/qms/car/car_assignment_template.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Corrective Action Assignment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .header {
+            background-color: #1E84AF;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Corrective Action Assignment</h2>
+        </div>
+        <div class="content">
+            <p>You have been assigned as the executor for a new Corrective Action.</p>
+            
+            <table>
+                <tr>
+                    <th>Action No</th>
+                    <td>{{ action_no }}</td>
+                </tr>
+                <tr>
+                    <th>Title</th>
+                    <td>{{ title }}</td>
+                </tr>
+                <tr>
+                    <th>Source</th>
+                    <td>{{ source }}</td>
+                </tr>
+                <tr>
+                    <th>Root Cause</th>
+                    <td>{{ root_cause }}</td>
+                </tr>
+                <tr>
+                    <th>Problem Description</th>
+                    <td>{{ description }}</td>
+                </tr>
+                <tr>
+                    <th>Action or Corrections</th>
+                    <td>{{ action_or_corrections }}</td>
+                </tr>
+                <tr>
+                    <th>Date Raised</th>
+                    <td>{{ date_raised }}</td>
+                </tr>
+                <tr>
+                    <th>Complete By</th>
+                    <td>{{ date_completed }}</td>
+                </tr>
+                <tr>
+                    <th>Status</th>
+                    <td>{{ status }}</td>
+                </tr>
+            </table>
+            
+            <p>Please review this corrective action and take appropriate steps to address it.</p>
+        </div>
+        <div class="footer">
+            <p>This is an automated notification. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>
