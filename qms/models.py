@@ -1021,7 +1021,7 @@ class Supplier(models.Model):
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Approved')
     approved_date =  models.DateField(blank=True, null=True)
- 
+    is_draft = models.BooleanField(default=False)
     pre_qualification = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     documents = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     
