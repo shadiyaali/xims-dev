@@ -987,11 +987,10 @@ class InternalProblem(models.Model):
 
 
 class Supplier(models.Model):
+    
     ACTIVE_CHOICES = [
         ('active', 'active'),
-        ('blocked', 'blocked'),
-          
-         
+        ('blocked', 'blocked'),        
     ] 
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier", blank=True, null=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='supplier_com', null=True, blank=True)
@@ -1017,15 +1016,15 @@ class Supplier(models.Model):
     STATUS_CHOICES = [
         ('Approved', 'Approved'),
         ('Provisional', 'Provisional'),
-        ('Not Approved','Not Approved')
-          
-         
+        ('Not Approved','Not Approved')       
     ] 
+    
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Approved')
     approved_date =  models.DateField(blank=True, null=True)
+ 
     pre_qualification = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     documents = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
-    is_draft = models.BooleanField(default=False)
+    
 
     def __str__(self):
         return self.company_name

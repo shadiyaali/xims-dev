@@ -7883,6 +7883,7 @@ class SupplierDraftAPIView(APIView):
                            status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class SupplierDraftAllList(APIView):
     def get(self, request, user_id):
         try:

@@ -709,7 +709,9 @@ class InternalProblemGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternalProblem
         fields = '__all__'
-        
+
+
+     
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
