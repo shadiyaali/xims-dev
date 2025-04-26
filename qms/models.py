@@ -1046,7 +1046,7 @@ class SupplierProblem(models.Model):
     solved = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
     no_car = models.ForeignKey(CarNumber, on_delete=models.SET_NULL, null=True )
     corrections = models.CharField(max_length=50,blank =True,null = True)
-   
+    is_draft = models.BooleanField(default=False)
 
     def __str__(self):
         return self.supplier.company_name
