@@ -7773,7 +7773,7 @@ class SupplierAPIView(APIView):
     
 class SupplierView(APIView):
     def get(self, request, company_id):
-        agendas = Supplier.objects.filter(company_id=company_id)
+        agendas = Supplier.objects.filter(company_id=company_id,is_draft=False)
         serializer = SupplierSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -7898,7 +7898,6 @@ class SupplierDraftAllList(APIView):
 
 
 class SupplierProblemAPIView(APIView):
- 
     def post(self, request):
         serializer = SupplierProblemSerializer(data=request.data)
         if serializer.is_valid():
@@ -7907,10 +7906,7 @@ class SupplierProblemAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     
-    def get(self, request):
-        supplier_problems = SupplierProblem.objects.all()
-        serializer = SupplierProblemSerializer(supplier_problems, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+ 
 
 
 class SupplierProblemDetailAPIView(APIView):
@@ -7947,3 +7943,10 @@ class SupplierProblemDetailAPIView(APIView):
             return Response({"error": "SupplierProblem not found"}, status=status.HTTP_404_NOT_FOUND)
         supplier_problem.delete()
         return Response({"message": "SupplierProblem deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class SupplierProblemView(APIView):
+    def get(self, request, company_id):
+        agendas = SupplierProblem.objects.filter(company_id=company_id)
+        serializer = SupplierProblemSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

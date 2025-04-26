@@ -261,6 +261,9 @@ urlpatterns = [
     
     path('supplier-problems/', SupplierProblemAPIView.as_view(), name='supplier-problems'),
     path('supplier-problems/<int:pk>/', SupplierProblemDetailAPIView.as_view(), name='supplier-problem-detail'),
+    path('supplier-problems/company/<int:company_id>/',  SupplierProblemView.as_view(), name='company-agendas'),
+   
+    
     
     path('messages/create/', MessageCreateAPIView.as_view(), name='message-create'),
     
