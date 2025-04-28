@@ -621,7 +621,7 @@ class ManualReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, manual, recipients, action_type):
-        from decouple import config  # make sure you imported this!
+        from decouple import config   
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
