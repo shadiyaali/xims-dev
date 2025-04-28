@@ -1059,4 +1059,4 @@ class SupplierProblem(models.Model):
     is_draft = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Problem with {self.supplier.name}" 
+        return f"Problem with {self.supplier.company_name}" if self.supplier else "Problem without supplier"
