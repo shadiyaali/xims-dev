@@ -321,13 +321,9 @@ class InterestedParty(models.Model):
     CATEGORY_CHOICES = (
         ('Internal', 'Internal'),
         ('External', 'External'),
-    )
-    
-   
+    ) 
     name = models.CharField(max_length=255)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='Internal')
-    needs = models.TextField(blank=True, null=True)
-    expectations = models.TextField(blank=True, null=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='Internal')  
     special_requirements = models.TextField(blank=True, null=True)
     legal_requirements = models.CharField(  blank=True, null=True)
     custom_legal_requirements = models.TextField(blank=True, null=True)
@@ -342,8 +338,22 @@ class InterestedParty(models.Model):
     class Meta:
         verbose_name = "Interested Party"
         verbose_name_plural = "Interested Parties"
-        
-
+ 
+class Needs(models.Model):
+    interested_party = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, related_name='needs', null=True, blank=True) 
+    title = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return self.title
+    
+class Expectations(models.Model):
+    interested_party = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, related_name='expectation', null=True, blank=True) 
+    title = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return self.title
+    
+    
 
 class NotificationInterest(models.Model):
     interest = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, null=True, blank=True)
@@ -677,7 +687,8 @@ class Training(models.Model):
     STATUS_CHOICES = [
         ('Internal', 'Internal'),
         ('External', 'External'),
-        ('Client/Legal', 'Client/Legal'),
+        ('Legal/Regulatory', 'Legal/Regulatory'),
+         ('Client', 'Client'),
         ('Online', 'Online')
         
     ]

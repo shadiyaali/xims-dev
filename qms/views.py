@@ -19,6 +19,12 @@ import logging
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.shortcuts import get_object_or_404
+from rest_framework import generics
+from rest_framework.generics import RetrieveDestroyAPIView
+
+
+
+
 
 
  
@@ -168,16 +174,6 @@ class ManualDetailView(APIView):
 
 
 
-import logging
-from django.core.mail import send_mail
-from django.conf import settings
-from decouple import config
-from django.db import transaction
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.views import APIView
-from .models import Manual, NotificationQMS
-from .serializers import ManualSerializer
 
  
 
@@ -252,33 +248,45 @@ class ManualCreateView(APIView):
             try:
                 if action_type == "review":
                     subject = f"Manual Ready for Review: {manual.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"A manual titled '{manual.title}' requires your review.\n\n"
-                        f"Document Number: {manual.no or 'N/A'}\n"
-                        f"Review Frequency: {manual.review_frequency_year or 0} year(s), "
-                        f"{manual.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {manual.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                    }
+
+                    html_message = render_to_string('qms/manual/manual_add.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("EMAIL_HOST_USER"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
 
 
  
@@ -354,28 +362,7 @@ class NotificationView(APIView):
  
  
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.mail import send_mail
-from decouple import config
-from .models import Manual, Users, CorrectionQMS, NotificationQMS
-from .serializers import CorrectionQMSSerializer
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.mail import send_mail
-from decouple import config
-from .models import Manual, CorrectionQMS, NotificationQMS, Users
-from .serializers import CorrectionQMSSerializer
-
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.core.mail import send_mail
-from decouple import config
 
 class SubmitCorrectionView(APIView):
     def post(self, request):
@@ -498,7 +485,7 @@ class SubmitCorrectionView(APIView):
             print(f"Failed to send correction email: {str(e)}")
 
 
-from rest_framework import generics
+
 
 class ManualCorrectionsListView(generics.ListAPIView):
     serializer_class = CorrectionGetQMSSerializer
@@ -633,10 +620,6 @@ class NotificationsProcedure(APIView):
         return Response({"message": "Notifications marked as read"}, status=status.HTTP_200_OK)
  
 
-from django.utils.timezone import now
-from rest_framework.response import Response
-from rest_framework import status
-from django.db import transaction
 
 class ManualUpdateView(APIView):
     def put(self, request, pk):
@@ -814,17 +797,8 @@ class DraftManualcountAPIView(APIView):
             "draft_manuals": serializer.data
         }, status=status.HTTP_200_OK)
         
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.db import transaction
-from django.utils.timezone import now
-from django.core.mail import send_mail
-from decouple import config
-import logging
-
-from .models import Manual, Users, Company, NotificationQMS
-
+ 
+ 
 logger = logging.getLogger(__name__)
 
 class ManualPublishNotificationView(APIView):
@@ -951,14 +925,7 @@ class ManualPublishNotificationView(APIView):
         logger.info(f"Email sent to {recipient.email}")
  
 
-import os
-import boto3
-from botocore.exceptions import ClientError
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.views import View
-from django.conf import settings
-from .models import PolicyDocumentation
+ 
 
 class PolicyFileDownloadView(View):
     """View to handle policy file downloads from S3 storage"""
@@ -2337,7 +2304,7 @@ class MarkRecordNotificationReadAPIView(APIView):
             )
 
  
-from rest_framework.generics import RetrieveDestroyAPIView
+ 
 class ComplianceDetailView(RetrieveDestroyAPIView):
     queryset = Compliances.objects.all()
     serializer_class = ComplianceSerializer
@@ -2485,24 +2452,18 @@ class ComplianecesList(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
  
- 
-
-from django.core.mail import send_mail
-from decouple import config
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.db import transaction
 
 class InterestedPartyCreateView(APIView):
     """
-    Endpoint to handle creation of Interested Party and optionally send notifications.
+    Endpoint to handle creation of Interested Party, Needs, Expectations, and optionally send notifications.
     """
     def post(self, request):
-        print("Received Data:", request.data)  # Debugging purpose
+        print("Received Data:", request.data)  
         try:
             company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', 'false') == 'true'  # Handle as boolean
+            send_notification = request.data.get('send_notification', 'false') == 'true'  
+            needs_data = request.data.get('needs', [])   
+            expectations_data = request.data.get('expectations', [])  
 
             if not company_id:
                 return Response(
@@ -2515,14 +2476,33 @@ class InterestedPartyCreateView(APIView):
 
             if serializer.is_valid():
                 with transaction.atomic():
+ 
                     interested_party = serializer.save()
                     logger.info(f"Interested Party created: {interested_party.name}")
 
-                    # Update and save send_notification flag
+                  
+                    if needs_data:
+                        needs_instances = [
+                            Needs(interested_party=interested_party, title=need['title']) 
+                            for need in needs_data
+                        ]
+                        Needs.objects.bulk_create(needs_instances)
+                        logger.info(f"Created {len(needs_instances)} Needs for Interested Party {interested_party.id}")
+
+         
+                    if expectations_data:
+                        expectations_instances = [
+                            Expectations(interested_party=interested_party, title=expectation['title']) 
+                            for expectation in expectations_data
+                        ]
+                        Expectations.objects.bulk_create(expectations_instances)
+                        logger.info(f"Created {len(expectations_instances)} Expectations for Interested Party {interested_party.id}")
+
+     
                     interested_party.send_notification = send_notification
                     interested_party.save()
 
-                    # Send notifications only if requested
+    
                     if send_notification:
                         company_users = Users.objects.filter(company=company)
                         notifications = [
@@ -2531,15 +2511,15 @@ class InterestedPartyCreateView(APIView):
                                 title=f"New Interested Party: {interested_party.name}",
                                 message=f"A new interested party '{interested_party.name}' has been added."
                             )
-                            for user in company_users  # Still iterating for sending emails below
+                            for user in company_users
                         ]
 
-                        # Bulk create notifications
+                
                         if notifications:
                             NotificationInterest.objects.bulk_create(notifications)
-                            logger.info(f"Created {len(notifications)} notifications for interested party {interested_party.id}")
+                            logger.info(f"Created {len(notifications)} notifications for Interested Party {interested_party.id}")
 
-                        # Send email to each user
+                 
                         for user in company_users:
                             if user.email:
                                 try:
@@ -2557,6 +2537,13 @@ class InterestedPartyCreateView(APIView):
             else:
                 logger.warning(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error occurred: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
         except Company.DoesNotExist:
             return Response(
@@ -2610,7 +2597,7 @@ class InterestedPartyList(APIView):
 
       
         cpmpliance = InterestedParty.objects.filter(company=company,is_draft=False)
-        serializer = InterestedPartySerializer(cpmpliance, many=True)
+        serializer = InterestedPartyGetSerializer(cpmpliance, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2626,7 +2613,7 @@ class InterestedPartyDetailView(APIView):
         party = self.get_object(pk)
         if not party:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = InterestedPartySerializer(party)
+        serializer = InterestedPartyGetSerializer(party)
         return Response(serializer.data)
 
     def put(self, request, pk, *args, **kwargs):
@@ -2722,33 +2709,32 @@ class InterestedPartyDetailView(APIView):
 
 class InterestDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Create a copy of request.data to modify
-        data = {}
-        
-        # Copy over simple data fields
-        for key in request.data:
-            if key != 'upload_attachment':
-                data[key] = request.data[key]
-
-        # Set is_draft flag
+        data = {key: request.data[key] for key in request.data if key != 'upload_attachment'}
         data['is_draft'] = True
-        
-        # Handle file separately if any
+
         file_obj = request.FILES.get('upload_attachment')
 
-        # Assuming you have a serializer for the InterestedParty model
         serializer = InterestedPartySerializer(data=data)
         if serializer.is_valid():
             interest = serializer.save()
-            
-            # Assign file if provided
+ 
             if file_obj:
                 interest.upload_attachment = file_obj
                 interest.save()
 
+      
+            needs_data = request.data.get('needs', [])
+            for need in needs_data:
+                Needs.objects.create(interested_party=interest, title=need.get('title'))
+
+            expectations_data = request.data.get('expectations', [])
+            for expectation in expectations_data:
+                Expectations.objects.create(interested_party=interest, title=expectation.get('title'))
+
             return Response({"message": "Interest saved as draft", "data": serializer.data}, 
                              status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
     
 class InterstDraftAllList(APIView):
@@ -2768,19 +2754,34 @@ class InterstDraftAllList(APIView):
 class EditInterestedParty(APIView):
     def put(self, request, pk):
         interested_party = get_object_or_404(InterestedParty, pk=pk)
-        send_notification = request.data.get('send_notification', 'false') == 'true'  # Handle as boolean
+        send_notification = request.data.get('send_notification', 'false') == 'true'
+
+        # Extract Needs and Expectations separately
+        needs_data = request.data.pop('needs', [])
+        expectations_data = request.data.pop('expectation', [])
 
         serializer = InterestedPartySerializer(interested_party, data=request.data, partial=True)
 
         if serializer.is_valid():
-            instance = serializer.save(is_draft=False)   
-            
-            # If send_notification is True, send notifications and emails
+            instance = serializer.save(is_draft=False)
+
+            # Update Needs
+            if needs_data:
+                instance.needs.all().delete()  # Clear old needs
+                needs_objs = [Needs(interested_party=instance, title=need.get('title', '')) for need in needs_data]
+                Needs.objects.bulk_create(needs_objs)
+
+            # Update Expectations
+            if expectations_data:
+                instance.expectation.all().delete()  # Clear old expectations
+                expectations_objs = [Expectations(interested_party=instance, title=exp.get('title', '')) for exp in expectations_data]
+                Expectations.objects.bulk_create(expectations_objs)
+
+            # Send notification if requested
             if send_notification:
-                company = instance.company  # Assuming the Interested Party has a related Company
-                
-                # Create notifications for all users of the company
+                company = instance.company
                 company_users = Users.objects.filter(company=company)
+
                 notifications = [
                     NotificationInterest(
                         interest=instance,
@@ -2789,43 +2790,40 @@ class EditInterestedParty(APIView):
                     )
                     for user in company_users
                 ]
-                
-                # Bulk create notifications
                 if notifications:
                     NotificationInterest.objects.bulk_create(notifications)
                     logger.info(f"Created {len(notifications)} notifications for interested party {instance.id}")
-                
-                # Send email notifications to users
+
                 for user in company_users:
                     if user.email:
                         try:
                             self._send_notification_email(instance, user)
                         except Exception as e:
                             logger.error(f"Failed to send email to {user.email}: {str(e)}")
-            
-            return Response(InterestedPartySerializer(instance).data, status=status.HTTP_200_OK)
+
+            return Response(InterestedPartyGetSerializer(instance).data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_notification_email(self, interested_party, recipient):
-        """
-        Helper method to send email notifications about a new Interested Party update.
-        """
         subject = f"Interested Party Updated: {interested_party.name}"
+        needs_list = "\n".join([f"- {need.title}" for need in interested_party.needs.all()])
+        expectations_list = "\n".join([f"- {exp.title}" for exp in interested_party.expectation.all()])
+
         message = (
             f"Dear {recipient.first_name},\n\n"
             f"The interested party '{interested_party.name}' has been updated.\n\n"
             f"Details:\n"
             f"- Category: {interested_party.category}\n"
-            f"- Needs: {interested_party.needs}\n"
-            f"- Expectations: {interested_party.expectations}\n"
+            f"- Needs:\n{needs_list}\n"
+            f"- Expectations:\n{expectations_list}\n"
             f"- Special Requirements: {interested_party.special_requirements}\n"
             f"- Legal Requirements: {interested_party.legal_requirements}\n"
             f"- Custom Legal Requirements: {interested_party.custom_legal_requirements}\n\n"
             f"Please log in to view more details.\n\n"
             f"Best regards,\nYour Company Team"
         )
-        
+
         send_mail(
             subject=subject,
             message=message,
@@ -2834,6 +2832,8 @@ class EditInterestedParty(APIView):
             fail_silently=False,
         )
         logger.info(f"Email sent to {recipient.email}")
+
+
 
 
 class DrafInterstAPIView(APIView):
@@ -7032,32 +7032,49 @@ class MessageCreateAPIView(APIView):
     
     
     
+ 
+
+ 
+
 class AuditCreateAPIView(APIView):
     def post(self, request, format=None):
-        print("ssssss",request.data)
-        serializer = AuditSerializer(data=request.data)
-        if serializer.is_valid():
-            audit = serializer.save()
+        q = request.data   
 
-            
-            procedure_ids = request.data.getlist('procedures')
+      
+        data = {
+            k: q.get(k)
+            for k in q.keys()
+            if k not in ('procedures', 'audit_from_internal')
+        }   
+        procedure_ids = q.getlist('procedures')           
+        auditor_ids   = q.getlist('audit_from_internal')  
+
+        print("Scalar data:", data)
+        print("Procedures:", procedure_ids)
+        print("Auditors:", auditor_ids)       
+        serializer = AuditSerializer(data=data)
+        if not serializer.is_valid():
+            print("Serializer Errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        audit = serializer.save()
+
+       
+        procs = Procedure.objects.filter(id__in=procedure_ids)
+        if procs.count() != len(procedure_ids):
+            return Response(
+                {"error": "One or more selected procedures do not exist."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+  
+        audit.procedures.set(procs)
+        audit.audit_from_internal.set(auditor_ids)
+
+        return Response(AuditSerializer(audit).data, status=status.HTTP_201_CREATED)
 
 
-            existing_procedures = Procedure.objects.filter(id__in=procedure_ids)
 
-            if len(existing_procedures) != len(procedure_ids):
-                return Response(
-                    {"error": "One or more selected procedures do not exist."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-          
-            audit.audit_from_internal.set(request.data.get('audit_from_internal', []))
-            audit.procedures.set(existing_procedures)
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CompanyAuditView(APIView):
@@ -7098,43 +7115,60 @@ class AuditDetailView(APIView):
         return Response({"message": "Audit deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
-class AuditDraftAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        print("rrrrrrrrr",request.data)
-        data = {}
-
-      
-        for key in request.data:
-            if key not in ['upload_attachment', 'procedures']:
-                data[key] = request.data[key]
-
-  
-        procedures_ids = request.data.getlist('procedures') if hasattr(request.data, 'getlist') else request.data.get('procedures', [])
-        data['procedures'] = procedures_ids
  
+class AuditDraftAPIView(APIView): 
+
+    def post(self, request, *args, **kwargs):
+        q = request.data  
+
+     
+        data = {
+            k: q.get(k)
+            for k in q.keys()
+            if k not in ('upload_attachment', 'procedures', 'audit_from_internal')
+        }
         data['is_draft'] = True
 
-     
+    
+        procedure_ids = q.getlist('procedures')               
+        auditor_ids   = q.getlist('audit_from_internal')    
+
+    
         file_obj = request.FILES.get('upload_attachment')
 
-        # Serialize and validate
+    
         serializer = AuditSerializer(data=data)
-        if serializer.is_valid():
-            
-            process = serializer.save()
+        if not serializer.is_valid():
+            print("Serializer Errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        
-            if file_obj:
-                process.upload_attachment = file_obj
-                process.save()
+        audit = serializer.save()
+
+    
+        if file_obj:
+            audit.upload_audit_report = file_obj
+            audit.save()
 
      
-            if procedures_ids:
-                process.procedures.set(procedures_ids)
+        if procedure_ids:
+            existing = Procedure.objects.filter(id__in=procedure_ids)
+            if existing.count() != len(procedure_ids):
+                return Response(
+                    {"error": "One or more selected procedures do not exist."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            audit.procedures.set(existing)
 
-            return Response({"message": "Audit saved as draft", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        print(serializer.errors) 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if auditor_ids:
+ 
+            audit.audit_from_internal.set(auditor_ids)
+
+        return Response(
+            {"message": "Audit saved as draft", "data": AuditSerializer(audit).data},
+            status=status.HTTP_201_CREATED
+        )
+
+
     
 class AuditDraftAllList(APIView):
     def get(self, request, user_id):
@@ -7244,33 +7278,47 @@ class GetAuditReportView(APIView):
         serializer = AuditFileUploadSerializer(audit)
         return Response({"data": serializer.data}, status=status.HTTP_200_OK)
     
+
+
 class InspectionCreateAPIView(APIView):
     def post(self, request, format=None):
-        print("ssssss",request.data)
-        serializer = InspectionSerializer(data=request.data)
-        if serializer.is_valid():
-            audit = serializer.save()
+        q = request.data   
 
-            
-            procedure_ids = request.data.getlist('procedures')
+      
+        data = {
+            k: q.get(k)
+            for k in q.keys()
+            if k not in ('procedures', 'inspector_from_internal')
+        }   
+        procedure_ids = q.getlist('procedures')           
+        auditor_ids   = q.getlist('inspector_from_internal')  
+
+        print("Scalar data:", data)
+        print("Procedures:", procedure_ids)
+        print("inspectiros:", auditor_ids)       
+        serializer = InspectionSerializer(data=data)
+        if not serializer.is_valid():
+            print("Serializer Errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        audit = serializer.save()
+
+       
+        procs = Procedure.objects.filter(id__in=procedure_ids)
+        if procs.count() != len(procedure_ids):
+            return Response(
+                {"error": "One or more selected procedures do not exist."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+  
+        audit.procedures.set(procs)
+        audit.inspector_from_internal.set(auditor_ids)
+
+        return Response(InspectionSerializer(audit).data, status=status.HTTP_201_CREATED)
 
 
-            existing_procedures = Procedure.objects.filter(id__in=procedure_ids)
-
-            if len(existing_procedures) != len(procedure_ids):
-                return Response(
-                    {"error": "One or more selected procedures do not exist."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-          
-            audit.inspector_from_internal.set(request.data.get('inspector_from_internal', []))
-            audit.procedures.set(existing_procedures)
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+   
 class CompanyinspectionView(APIView):
     def get(self, request, company_id):
         agendas = Inspection.objects.filter(company_id=company_id,is_draft=False)
@@ -7309,43 +7357,61 @@ class InspectionDetailView(APIView):
         return Response({"message": "Inspection deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
-class InspesctionDraftAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        print("rrrrrrrrr",request.data)
-        data = {}
-
-      
-        for key in request.data:
-            if key not in ['upload_attachment', 'procedures']:
-                data[key] = request.data[key]
-
-  
-        procedures_ids = request.data.getlist('procedures') if hasattr(request.data, 'getlist') else request.data.get('procedures', [])
-        data['procedures'] = procedures_ids
  
+    
+class InspesctionDraftAPIView(APIView):
+
+    def post(self, request, *args, **kwargs):
+        q = request.data  
+
+     
+        data = {
+            k: q.get(k)
+            for k in q.keys()
+            if k not in ('upload_attachment', 'procedures', 'inspector_from_internal')
+        }
         data['is_draft'] = True
 
-     
+    
+        procedure_ids = q.getlist('procedures')               
+        auditor_ids   = q.getlist('inspector_from_internal')    
+
+    
         file_obj = request.FILES.get('upload_attachment')
 
-        # Serialize and validate
+    
         serializer = InspectionSerializer(data=data)
-        if serializer.is_valid():
-            
-            process = serializer.save()
+        if not serializer.is_valid():
+            print("Serializer Errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        
-            if file_obj:
-                process.upload_attachment = file_obj
-                process.save()
+        audit = serializer.save()
+
+    
+        if file_obj:
+            audit.upload_audit_report = file_obj
+            audit.save()
 
      
-            if procedures_ids:
-                process.procedures.set(procedures_ids)
+        if procedure_ids:
+            existing = Procedure.objects.filter(id__in=procedure_ids)
+            if existing.count() != len(procedure_ids):
+                return Response(
+                    {"error": "One or more selected procedures do not exist."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            audit.procedures.set(existing)
 
-            return Response({"message": "Audit saved as draft", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        print(serializer.errors) 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if auditor_ids:
+ 
+            audit.inspector_from_internal.set(auditor_ids)
+
+        return Response(
+            {"message": "Internal saved as draft", "data": InspectionSerializer(audit).data},
+            status=status.HTTP_201_CREATED
+        )
+
+
     
 class InspectionDraftAllList(APIView):
     def get(self, request, user_id):

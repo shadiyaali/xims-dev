@@ -20,9 +20,6 @@ urlpatterns = [
     path('permissions/<int:user_id>/', UserPermissionsAPIView.as_view(), name='company-detail'), 
  
   
-  
- 
-
 
  
     path('customer/', CustomerListCreate.as_view(), name='inspection-list-create'),

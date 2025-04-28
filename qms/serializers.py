@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import *
 from django.contrib.auth.hashers import make_password
 from company.serializers import *
+from django.conf import settings       
 
 
 
@@ -26,7 +27,7 @@ class ManualGetSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
         
-from django.conf import settings       
+
 class ManualSerializer(serializers.ModelSerializer):
     class Meta:
         model = Manual
@@ -305,14 +306,31 @@ class ComplianceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Compliances
         fields = '__all__'
-        
+
+
+class NeedsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Needs
+        fields = '__all__'        
+
+class ExpectationsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expectations
+        fields = '__all__'        
         
 class InterestedPartySerializer(serializers.ModelSerializer):
     class Meta:
         model = InterestedParty
         fields = '__all__'
         
- 
+class InterestedPartyGetSerializer(serializers.ModelSerializer):
+    needs = NeedsSerializer(many=True, read_only=True)
+    expectation = ExpectationsSerializer(many=True, read_only=True)   
+
+    class Meta:
+        model = InterestedParty
+        fields = '__all__'
+
 
 class ProcessSerializer(serializers.ModelSerializer):
     class Meta:
@@ -676,7 +694,7 @@ class CarNumberSerializer(serializers.ModelSerializer):
         model = CarNumber
         fields = '__all__' 
         
-from rest_framework import serializers
+ 
 from .models import InternalProblem
 
 class InternalProblemSerializer(serializers.ModelSerializer):
