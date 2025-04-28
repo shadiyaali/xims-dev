@@ -8137,9 +8137,11 @@ class SupplierProblemDetailAPIView(APIView):
     
 class SupplierProblemView(APIView):
     def get(self, request, company_id):
-        agendas = SupplierProblem.objects.filter(company_id=company_id)
+     
+        agendas = SupplierProblem.objects.filter(supplier__company_id=company_id)
         serializer = SupplierProblemSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
     
     
 class ManualDraftEditView(APIView):
