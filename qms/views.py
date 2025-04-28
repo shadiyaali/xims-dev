@@ -7840,7 +7840,7 @@ class SupplierAPIView(APIView):
 class SupplierView(APIView):
     def get(self, request, company_id):
         agendas = Supplier.objects.filter(company_id=company_id,is_draft=False)
-        serializer = SupplierSerializer(agendas, many=True)
+        serializer = SupplierGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class SupplierDetailAPIView(APIView):
@@ -7855,7 +7855,7 @@ class SupplierDetailAPIView(APIView):
         supplier = self.get_object(pk)
         if not supplier:
             return Response({"error": "Supplier not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = SupplierSerializer(supplier)
+        serializer = SupplierGetSerializer(supplier)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
    

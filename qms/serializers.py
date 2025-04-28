@@ -735,7 +735,13 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = '__all__' 
         
-        
+     
+class SupplierGetSerializer(serializers.ModelSerializer):
+    approved_by = UserSerializer()
+    class Meta:
+        model = Supplier
+        fields = '__all__' 
+               
  
         
 class SupplierProblemSerializer(serializers.ModelSerializer):
