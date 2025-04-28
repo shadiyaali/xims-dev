@@ -29,6 +29,7 @@ urlpatterns = [
     path("notifications/<int:user_id>/", NotificationsQMS.as_view(), name="notifications_by_user"),
     path('count-notifications/<int:user_id>/', UnreadNotificationsAPIView.as_view(), name='unread-notifications'),
     path('notifications/<int:notification_id>/read/', MarkNotificationReadAPIView.as_view(), name='mark-notification-read'),
+    path('manual/create/<int:id>/', ManualDraftEditView.as_view(), name='manual-update'),
     
     # Procedure
     path('procedure-create/', ProcedureCreateView.as_view(), name='manual-list-create'),

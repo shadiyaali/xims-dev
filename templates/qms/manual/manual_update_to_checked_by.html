@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XIMS Pro - Manual Review Notification</title>
+ 
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,6 +36,7 @@
         .title {
             padding: 15px;
             border-bottom: 1px solid #e0e0e0;
+            padding-top:0px
         }
 
         .title h1 {
@@ -121,21 +122,33 @@
         </div>
 
         <div class="title">
-            <h1>Manual Review Notification</h1>
-            <h2>{{ title }}</h2>
-            <p>A new manual titled '{{ title }}' has been created by {{ written_by.first_name }} {{ written_by.last_name }}.</p>
+            <h1>QMS - Manual Corrections Updated {{ title }}</h1>
+           
+            <p> {{ written_by.first_name }} {{ written_by.last_name }} has made corrections to the manual {{ title }}, which is pending review by  {{ checked_by.first_name }} {{ checked_by.last_name }}. </p>
+           
         </div>
 
         <div class="metadata">
             <div class="metadata-border">
                 <div class="metadata-row">
                     <div class="metadata-col">
+                        <div class="metadata-label">Section Name</div>
+                        <div>{{ title }}</div>
+                    </div>
+                    <div class="metadata-col">
                         <div class="metadata-label">Manual Number</div>
                         <div>{{ section_number }}</div>
                     </div>
+                    
+                </div>
+                <div class="metadata-row">
                     <div class="metadata-col">
                         <div class="metadata-label">Document Type</div>
                         <div>{{ document_type }}</div>
+                    </div>
+                    <div class="metadata-col">
+                        <div class="metadata-label">Date</div>
+                        <div>{{ date }}</div>
                     </div>
                 </div>
 
@@ -167,6 +180,19 @@
                         <div>{{ written_by.first_name }} {{ written_by.last_name }}</div>
                     </div>
                 </div>
+                <div class="metadata-row">
+                    <div class="metadata-col">
+                      <div class="metadata-label">Attachment</div>
+                      <div>
+                        {% if document_url %}
+                          <a href="{{ document_url }}" target="_blank">{{ document_name }}</a>
+                        {% else %}
+                          No attachment
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                  
             </div>
         </div>
 

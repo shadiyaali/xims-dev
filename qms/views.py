@@ -265,9 +265,11 @@ class ManualCreateView(APIView):
                         "checked_by": manual.checked_by,
                         "approved_by": manual.approved_by,
                         'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
                     }
 
-                    html_message = render_to_string('qms/manual/manual_add.html', context)
+                    html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
                     send_mail(
@@ -384,7 +386,7 @@ class SubmitCorrectionView(APIView):
             except Users.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Determine to_user based on from_user
+         
             if from_user == manual.checked_by:
                 to_user = manual.written_by
             elif from_user == manual.approved_by:
@@ -392,10 +394,10 @@ class SubmitCorrectionView(APIView):
             else:
                 return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Delete old correction
+     
             
 
-            # Create new correction
+     
             correction = CorrectionQMS.objects.create(
                 manual=manual,
                 to_user=to_user,
@@ -403,11 +405,11 @@ class SubmitCorrectionView(APIView):
                 correction=correction_text
             )
 
-            # Update status
+         
             manual.status = 'Correction Requested'
             manual.save()
 
-            # Send notification and email
+  
             self.create_correction_notification(correction)
             self.send_correction_email_notification(correction)
 
@@ -450,39 +452,59 @@ class SubmitCorrectionView(APIView):
             print(f"Failed to create correction notification: {str(e)}")
 
     def send_correction_email_notification(self, correction):
-        try:
-            manual = correction.manual
-            to_user = correction.to_user
-            from_user = correction.from_user
-            recipient_email = to_user.email if to_user else None
+        manual    = correction.manual
+        from_user = correction.from_user
+        to_user   = correction.to_user
+        recipient_email = to_user.email if to_user else None
 
-            if from_user == manual.approved_by and to_user == manual.checked_by:
-                should_send = manual.send_email_to_checked_by
-            elif from_user == manual.checked_by and to_user == manual.written_by:
-                should_send = True
-            else:
-                should_send = False
+       
+        if from_user == manual.checked_by and to_user == manual.written_by:
+           
+            template_name = 'qms/manual/manual_correction_to_writer.html'
+            subject = f"Correction Requested on '{manual.title}'"
+           
+            should_send = True
+        elif from_user == manual.approved_by and to_user == manual.checked_by:
+        
+            template_name = 'qms/manual/manual_correction_to_checker.html'
+            subject = f"Correction Requested on '{manual.title}'"
+            should_send = manual.send_email_to_checked_by
+        else:
+     
+            return
 
-            if recipient_email and should_send:
-                send_mail(
-                    subject=f"Correction Request: {manual.title}",
-                    message=(
-                        f"Dear {to_user.first_name},\n\n"
-                        f"A correction has been requested by {from_user.first_name} for the manual '{manual.title}'.\n\n"
-                        f"Correction details:\n"
-                        f"{correction.correction}\n\n"
-                        f"Please review and take necessary actions.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    ),
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                print(f"Correction email successfully sent to {recipient_email}")
-            else:
-                print("Email not sent due to permission flags, invalid roles, or missing email.")
-        except Exception as e:
-            print(f"Failed to send correction email: {str(e)}")
+        if not recipient_email or not should_send:
+            return
+
+  
+        context = {
+                        'recipient_name': to_user.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
+
+        # Render and send
+        html_message  = render_to_string(template_name, context)
+        plain_message = strip_tags(html_message)
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+            html_message=html_message,
+        )
 
 
 
@@ -496,6 +518,18 @@ class ManualCorrectionsListView(generics.ListAPIView):
     
     
 
+
+from django.utils.timezone import now
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import transaction
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ManualReviewView(APIView):
     def post(self, request):
@@ -515,21 +549,18 @@ class ManualReviewView(APIView):
                 return Response({'error': 'Invalid manual or user'}, status=status.HTTP_404_NOT_FOUND)
 
             with transaction.atomic():
-                # Written by - First Submission (track time but don't change status)
                 if current_user == manual.written_by and not manual.written_at:
                     manual.written_at = now()
                     manual.save()
 
-                # Process based on current status and user role
                 current_status = manual.status
-                
-                # 1. If status is "Pending for Review/Checking" and user is checked_by
+
+                # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == manual.checked_by:
                     manual.status = 'Reviewed,Pending for Approval'
                     manual.checked_at = now()
                     manual.save()
 
-                    # Notification to approved_by (only if flag is True)
                     if manual.send_notification_to_approved_by:
                         NotificationQMS.objects.create(
                             user=manual.approved_by,
@@ -537,25 +568,40 @@ class ManualReviewView(APIView):
                             message=f"Manual '{manual.title}' is ready for approval."
                         )
 
-                    # Email to approved_by (only if flag is True)
                     if manual.send_email_to_approved_by:
                         self.send_email_notification(
-                            recipient=manual.approved_by,
-                            subject=f"Manual {manual.title} - Pending Approval",
-                            message=f"The manual '{manual.title}' has been reviewed and is pending your approval."
+                            manual=manual,
+                            recipients=[manual.approved_by],  # list of one
+                            action_type="review"
                         )
-                
-                # 2. If status is "Reviewed,Pending for Approval" and user is approved_by
+
+                # Case 2: Approved_by approves
                 elif current_status == 'Reviewed,Pending for Approval' and current_user == manual.approved_by:
                     manual.status = 'Pending for Publish'
                     manual.approved_at = now()
                     manual.save()
-                
-                # 3. If status is "Correction Requested" and user is written_by
+
+                    # Send notifications
+                    for user in [manual.written_by, manual.checked_by, manual.approved_by]:
+                        if user:
+                            NotificationQMS.objects.create(
+                                user=user,
+                                manual=manual,
+                                message=f"Manual '{manual.title}' has been approved and is pending for publish."
+                            )
+
+                    # Send emails
+                    self.send_email_notification(
+                        manual=manual,
+                        recipients=[u for u in [manual.written_by, manual.checked_by, manual.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                # Correction Requested Case
                 elif current_status == 'Correction Requested' and current_user == manual.written_by:
                     manual.status = 'Pending for Review/Checking'
                     manual.save()
-                
+
                 else:
                     return Response({
                         'message': 'No action taken. User not authorized for current manual status.'
@@ -574,19 +620,70 @@ class ManualReviewView(APIView):
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, recipient, subject, message):
-        if recipient and recipient.email:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {str(e)}")
+    def send_email_notification(self, manual, recipients, action_type):
+        from decouple import config  # make sure you imported this!
+
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Manual Submitted for Approval: {manual.title}"
+                        context = {
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
+                        html_message = render_to_string('qms/manual/manual_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Manual Approved: {manual.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': manual.title,
+                            'document_number': manual.no or 'N/A',
+                            'document_type': manual.document_type,
+                            'revision': manual.rivision,
+                            'date': manual.date,
+                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                        }
+                        html_message = render_to_string('qms/manual/manual_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config('EMAIL_HOST_USER'),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
+
 
  
 
@@ -640,10 +737,6 @@ class ManualUpdateView(APIView):
                     updated_manual.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
                     updated_manual.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
 
-                    # If you later want to enable this:
-                    # updated_manual.send_notification_to_approved_by = parse_bool(request.data.get('send_system_approved'))
-                    # updated_manual.send_email_to_approved_by = parse_bool(request.data.get('send_email_approved'))
-
                     updated_manual.save()
 
                     # Handle notification/email to checked_by
@@ -669,64 +762,79 @@ class ManualUpdateView(APIView):
         except Manual.DoesNotExist:
             return Response({"error": "Manual not found"}, status=status.HTTP_404_NOT_FOUND)
 
+  
+
     def send_email_notification(self, manual, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Manual Ready for Review: {manual.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The manual '{manual.title}' has been updated and requires your review.\n\n"
-                        f"Document Number: {manual.no or 'N/A'}\n"
-                        f"Review Frequency: {manual.review_frequency_year or 0} year(s), "
-                        f"{manual.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {manual.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Manual Corrections Updated: {manual.title}"
+
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/manual/manual_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("EMAIL_HOST_USER"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
-                    logger.warning("Unknown action type for email notification.")
+                    logger.warning("Unknown action type provided for email.")
                     return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                     from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
-            logger.warning("Recipient email is missing, skipping email.")
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
 
 
         
 class ManualDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Don't copy the entire request.data, just extract what we need
+      
         data = {}
-        
-        # Copy over simple data fields 
+    
         for key in request.data:
             if key != 'upload_attachment':
                 data[key] = request.data[key]
-        
-        # Set is_draft flag
+
         data['is_draft'] = True
         
-        # Handle file separately
+  
         file_obj = request.FILES.get('upload_attachment')
         
         serializer = ManualSerializer(data=data)
         if serializer.is_valid():
             manual = serializer.save()
             
-            # Assign file if provided
+ 
             if file_obj:
                 manual.upload_attachment = file_obj
                 manual.save()
@@ -894,35 +1002,51 @@ class ManualPublishNotificationView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
     def _send_publish_email(self, manual, recipient):
-        """Helper method to send email notifications"""
-        # Get publisher name
+        """Helper method to send email notifications with template"""
         publisher_name = "N/A"
         if manual.published_user:
             publisher_name = f"{manual.published_user.first_name} {manual.published_user.last_name}"
         elif manual.approved_by:
             publisher_name = f"{manual.approved_by.first_name} {manual.approved_by.last_name}"
-            
+
         subject = f"New Manual Published: {manual.title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new manual titled '{manual.title}' has been published.\n\n"
-            f"Manual Details:\n"
-            f"- Document Number: {manual.no or 'N/A'}\n"
-            f"- Document Type: {manual.document_type}\n"
-            f"- Published By: {publisher_name}\n\n"
-            f"Please login to view this document.\n\n"
-            f"Best regards,\nDocumentation Team"
-        )
+
+        # Context for the email template
+        context = {
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
+
+        # Render the HTML email
+        html_message = render_to_string('qms/manual/manual_published_notification.html', context)
+        plain_message = strip_tags(html_message)
 
         send_mail(
             subject=subject,
-            message=message,
+            message=plain_message,
             from_email=config("EMAIL_HOST_USER"),
             recipient_list=[recipient.email],
             fail_silently=False,
+            html_message=html_message,
         )
-        logger.info(f"Email sent to {recipient.email}")
+        logger.info(f"HTML Email sent to {recipient.email}")
+
  
 
  
@@ -8016,3 +8140,115 @@ class SupplierProblemView(APIView):
         agendas = SupplierProblem.objects.filter(company_id=company_id)
         serializer = SupplierProblemSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ManualDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received manual edit request.")
+
+        try:
+            # Try to get the manual by ID
+            manual = Manual.objects.get(id=id)
+            
+            # Create a serializer instance for updating the manual
+            serializer = ManualSerializer(manual, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save the changes to the manual
+                        manual = serializer.save()
+
+                        # Set `is_draft` to False when the manual is edited
+                        manual.is_draft = False  # This is crucial for your requirement
+
+                        # Apply the changes to the manual
+                        manual.save()
+
+                        logger.info(f"Manual updated successfully with ID: {manual.id}")
+
+                        # Send notifications and emails like in manual creation
+                        if manual.checked_by:
+                            if manual.send_notification_to_checked_by:
+                                self._send_notifications(manual)
+
+                            if manual.send_email_to_checked_by and manual.checked_by.email:
+                                self.send_email_notification(manual, manual.checked_by, "review")
+
+                        return Response(
+                            {"message": "Manual updated successfully", "id": manual.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during manual update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Manual.DoesNotExist:
+            return Response({"error": "Manual not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, manual):
+        # Your notification sending logic (same as in the creation view)
+        if manual.checked_by:
+            try:
+                NotificationQMS.objects.create(
+                    user=manual.checked_by,
+                    manual=manual,
+                    title="Notification for Checking/Review",
+                    message="A manual has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {manual.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, manual, recipient, action_type):
+        # Same email logic as in the creation view
+        recipient_email = recipient.email if recipient else None
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Manual Ready for Review: {manual.title}"
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("EMAIL_HOST_USER"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")

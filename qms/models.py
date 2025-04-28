@@ -1059,4 +1059,4 @@ class SupplierProblem(models.Model):
     is_draft = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.supplier.company_name
+        return self.supplier.problem
