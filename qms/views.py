@@ -275,7 +275,7 @@ class ManualCreateView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("EMAIL_HOST_USER"),
+                        from_email=config('DEFAULT_FROM_EMAIL'),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
