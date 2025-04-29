@@ -141,49 +141,9 @@ def generate_unique_filename_audit(instance, filename):
 
     
 
-class Customer(models.Model):
-    name = models.CharField(max_length=50,blank =True,null = True)
-    address =  models.TextField(blank=True,null=True)
-    city = models.CharField(max_length=50,blank =True,null = True)
-    state = models.CharField(max_length=50,blank =True,null = True)
-    zipcode = models.CharField(max_length=50,blank =True,null = True)
-    country = models.CharField(max_length=50,blank =True,null = True)
-    email = models.EmailField(blank =True,null = True)
-    contact_person = models.CharField(max_length=50,blank =True,null = True)
-    phone = models.CharField(max_length=20, blank=True) 
-    alternate_phone = models.CharField(max_length=20, blank=True)
-    fax = models.CharField(max_length=50,blank =True,null = True)
-    notes = models.TextField(blank=True,null=True)
-    
-    def __str__(self):
-        return self.name
-    
-class Category(models.Model):
-    title = models.CharField(max_length=255,blank=True, null=True)
-    
-    def __str__(self):
-        return self.title
 
-class Complaints(models.Model):
-    TITLE_CHOICES = [
-        ('Yes', 'Yes'),
-        ('No', 'No'),
-        
-    ] 
-    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True )
-    details = models.TextField(blank=True,null=True)
-    executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True )
-    corrections = models.CharField(max_length=50,blank =True,null = True)
-    solved_after_action =  models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
-    category = models.ManyToManyField(Category, related_name='category' ,blank =True)
-    immediate_action = models.TextField(blank=True,null=True)
-    date = models.DateField(blank=True, null=True)
-    corrective_action_need = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
-    # no_car = models.ForeignKey(CarNumber, on_delete=models.SET_NULL, null=True )
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)
     
-    def __str__(self):
-        return str(self.customer.name)
+
 
 
 class Question(models.Model):
@@ -199,7 +159,7 @@ class CustomerSatisfaction(models.Model):
     description = models.TextField(blank=True,null=True)
     questions = models.ForeignKey(Question, blank=True,null=True ,on_delete=models.SET_NULL,)
     answer = models.IntegerField(blank=True, null=True) 
-    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True )
+    # customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True )
     
 
     def __str__(self):

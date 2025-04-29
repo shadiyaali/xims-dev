@@ -291,6 +291,26 @@ urlpatterns = [
     path('supplier/evaluation/question/answer/<int:question_id>/', AddSSuppAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
     path('supplier/evaluation/<int:company_id>/evaluation/<int:supp_evaluation_id>/',UserSuppEvlAnswersView.as_view(),name='unsubmitted-users'),  
     
+    
+    # customer
+    path('customer/create/', CustomerAPIView.as_view(), name='supplier-list'), 
+    path('customer/company/<int:company_id>/', CustomerView.as_view(), name='company-agendas'), 
+    path('customer/<int:pk>/', CustomerDetailAPIView.as_view(), name='supplier-detail'),
+    path('customer/draft-create/', CustomerDraftAPIView.as_view(), name='manual-create'),
+    path('customer-draft/<int:user_id>/', CustomerDraftAllList.as_view(), name='manual-list'),
+    
+    # category in customer
+    path('category/create/', CategoryListCreateView.as_view(), name='agenda-list-create'), 
+    path('category/company/<int:company_id>/', CompanycategoryView.as_view(), name='company-agendas'),  
+    path('category/<int:pk>/', CategoryDetailView.as_view(), name='agenda-detail'),
+    
+    # Complaints and Feedbacks
+    path('complaints/create/', ComplaintsCreateView.as_view(), name='create-internal-problem'),
+    path('complaints/company/<int:company_id>/', ComplaintsView.as_view(), name='company-agendas'),
+    path('complaints/<int:pk>/', ComplaintsDetailView.as_view(), name='car-number-detail'),
+    path('complaints/draft-create/', ComplaintsDraftAPIView.as_view(), name='manual-create'),
+    path('complaints-draft/<int:user_id>/', ComplaintDraftAllList.as_view(), name='manual-list'),
+    
 ]
 
 

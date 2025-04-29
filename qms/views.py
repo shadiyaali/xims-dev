@@ -8449,3 +8449,225 @@ class AddSSuppAnswerToQuestionAPIView(APIView):
 
         except SupplierEvaluationQuestions.DoesNotExist:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
+        
+        
+
+class CustomerAPIView(APIView):
+   
+    def post(self, request):
+        serializer = CustomerSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class CustomerView(APIView):
+    def get(self, request, company_id):
+        agendas = Customer.objects.filter(company_id=company_id,is_draft=False)
+        serializer = CustomerSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CustomerDetailAPIView(APIView):
+    def get_object(self, pk):
+        try:
+            return Customer.objects.get(pk=pk)
+        except Customer.DoesNotExist:
+            return None
+
+ 
+    def get(self, request, pk):
+        supplier = self.get_object(pk)
+        if not supplier:
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CustomerSerializer(supplier)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+   
+    def put(self, request, pk):
+        supplier = self.get_object(pk)
+        if not supplier:
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CustomerSerializer(supplier, data=request.data)
+        if serializer.is_valid():
+            serializer.save(is_draft=False)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    
+    def delete(self, request, pk):
+        supplier = self.get_object(pk)
+        if not supplier:
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+        supplier.delete()
+        return Response({"message": "Customer deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+class CustomerDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = CustomerSerializer(data=data)
+        if serializer.is_valid():
+            manual = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                manual.upload_attachment = file_obj
+                manual.save()
+                
+            return Response({"message": "Customer saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class CustomerDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = Customer.objects.filter(user=user, is_draft=True)
+        serializer =CustomerSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CategoryListCreateView(APIView):
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CompanycategoryView(APIView):
+    def get(self, request, company_id):
+        agendas = Category.objects.filter(company_id=company_id)
+        serializer = CategorySerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+ 
+   
+class CategoryDetailView(APIView):
+    def get_object(self, pk):
+        try:
+            return Category.objects.get(pk=pk)
+        except Category.DoesNotExist:
+            return None
+
+
+    def delete(self, request, pk):
+        agenda = self.get_object(pk)
+        if not agenda:
+            return Response({"error": "Category not found."}, status=status.HTTP_404_NOT_FOUND)
+        agenda.delete()
+        return Response({"message": "Agenda Category successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+class ComplaintsCreateView(generics.CreateAPIView):
+    queryset = Complaints.objects.all()
+    serializer_class = ComplaintsSerializer
+
+    
+class ComplaintsView(APIView):
+    def get(self, request, company_id):
+        agendas = Complaints.objects.filter(company_id=company_id,is_draft=False)
+        serializer = InternalProblemGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ComplaintsDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return Complaints.objects.get(pk=pk)
+        except Complaints.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        internal_problem = self.get_object(pk)  # Renamed from car_number to internal_problem for clarity
+        if not internal_problem:
+            return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ComplaintGetSerializer(internal_problem)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        internal_problem = self.get_object(pk)
+        if not internal_problem:
+            return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = ComplaintsSerializer(internal_problem, data=request.data, partial=True)  # partial update
+        if serializer.is_valid():
+            complaint = serializer.save(is_draft=False)
+            
+            # Handle ManyToMany manually if needed
+            if 'category' in request.data:
+                complaint.category.set(request.data['category'])  # Set the many-to-many field
+            
+            return Response(ComplaintsSerializer(complaint).data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "Complaint deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+
+class ComplaintsDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = ComplaintsSerializer(data=data)
+        if serializer.is_valid():
+            manual = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                manual.upload_attachment = file_obj
+                manual.save()
+                
+            return Response({"message": "Complaints saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class ComplaintDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = Complaints.objects.filter(user=user, is_draft=True)
+        serializer =ComplaintGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)

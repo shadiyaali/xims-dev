@@ -768,4 +768,42 @@ class SupEvalQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupplierEvaluationQuestions
         fields = ['id', 'supp_evaluation', 'question_text', 'answer']
-        
+
+     
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = '__all__' 
+
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+
+class ComplaintsSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), 
+        many=True,
+        required=False   
+    )
+
+    class Meta:
+        model = Complaints
+        fields = '__all__'
+
+
+class ComplaintGetSerializer(serializers.ModelSerializer):
+    car_no = CarNumberSerializer()
+    executor = UserSerializer()
+    category = serializers.PrimaryKeyRelatedField(
+        many=True,
+        read_only=True
+    )
+
+    class Meta:
+        model = Complaints
+        fields = '__all__'
+
+

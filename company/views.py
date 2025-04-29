@@ -439,142 +439,9 @@ class UserDelete(APIView):
  
 
 
-class CustomerListCreate(APIView):
-  
-    def get(self, request):
-        inspections = Customer.objects.all()
-        serializer = CustomerSerializer(inspections, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        serializer = CustomerSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class CustomerRetrieveUpdateDelete(APIView):
-   
-    def get_object(self, pk):
-        try:
-            return Customer.objects.get(pk=pk)
-        except Customer.DoesNotExist:
-            return None
-
-    def get(self, request, pk):
-        inspection = self.get_object(pk)
-        if inspection:
-            serializer = CustomerSerializer(inspection)
-            return Response(serializer.data)
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    def put(self, request, pk):
-        inspection = self.get_object(pk)
-        if inspection:
-            serializer = CustomerSerializer(inspection, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    def delete(self, request, pk):
-        inspection = self.get_object(pk)
-        if inspection:
-            inspection.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    
-class CategoryListCreateView(APIView):
-   
-    def get(self, request):
-        agendas = Category.objects.all()
-        serializer = CategorySerializer(agendas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        serializer = CategorySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-class CategoryDetailView(APIView):
  
-    def get_object(self, pk):
-        try:
-            return Category.objects.get(pk=pk)
-        except Category.DoesNotExist:
-            return None
-
-    def get(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CategorySerializer(agenda)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def put(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CategorySerializer(agenda, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        agenda.delete()
-        return Response({"message": "Agenda deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
     
-
-class ComplaintsView(APIView):
-    def get(self, request):
-        agendas = Complaints.objects.all()
-        serializer = ComplaintsSerializer(agendas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
  
-        serializer = ComplaintsSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class ComplaintDetailView(APIView):
-    def get_object(self, pk):
-        try:
-            return Complaints.objects.get(pk=pk)
-        except Complaints.DoesNotExist:
-            return None
-
-    def get(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = ComplaintsSerializer(agenda)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def put(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = ComplaintsSerializer(agenda, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
-        agenda.delete()
-        return Response({"message": "Agenda deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
     
 class QuestionView(APIView):
     def get(self, request):
@@ -623,51 +490,51 @@ class QuestionDetailView(APIView):
     
 
 
-class CustomerSatisfactionView(APIView):
-    def get(self, request):
-        agendas = CustomerSatisfaction.objects.all()
-        serializer = CustomerSatisfactionSerializer(agendas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+# class CustomerSatisfactionView(APIView):
+#     def get(self, request):
+#         agendas = CustomerSatisfaction.objects.all()
+#         serializer = CustomerSatisfactionSerializer(agendas, many=True)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request):
+#     def post(self, request):
        
-        serializer = CustomerSatisfactionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         serializer = CustomerSatisfactionSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class CustomerSatisfactionDetailView(APIView):
-    def get_object(self, pk):
-        try:
-            return CustomerSatisfaction.objects.get(pk=pk)
-        except CustomerSatisfaction.DoesNotExist:
-            return None
+# class CustomerSatisfactionDetailView(APIView):
+#     def get_object(self, pk):
+#         try:
+#             return CustomerSatisfaction.objects.get(pk=pk)
+#         except CustomerSatisfaction.DoesNotExist:
+#             return None
 
-    def get(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "  not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CustomerSatisfactionSerializer(agenda)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+#     def get(self, request, pk):
+#         agenda = self.get_object(pk)
+#         if not agenda:
+#             return Response({"error": "  not found."}, status=status.HTTP_404_NOT_FOUND)
+#         serializer = CustomerSatisfactionSerializer(agenda)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def put(self, request, pk):
-        print(request.data)
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": " not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CustomerSatisfactionSerializer(agenda, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def put(self, request, pk):
+#         print(request.data)
+#         agenda = self.get_object(pk)
+#         if not agenda:
+#             return Response({"error": " not found."}, status=status.HTTP_404_NOT_FOUND)
+#         serializer = CustomerSatisfactionSerializer(agenda, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
-        agenda = self.get_object(pk)
-        if not agenda:
-            return Response({"error": "  not found."}, status=status.HTTP_404_NOT_FOUND)
-        agenda.delete()
-        return Response({"message": " deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+#     def delete(self, request, pk):
+#         agenda = self.get_object(pk)
+#         if not agenda:
+#             return Response({"error": "  not found."}, status=status.HTTP_404_NOT_FOUND)
+#         agenda.delete()
+#         return Response({"message": " deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
     
 
     

@@ -177,32 +177,19 @@ class UserGETSerializer(serializers.ModelSerializer):
 
 
 
-class CustomerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Customer
-        fields = '__all__'
         
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = '__all__'
-
-class ComplaintsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Complaints
-        fields = '__all__'
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = '__all__' 
         
-class CustomerSatisfactionSerializer(serializers.ModelSerializer):
+# class CustomerSatisfactionSerializer(serializers.ModelSerializer):
 
-    class Meta:
-        model = CustomerSatisfaction
-        fields = '__all__'
+#     class Meta:
+#         model = CustomerSatisfaction
+#         fields = '__all__'
 
 
 

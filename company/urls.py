@@ -22,16 +22,6 @@ urlpatterns = [
   
 
  
-    path('customer/', CustomerListCreate.as_view(), name='inspection-list-create'),
-    path('customer/<int:pk>/', CustomerRetrieveUpdateDelete.as_view(), name='inspection-retrieve-update-delete'),
-    path('category/', CategoryListCreateView.as_view(), name='agenda-list-create'),   
-    path('category/<int:pk>/', CategoryDetailView.as_view(), name='agenda-detail'),
-    path('complaints/', ComplaintsView.as_view(), name='complaints-list'),  
-    path('complaints/<int:pk>/', ComplaintDetailView.as_view(), name='complaint-detail'), 
-    path('question/', QuestionView.as_view(), name='complaints-list'),  
-    path('question/<int:pk>/', QuestionDetailView.as_view(), name='complaint-detail'), 
-    path('cusomer-satisfaction/', CustomerSatisfactionView.as_view(), name='complaints-list'),  
-    path('cusomer-satisfaction/<int:pk>/', CustomerSatisfactionDetailView.as_view(), name='complaint-detail'),
 
   
  
