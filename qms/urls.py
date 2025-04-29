@@ -48,6 +48,7 @@ urlpatterns = [
     path("procedure-notification/<int:user_id>/", NotificationsLastProcedure.as_view(), name="notifications_by_user"),
     path('procedure/count-notifications/<int:user_id>/', UnreadProcedureNotificationsAPIView.as_view(), name='unread-notifications'),
     path('notifications-procedure/<int:notification_id>/read/', MarkProcedureNotificationReadAPIView.as_view(), name='mark-notification-read'),
+    path('procedure/create/<int:id>/', ProcedureDraftEditView.as_view(), name='manual-update'),
     
     # Record Format
     path('record-create/', RecordCreateView.as_view(), name='manual-list-create'),

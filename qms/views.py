@@ -1543,61 +1543,54 @@ class ProcedureReviewView(APIView):
                 return Response({'error': 'Invalid procedure or user'}, status=status.HTTP_404_NOT_FOUND)
 
             with transaction.atomic():
-                # Written by - First Submission
                 if current_user == procedure.written_by and not procedure.written_at:
                     procedure.written_at = now()
-
+                    procedure.save()
 
                 current_status = procedure.status
-                
-                # 1. If status is "Pending for Review/Checking" and user is checked_by
-             
-                # Review process
+
+                # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == procedure.checked_by:
                     procedure.status = 'Reviewed,Pending for Approval'
                     procedure.checked_at = now()
                     procedure.save()
 
-                    # Notification to approved_by (only if flag is True)
                     if procedure.send_notification_to_approved_by:
                         NotificatioProcedure.objects.create(
                             user=procedure.approved_by,
                             procedure=procedure,
-                            message=f"procedure '{procedure.title}' is ready for approval."
+                            message=f"Procedure '{procedure.title}' is ready for approval."
                         )
 
-                    # Email to approved_by (only if flag is True)
                     if procedure.send_email_to_approved_by:
                         self.send_email_notification(
-                            recipient=procedure.approved_by,
-                            subject=f"procedure {procedure.title} - Pending Approval",
-                            message=f"The procedure '{procedure.title}' has been reviewed and is pending your approval."
+                            procedure=procedure,
+                            recipients=[procedure.approved_by],
+                            action_type="review"
                         )
 
-                # Approval process
-                elif current_user == procedure.approved_by:
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == procedure.approved_by:
                     procedure.status = 'Pending for Publish'
                     procedure.approved_at = now()
                     procedure.save()
 
-                    # Notification to approved_by (only if flag is True)
-                    # if manual.send_notification_to_checked_by:
-                    #     NotificationQMS.objects.create(
-                    #         user=manual.written_by,
-                    #         manual=manual,
-                    #         message=f"Manual '{manual.title}' has been approved."
-                    #     )
+                    for user in [procedure.written_by, procedure.checked_by, procedure.approved_by]:
+                        if user:
+                            NotificatioProcedure.objects.create(
+                                user=user,
+                                procedure=procedure,
+                                message=f"Procedure '{procedure.title}' has been approved and is pending for publish."
+                            )
 
-                    # Email to approved_by (only if flag is True)
-                    # if manual.send_email_to_checked_by:
-                    #     self.send_email_notification(
-                    #         recipient=manual.written_by,
-                    #         subject=f"Manual {manual.title} - Approved",
-                    #         message=f"Your manual '{manual.title}' has been approved."
-                    #     )
+                    self.send_email_notification(
+                        procedure=procedure,
+                        recipients=[u for u in [procedure.written_by, procedure.checked_by, procedure.approved_by] if u],
+                        action_type="approved"
+                    )
 
-                # Resubmission after correction
-                elif current_status == 'Reviewed,Pending for Approval' and current_user == procedure.approved_by:
+                # Case 3: Correction Requested
+                elif current_status == 'Correction Requested' and current_user == procedure.written_by:
                     procedure.status = 'Pending for Review/Checking'
                     procedure.save()
 
@@ -1608,7 +1601,7 @@ class ProcedureReviewView(APIView):
 
             return Response({
                 'status': 'success',
-                'message': 'procedure processed successfully',
+                'message': 'Procedure processed successfully',
                 'procedure_status': procedure.status
             }, status=status.HTTP_200_OK)
 
@@ -1620,6 +1613,8 @@ class ProcedureReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, procedure, recipients, action_type):
+        from decouple import config   
+
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
 
@@ -1635,7 +1630,7 @@ class ProcedureReviewView(APIView):
                             'review_frequency_month': procedure.review_frequency_month or 0,
                             'document_type': procedure.document_type,
                             'section_number': procedure.no,
-                            'revision': procedure.revision,
+                            'revision': procedure.rivision,
                             "written_by": procedure.written_by,
                             "checked_by": procedure.checked_by,
                             "approved_by": procedure.approved_by,
@@ -1653,7 +1648,7 @@ class ProcedureReviewView(APIView):
                             'title': procedure.title,
                             'document_number': procedure.no or 'N/A',
                             'document_type': procedure.document_type,
-                            'revision': procedure.revision,
+                            'revision': procedure.rivision,
                             'date': procedure.date,
                             'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                             'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
@@ -1668,16 +1663,19 @@ class ProcedureReviewView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        from_email=config('DEFAULT_FROM_EMAIL'),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
                     )
                     logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
                 except Exception as e:
                     logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
             else:
                 logger.warning("Recipient email is None. Skipping email send.")
+
+
 
 
 
@@ -2610,34 +2608,46 @@ class ProcedurePublishNotificationView(APIView):
             )
 
     def _send_publish_email(self, procedure, recipient):
-        """Helper method to send email notifications"""
-        # Get publisher name
+        """Helper method to send email notifications with template"""
+
         publisher_name = "N/A"
         if procedure.published_user:
             publisher_name = f"{procedure.published_user.first_name} {procedure.published_user.last_name}"
         elif procedure.approved_by:
             publisher_name = f"{procedure.approved_by.first_name} {procedure.approved_by.last_name}"
-            
-        subject = f"New procedure Published: {procedure.title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new procedure titled '{procedure.title}' has been published.\n\n"
-            f"procedure Details:\n"
-            f"- Document Number: {procedure.no or 'N/A'}\n"
-            f"- Document Type: {procedure.document_type}\n"
-            f"- Published By: {publisher_name}\n\n"
-            f"Please login to view this document.\n\n"
-            f"Best regards,\nDocumentation Team"
-        )
+
+        subject = f"New Procedure Published: {procedure.title}"
+
+        # Context for the email template
+        context = {
+            'recipient_name': recipient.first_name,
+            'title': procedure.title,
+            'document_number': procedure.no or 'N/A',
+            'review_frequency_year': procedure.review_frequency_year or 0,
+            'review_frequency_month': procedure.review_frequency_month or 0,
+            'document_type': procedure.document_type,
+            'section_number': procedure.no,
+            'revision': procedure.rivision,
+            "written_by": procedure.written_by,
+            "checked_by": procedure.checked_by,
+            "approved_by": procedure.approved_by,
+            'date': procedure.date,
+            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+        }
+
+        html_message = render_to_string('qms/procedure/procedure_published_notification.html', context)
+        plain_message = strip_tags(html_message)
 
         send_mail(
             subject=subject,
-            message=message,
+            message=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
+            html_message=html_message,
         )
-        logger.info(f"Email sent to {recipient.email}")
+        logger.info(f"HTML Email sent to {recipient.email}")
         
         
 
@@ -8445,8 +8455,8 @@ class SupEvalQuestionQuestionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class SupEvalQuestionQuestionsByEvaluationAPIView(APIView):
-    def get(self, request, survey_id, *args, **kwargs):
-        questions = SupplierEvaluationQuestions.objects.filter(survey_id=survey_id)
+    def get(self, request, supp_evaluation_id, *args, **kwargs):
+        questions = SupplierEvaluationQuestions.objects.filter(supp_evaluation_id=supp_evaluation_id)
         serializer = SupEvalQuestionSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)   
     
@@ -8981,3 +8991,115 @@ class SupplierproblemDraftAllList(APIView):
         serializer =SupplierProblemGetSerializer(record, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ProcedureDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received manual edit request.")
+
+        try:
+            # Try to get the manual by ID
+            manual = Procedure.objects.get(id=id)
+            
+            # Create a serializer instance for updating the manual
+            serializer = ProcedureSerializer(manual, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save the changes to the manual
+                        manual = serializer.save()
+
+                        # Set `is_draft` to False when the manual is edited
+                        manual.is_draft = False  # This is crucial for your requirement
+
+                        # Apply the changes to the manual
+                        manual.save()
+
+                        logger.info(f"Procedure updated successfully with ID: {manual.id}")
+
+                        # Send notifications and emails like in manual creation
+                        if manual.checked_by:
+                            if manual.send_notification_to_checked_by:
+                                self._send_notifications(manual)
+
+                            if manual.send_email_to_checked_by and manual.checked_by.email:
+                                self.send_email_notification(manual, manual.checked_by, "review")
+
+                        return Response(
+                            {"message": "Procedure updated successfully", "id": manual.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during Procedure update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Procedure.DoesNotExist:
+            return Response({"error": "Manual not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, manual):
+        # Your notification sending logic (same as in the creation view)
+        if manual.checked_by:
+            try:
+                NotificationQMS.objects.create(
+                    user=manual.checked_by,
+                    manual=manual,
+                    title="Notification for Checking/Review",
+                    message="A manual has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {manual.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, Procedure, recipient, action_type):
+        # Same email logic as in the creation view
+        recipient_email = recipient.email if recipient else None
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Procedure Ready for Review: {Procedure.title}"
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': Procedure.title,
+                        'document_number': Procedure.no or 'N/A',
+                        'review_frequency_year': Procedure.review_frequency_year or 0,
+                        'review_frequency_month': Procedure.review_frequency_month or 0,
+                        'document_type': Procedure.document_type,
+                        'section_number': Procedure.no,
+                        'revision': Procedure.rivision,
+                        "written_by": Procedure.written_by,
+                        "checked_by": Procedure.checked_by,
+                        "approved_by": Procedure.approved_by,
+                        'date': Procedure.date,
+                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
+                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/Procedure/Procedure_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
