@@ -8858,3 +8858,45 @@ class UserCustomerSurveyAnswersView(APIView):
                 {"error": "An unexpected error occurred.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
+            
+class SupplierproblemDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = SupplierProblemSerializer(data=data)
+        if serializer.is_valid():
+            manual = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                manual.upload_attachment = file_obj
+                manual.save()
+                
+            return Response({"message": "CarNumber saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class SupplierDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = SupplierProblem.objects.filter(user=user, is_draft=True)
+        serializer =SupplierProblemGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
