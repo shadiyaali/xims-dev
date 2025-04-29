@@ -8484,7 +8484,7 @@ class UserSuppEvlAnswersView(APIView):
                 )
           
             try:
-                survey = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
+                supp_evaluation = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
             except SupplierEvaluation.DoesNotExist:
                 return Response(
                     {"error": "Survey not found or does not belong to the specified company."},
@@ -8494,7 +8494,7 @@ class UserSuppEvlAnswersView(APIView):
             company_users = Users.objects.filter(company=company, is_trash=False)
            
             submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
-                survey=survey,
+                supp_evaluation=supp_evaluation,
                 user__isnull=False
             ).values_list('user_id', flat=True).distinct()
             
