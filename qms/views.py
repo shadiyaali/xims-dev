@@ -1619,19 +1619,66 @@ class ProcedureReviewView(APIView):
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, recipient, subject, message):
-        if recipient and recipient.email:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {str(e)}")
+    def send_email_notification(self, procedure, recipients, action_type):
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Procedure Submitted for Approval: {procedure.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': procedure.title,
+                            'document_number': procedure.no or 'N/A',
+                            'review_frequency_year': procedure.review_frequency_year or 0,
+                            'review_frequency_month': procedure.review_frequency_month or 0,
+                            'document_type': procedure.document_type,
+                            'section_number': procedure.no,
+                            'revision': procedure.revision,
+                            "written_by": procedure.written_by,
+                            "checked_by": procedure.checked_by,
+                            "approved_by": procedure.approved_by,
+                            'date': procedure.date,
+                            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                        }
+                        html_message = render_to_string('qms/procedure/procedure_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Procedure Approved: {procedure.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': procedure.title,
+                            'document_number': procedure.no or 'N/A',
+                            'document_type': procedure.document_type,
+                            'revision': procedure.revision,
+                            'date': procedure.date,
+                            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                        }
+                        html_message = render_to_string('qms/procedure/procedure_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
 
 
 class ProcedureDraftAPIView(APIView):
@@ -8156,6 +8203,7 @@ class SupplierProblemDetailAPIView(APIView):
             return Response({"error": "SupplierProblem not found"}, status=status.HTTP_404_NOT_FOUND)
         serializer = SupplierProblemSerializer(supplier_problem, data=request.data)
         if serializer.is_valid():
+            serializer.save(is_draft=False)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
