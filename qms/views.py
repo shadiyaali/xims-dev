@@ -8472,7 +8472,7 @@ class DeleteSuppQuestionAPIView(APIView):
         
         
 class UserSuppEvlAnswersView(APIView):
-    def get(self, request, company_id, survey_id):
+    def get(self, request, company_id, supp_evaluation_id):
         try:
   
             try:
@@ -8484,7 +8484,7 @@ class UserSuppEvlAnswersView(APIView):
                 )
           
             try:
-                survey = SupplierEvaluation.objects.get(id=survey_id, company=company)
+                survey = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
             except SupplierEvaluation.DoesNotExist:
                 return Response(
                     {"error": "Survey not found or does not belong to the specified company."},
