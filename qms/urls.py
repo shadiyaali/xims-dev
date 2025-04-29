@@ -273,7 +273,7 @@ urlpatterns = [
     path('supplier-problems/<int:pk>/', SupplierProblemDetailAPIView.as_view(), name='supplier-problem-detail'),
     path('supplier-problems/company/<int:company_id>/',  SupplierProblemView.as_view(), name='company-agendas'),
     path('supplier-problems/draft-create/', SupplierproblemDraftAPIView.as_view(), name='manual-create'),
-    path('supplier-problems-draft/<int:user_id>/', SupplierDraftAllList.as_view(), name='manual-list'),
+    path('supplier-problems-draft/<int:user_id>/', SupplierproblemDraftAllList.as_view(), name='manual-list'),
    
     
     # System message

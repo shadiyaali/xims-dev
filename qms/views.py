@@ -119,7 +119,7 @@ class ManualView(APIView):
                         f"Document Type: {manual.document_type}\n\n"
                         f"Best regards,\nDocumentation Team"
                     ),
-                    from_email=config('EMAIL_HOST_USER'),
+                    from_email=config('DEFAULT_FROM_EMAIL'),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -500,7 +500,7 @@ class SubmitCorrectionView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=settings.EMAIL_HOST_USER,
+            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -671,7 +671,7 @@ class ManualReviewView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config('EMAIL_HOST_USER'),
+                        from_email=config('DEFAULT_FROM_EMAIL'),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
@@ -798,7 +798,7 @@ class ManualUpdateView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("EMAIL_HOST_USER"),
+                        from_email=config("DEFAULT_FROM_EMAIL"),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
@@ -1040,7 +1040,7 @@ class ManualPublishNotificationView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
             html_message=html_message,
@@ -1175,34 +1175,47 @@ class ProcedureCreateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"procedure Ready for Review: {procedure.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"A procedure titled '{procedure.title}' requires your review.\n\n"
-                        f"Document Number: {procedure.no or 'N/A'}\n"
-                        f"Review Frequency: {procedure.review_frequency_year or 0} year(s), "
-                        f"{procedure.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {procedure.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Procedure Ready for Review: {procedure.title}"
+
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': procedure.title,
+                        'document_number': procedure.no or 'N/A',
+                        'review_frequency_year': procedure.review_frequency_year or 0,
+                        'review_frequency_month': procedure.review_frequency_month or 0,
+                        'document_type': procedure.document_type,
+                        'section_number': procedure.no,
+                        'revision': procedure.rivision,
+                        "written_by": procedure.written_by,
+                        "checked_by": procedure.checked_by,
+                        "approved_by": procedure.approved_by,
+                        'date': procedure.date,
+                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/procedure/procedure_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
 
 
 class ProcedureAllList(APIView):
@@ -1320,47 +1333,46 @@ class ProcedureUpdateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"procedure Ready for Review: {procedure.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The procedure '{procedure.title}' has been updated and requires your review.\n\n"
-                        f"Document Number: {procedure.no or 'N/A'}\n"
-                        f"Review Frequency: {procedure.review_frequency_year or 0} year(s), "
-                        f"{procedure.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {procedure.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Manual Corrections Updated: {procedure.title}"
+                    
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': procedure.title,
+                        'document_number': procedure.no or 'N/A',
+                        'review_frequency_year': procedure.review_frequency_year or 0,
+                        'review_frequency_month': procedure.review_frequency_month or 0,
+                        'document_type': procedure.document_type,
+                        'section_number': procedure.no,
+                        'revision': procedure.rivision,
+                        "written_by": procedure.written_by,
+                        "checked_by": procedure.checked_by,
+                        "approved_by": procedure.approved_by,
+                        'date': procedure.date,
+                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/procedure/procedure_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
-                elif action_type == "approval":
-                    subject = f"procedure Pending Approval: {procedure.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The procedure '{procedure.title}' has been updated and is ready for your approval.\n\n"
-                        f"Document Number: {procedure.no or 'N/A'}\n"
-                        f"Review Frequency: {procedure.review_frequency_year or 0} year(s), "
-                        f"{procedure.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {procedure.document_type}\n\n"
-                        f"Please login to the system to approve.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
-                    logger.warning("Unknown action type for email notification.")
+                    logger.warning("Unknown action type provided for email.")
                     return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
-            logger.warning("Recipient email is missing, skipping email.")
-
+            logger.warning("Recipient email is None. Skipping email send.")
 
 class SubmitCorrectionProcedureView(APIView):
     def post(self, request):
@@ -1454,33 +1466,54 @@ class SubmitCorrectionProcedureView(APIView):
             from_user = correction.from_user
             recipient_email = to_user.email if to_user else None
 
-            if from_user == procedure.approved_by and to_user == procedure.checked_by:
-                should_send = procedure.send_email_to_checked_by
-            elif from_user == procedure.checked_by and to_user == procedure.written_by:
+            if from_user == procedure.checked_by and to_user == procedure.written_by:
+                template_name = 'qms/procedure/procedure_correction_to_writer.html'
+                subject = f"Correction Requested on '{procedure.title}'"
                 should_send = True
+            elif from_user == procedure.approved_by and to_user == procedure.checked_by:
+                template_name = 'qms/procedure/procedure_correction_to_checker.html'
+                subject = f"Correction Requested on '{procedure.title}'"
+                should_send = procedure.send_email_to_checked_by
             else:
-                should_send = False
+                return
 
-            if recipient_email and should_send:
-                send_mail(
-                    subject=f"Correction Request: {procedure.title}",
-                    message=(
-                        f"Dear {to_user.first_name},\n\n"
-                        f"A correction has been requested by {from_user.first_name} for the procedure '{procedure.title}'.\n\n"
-                        f"Correction details:\n"
-                        f"{correction.correction}\n\n"
-                        f"Please review and take necessary actions.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    ),
-                    from_email=config("EMAIL_HOST_USER"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                print(f"Correction email successfully sent to {recipient_email}")
-            else:
-                print("Email not sent due to permission flags, invalid roles, or missing email.")
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+                'recipient_name': to_user.first_name,
+                'title': procedure.title,
+                'document_number': procedure.no or 'N/A',
+                'review_frequency_year': procedure.review_frequency_year or 0,
+                'review_frequency_month': procedure.review_frequency_month or 0,
+                'document_type': procedure.document_type,
+                'section_number': procedure.no,
+                'revision': procedure.rivision,
+                'written_by': procedure.written_by,
+                'checked_by': procedure.checked_by,
+                'approved_by': procedure.approved_by,
+                'date': procedure.date,
+                'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+            }
+
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+                html_message=html_message,
+            )
+            print(f"Correction email successfully sent to {recipient_email}")
+
+         
+
         except Exception as e:
-            print(f"Failed to send correction email: {str(e)}")
+                print(f"Failed to send correction email: {str(e)}")
             
             
 class CorrectionProcedureList(generics.ListAPIView):
@@ -1592,7 +1625,7 @@ class ProcedureReviewView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient.email],
                     fail_silently=False,
                 )
@@ -1779,7 +1812,7 @@ class RecordCreateView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -1951,7 +1984,7 @@ class RecordUpdateView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                     from_email=config("EMAIL_HOST_USER"),
+                     from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -2073,7 +2106,7 @@ class SubmitCorrectionRecordView(APIView):
                         f"Please review and take necessary actions.\n\n"
                         f"Best regards,\nDocumentation Team"
                     ),
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -2186,7 +2219,7 @@ class RecordReviewView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient.email],
                     fail_silently=False,
                 )
@@ -2313,7 +2346,7 @@ class RecordPublishNotificationView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -2553,7 +2586,7 @@ class ProcedurePublishNotificationView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -2703,7 +2736,7 @@ class InterestedPartyCreateView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -2815,7 +2848,7 @@ class InterestedPartyDetailView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -2951,7 +2984,7 @@ class EditInterestedParty(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -3147,7 +3180,7 @@ class ProcessDetailView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -3286,7 +3319,7 @@ class ProcessCreateView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -3550,7 +3583,7 @@ class ComplianceCreateAPIView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -3660,7 +3693,7 @@ class EditsCompliance(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -3797,7 +3830,7 @@ class LegalCreateAPIView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -3902,7 +3935,7 @@ class EditsLegal(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -4018,7 +4051,7 @@ class EvaluationCreateView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -4175,7 +4208,7 @@ class EvaluationUpdateView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -4297,7 +4330,7 @@ class SubmitCorrectionEvaluationView(APIView):
                         f"Please review and take necessary actions.\n\n"
                         f"Best regards,\nDocumentation Team"
                     ),
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -4394,7 +4427,7 @@ class EvaluationReviewView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient.email],
                     fail_silently=False,
                 )
@@ -4523,7 +4556,7 @@ class EvaluationPublishNotificationView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -4752,7 +4785,7 @@ class ChangesCreateAPIView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -4853,7 +4886,7 @@ class EditsChanges(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -5043,7 +5076,7 @@ class SustainabilityCreateView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("EMAIL_HOST_USER"),
+                        from_email=config("DEFAULT_FROM_EMAIL"),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
@@ -5206,7 +5239,7 @@ class SustainabilityUpdateView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                     from_email=config("EMAIL_HOST_USER"),
+                     from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -5331,7 +5364,7 @@ class SubmitCorrectionSustainabilityView(APIView):
                         f"Please review and take necessary actions.\n\n"
                         f"Best regards,\nDocumentation Team"
                     ),
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient_email],
                     fail_silently=False,
                 )
@@ -5432,7 +5465,7 @@ class SustainabilityReviewView(APIView):
                 send_mail(
                     subject=subject,
                     message=message,
-                    from_email=config("EMAIL_HOST_USER"),
+                    from_email=config("DEFAULT_FROM_EMAIL"),
                     recipient_list=[recipient.email],
                     fail_silently=False,
                 )
@@ -5557,7 +5590,7 @@ class SustainabilityPublishNotificationView(APIView):
         send_mail(
             subject=subject,
             message=message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             fail_silently=False,
         )
@@ -5911,7 +5944,7 @@ class TrainingCreateAPIView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -6025,7 +6058,7 @@ class TrainingUpdateAPIView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -6142,7 +6175,7 @@ class TrainingCompleteAndNotifyView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient.email],
             html_message=html_message,
             fail_silently=False
@@ -6966,7 +6999,7 @@ class MeetingCreateView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -7086,7 +7119,7 @@ class MeetingUpdateAPIView(APIView):
             send_mail(
                 subject=subject,
                 message=plain_message,
-                from_email=config("EMAIL_HOST_USER"),
+                from_email=config("DEFAULT_FROM_EMAIL"),
                 recipient_list=[recipient_email],
                 fail_silently=False,
                 html_message=html_message,
@@ -7812,7 +7845,7 @@ class CarNumberCreateAPIView(APIView):
         send_mail(
             subject=subject,
             message=plain_message,
-            from_email=config("EMAIL_HOST_USER"),
+            from_email=config("DEFAULT_FROM_EMAIL"),
             recipient_list=[recipient_email],
             fail_silently=False,
             html_message=html_message,
@@ -8242,7 +8275,7 @@ class ManualDraftEditView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("EMAIL_HOST_USER"),
+                        from_email=config("DEFAULT_FROM_EMAIL"),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
@@ -8889,7 +8922,7 @@ class SupplierproblemDraftAPIView(APIView):
                            status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-class SupplierDraftAllList(APIView):
+class SupplierproblemDraftAllList(APIView):
     def get(self, request, user_id):
         try:
             user = Users.objects.get(id=user_id)
