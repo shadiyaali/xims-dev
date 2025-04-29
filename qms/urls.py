@@ -258,8 +258,8 @@ urlpatterns = [
     path('internal-problems/create/', InternalProblemCreateView.as_view(), name='create-internal-problem'),
     path('internal-problems/company/<int:company_id>/', InternalProblemView.as_view(), name='company-agendas'),
     path('internal-problems/<int:pk>/', InternalDetailView.as_view(), name='car-number-detail'),
-    path('internal-problems/draft-create/', SupplierproblemDraftAPIView.as_view(), name='manual-create'),
-    path('internal-problems-draft/<int:user_id>/', SupplierDraftAllList.as_view(), name='manual-list'),
+    path('internal-problems/draft-create/', InternalDraftAPIView.as_view(), name='manual-create'),
+    path('internal-problems-draft/<int:user_id>/', IternalDraftAllList.as_view(), name='manual-list'),
     
     # Supplier 
     path('suppliers/create/', SupplierAPIView.as_view(), name='supplier-list'), 

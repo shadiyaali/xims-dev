@@ -275,7 +275,7 @@ class ManualCreateView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        from_email=config("DEFAULT_FROM_EMAIL"),
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
@@ -7918,7 +7918,7 @@ class InternalDetailView(APIView):
             return None
 
     def get(self, request, pk):
-        internal_problem = self.get_object(pk)  # Renamed from car_number to internal_problem for clarity
+        internal_problem = self.get_object(pk)  
         if not internal_problem:
             return Response({"error": "InternalProblem not found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = InternalProblemGetSerializer(internal_problem)
