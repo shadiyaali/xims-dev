@@ -1038,7 +1038,7 @@ class Supplier(models.Model):
     
 
     def __str__(self):
-        return self.company_name
+        return self.company_name or "Unnamed Supplier"
     
 
 class SupplierProblem(models.Model):
@@ -1061,4 +1061,4 @@ class SupplierProblem(models.Model):
     is_draft = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.problem
+        return self.problem or "No Problem Description"
