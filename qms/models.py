@@ -1051,12 +1051,12 @@ class SupplierProblem(models.Model):
     ]
     supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="supplier_pr", blank=True, null=True)
     problem = models.TextField(blank=True,null=True)
-    executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True )
+    executor = models.ForeignKey(Users, on_delete=models.CASCADE, null=True )
     corrective_action_need = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
     date =  models.DateField(blank=True, null=True)
     immediate_action = models.TextField(blank=True,null=True)
     solved = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
-    no_car = models.ForeignKey(CarNumber, on_delete=models.SET_NULL, null=True )
+    no_car = models.ForeignKey(CarNumber, on_delete=models.CASCADE,blank=True, null=True)
     corrections = models.CharField(max_length=50,blank =True,null = True)
     is_draft = models.BooleanField(default=False)
 
