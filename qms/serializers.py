@@ -753,6 +753,7 @@ class SupplierProblemSerializer(serializers.ModelSerializer):
 class SupplierProblemGetSerializer(serializers.ModelSerializer):
     supplier = SupplierSerializer()
     no_car = CarNumberSerializer()
+    executor =UserSerializer
     class Meta:
         model = SupplierProblem
         fields = '__all__'
@@ -804,6 +805,20 @@ class ComplaintGetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Complaints
+        fields = '__all__'
+
+
+
+
+class CustomerQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerQuestions
+        fields = '__all__' 
+        
+class CustomerSatisfactionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomerSatisfaction
         fields = '__all__'
 
 

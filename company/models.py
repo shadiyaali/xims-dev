@@ -146,25 +146,7 @@ def generate_unique_filename_audit(instance, filename):
 
 
 
-class Question(models.Model):
-    question_text = models.TextField(blank=True, null=True)
-   
 
-    def __str__(self):
-        return self.question_text 
-    
-class CustomerSatisfaction(models.Model):
-    title = models.CharField(max_length=50,blank =True,null = True)
-    calid_till  = models.DateField(blank=True, null=True)
-    description = models.TextField(blank=True,null=True)
-    questions = models.ForeignKey(Question, blank=True,null=True ,on_delete=models.SET_NULL,)
-    answer = models.IntegerField(blank=True, null=True) 
-    # customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True )
-    
-
-    def __str__(self):
-        return self.title
-    
 
 
     

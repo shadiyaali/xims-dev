@@ -311,6 +311,21 @@ urlpatterns = [
     path('complaints/draft-create/', ComplaintsDraftAPIView.as_view(), name='manual-create'),
     path('complaints-draft/<int:user_id>/', ComplaintDraftAllList.as_view(), name='manual-list'),
     
+    
+    # Customer satisfaction survey
+    path('customer/survey/create/', CustomerSurveyCreateView.as_view(), name='documentation-list'),  
+    path('customer/survey/<int:company_id>/', CustomerSurveyEvalAllList.as_view(), name='documentation-list'),
+    path('customer/survey/<int:pk>/update/', CustomerSurveyUpdateView.as_view(), name='documentation-update'),  
+    path('customer/survey/-get/<int:id>/', CustomerSurveyDetailView.as_view(), name='policy-detail'),
+    path('customer/survey/draft-create/', CustomerSurveyDraftAPIView.as_view(), name='manual-create'),  
+    path('customer/survey-draft/<int:user_id>/', CustomerSurveyDraftAllList.as_view(), name='manual-list'),
+    path('customer/survey/drafts-count/<int:user_id>/',  CustomerSurveyView.as_view(), name='draft-manuals'),
+    path('customer/survey/question-add/', CustomerSurveyQuestionQuestionAPIView.as_view(), name='add-performance-question'),
+    path('customer/survey/<int:supp_evaluation_id>/questions/', CustomerSurveyByEvaluationAPIView.as_view(), name='performance-questions'),
+    path('customer/survey/question/<int:question_id>/delete/', DeleteCustomerSurveyQuestionAPIView.as_view(), name='delete-performance-question'),
+    path('customer/survey/question/answer/<int:question_id>/', AddSCustomerSurveyAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
+    path('customer/survey/<int:company_id>/evaluation/<int:supp_evaluation_id>/',UserCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
+    
 ]
 
 

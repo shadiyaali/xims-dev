@@ -56,3 +56,6 @@ admin.site.register(SupplierEvaluation)
 admin.site.register(SupplierEvaluationQuestions)
 admin.site.register(Complaints)
 admin.site.register(Category)
+admin.site.register(CustomerQuestions)
+admin.site.register(CustomerSatisfaction)
+

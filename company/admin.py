@@ -9,8 +9,7 @@ admin.site.register(Permission)
 
 
 
-admin.site.register(Question)
-admin.site.register(CustomerSatisfaction)
+
 
 
  

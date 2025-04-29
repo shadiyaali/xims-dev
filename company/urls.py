@@ -19,11 +19,7 @@ urlpatterns = [
     path('user/<int:id>/change-status/', ChangeUserStatusView.as_view(), name='change-company-status'),
     path('permissions/<int:user_id>/', UserPermissionsAPIView.as_view(), name='company-detail'), 
  
-  
 
- 
-
-  
  
     path('process_activity/', ProcessActivityListCreate.as_view(), name='process_activity-list-create'),
     path('process_activity/<int:pk>/', ProcessActivityDetail.as_view(), name='process_activity-detail'),

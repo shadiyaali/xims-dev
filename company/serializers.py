@@ -167,32 +167,6 @@ class UserGETSerializer(serializers.ModelSerializer):
  
 
 
-        
-
-        
-
- 
-        
- 
-
-
-
-        
-
-
-class QuestionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Question
-        fields = '__all__' 
-        
-# class CustomerSatisfactionSerializer(serializers.ModelSerializer):
-
-#     class Meta:
-#         model = CustomerSatisfaction
-#         fields = '__all__'
-
-
-
 
  
 class ProcessActivitySerializer(serializers.ModelSerializer):
