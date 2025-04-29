@@ -277,7 +277,19 @@ urlpatterns = [
     # System message
     path('messages/create/', MessageCreateAPIView.as_view(), name='message-create'),
     
-    
+    # supplier evaluation  
+    path('supplier/evaluation/create/', SuppEvaluationCreateView.as_view(), name='documentation-list'),  
+    path('supplier/evaluation/<int:company_id>/', SupplierEvalAllList.as_view(), name='documentation-list'),
+    path('supplier/evaluation/<int:pk>/update/', SuppEvalUpdateView.as_view(), name='documentation-update'),  
+    path('supplier/evaluation-get/<int:id>/', SuppEvalDetailView.as_view(), name='policy-detail'),
+    path('supplier/evaluation/draft-create/', SuppEvalDraftAPIView.as_view(), name='manual-create'),  
+    path('supplier/evaluation-draft/<int:user_id>/', SuppEvlDraftAllList.as_view(), name='manual-list'),
+    path('supplier/evaluation/drafts-count/<int:user_id>/',  SuppEvlView.as_view(), name='draft-manuals'),
+    path('supplier/evaluation/question-add/', SupEvalQuestionQuestionAPIView.as_view(), name='add-performance-question'),
+    path('supplier/evaluation/<int:supp_evaluation_id>/questions/', SupEvalQuestionQuestionsByEvaluationAPIView.as_view(), name='performance-questions'),
+    path('supplier/evaluation/question/<int:question_id>/delete/', DeleteSuppQuestionAPIView.as_view(), name='delete-performance-question'),
+    path('supplier/evaluation/question/answer/<int:question_id>/', AddSSuppAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
+    path('supplier/evaluation/<int:company_id>/evaluation/<int:supp_evaluation_id>/',UserSuppEvlAnswersView.as_view(),name='unsubmitted-users'),  
     
 ]
 

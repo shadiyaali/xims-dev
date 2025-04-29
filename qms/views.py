@@ -6579,7 +6579,7 @@ class AddSurveyAnswerToQuestionAPIView(APIView):
 
             return Response({"message": "Answer and user updated successfully."}, status=status.HTTP_200_OK)
 
-        except PerformanceQuestions.DoesNotExist:
+        except SurveyQuestions.DoesNotExist:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -8089,6 +8089,7 @@ class SupplierDraftAllList(APIView):
 
 class SupplierProblemAPIView(APIView):
     def post(self, request):
+        print("requsetd",request.data)
         serializer = SupplierProblemSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -8112,7 +8113,7 @@ class SupplierProblemDetailAPIView(APIView):
         supplier_problem = self.get_object(pk)
         if supplier_problem is None:
             return Response({"error": "SupplierProblem not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = SupplierProblemSerializer(supplier_problem)
+        serializer = SupplierProblemGetSerializer(supplier_problem)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
  
@@ -8139,7 +8140,7 @@ class SupplierProblemView(APIView):
     def get(self, request, company_id):
      
         agendas = SupplierProblem.objects.filter(company_id=company_id,is_draft=False)
-        serializer = SupplierProblemSerializer(agendas, many=True)
+        serializer = SupplierProblemGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     
@@ -8254,3 +8255,197 @@ class ManualDraftEditView(APIView):
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
+
+class SuppEvaluationCreateView(APIView):
+    def post(self, request):
+        serializer = SupplierEvaluationSerializer(data=request.data)
+        if serializer.is_valid():
+       
+            serializer.save()   
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class SupplierEvalAllList(APIView):
+    def get(self, request, company_id):
+        try:
+        
+            if not Company.objects.filter(id=company_id).exists():
+                return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+           
+            company_policies = SupplierEvaluation.objects.filter(company_id=company_id ,is_draft=False)
+
+           
+            serializer = SupplierEvaluationSerializer(company_policies, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
+class  SuppEvalUpdateView(APIView):
+    def put(self, request, pk):
+        try:
+            documentation = SupplierEvaluation.objects.get(pk=pk)
+        except SupplierEvaluationSerializer.DoesNotExist:
+            return Response({"error": "Supplier Evaluation not found"}, status=status.HTTP_404_NOT_FOUND) 
+        data = request.data.copy()      
+        data['is_draft'] = False
+        serializer = SupplierEvaluationSerializer(documentation, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            documentation = SupplierEvaluation.objects.get(pk=pk)
+        except SupplierEvaluation.DoesNotExist:
+            return Response({"error": "Supplier Evaluation not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        documentation.delete()   
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+    
+class SuppEvalDetailView(APIView):
+    def get(self, request, id):
+        policy = get_object_or_404(SupplierEvaluation, id=id)
+        serializer = SupplierEvaluationSerializer(policy)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SuppEvalDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()  
+        data['is_draft'] = True  
+
+        serializer =SupplierEvaluationSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Supplie Evaluation  saved as draft", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class SuppEvlDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = SupplierEvaluation.objects.filter(user=user, is_draft=True)
+        serializer =SupplierEvaluationSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class SuppEvlView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = SupplierEvaluation.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = SupplierEvaluationSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class SupEvalQuestionQuestionAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = SupEvalQuestionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class SupEvalQuestionQuestionsByEvaluationAPIView(APIView):
+    def get(self, request, survey_id, *args, **kwargs):
+        questions = SupplierEvaluationQuestions.objects.filter(survey_id=survey_id)
+        serializer = SupEvalQuestionSerializer(questions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)   
+    
+
+class DeleteSuppQuestionAPIView(APIView):
+    def delete(self, request, question_id, *args, **kwargs):
+        try:
+            question = SupplierEvaluationQuestions.objects.get(id=question_id)
+            question.delete()
+            return Response({"message": "Question deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except SupplierEvaluationQuestions.DoesNotExist:
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        
+class UserSuppEvlAnswersView(APIView):
+    def get(self, request, company_id, survey_id):
+        try:
+  
+            try:
+                company = Company.objects.get(id=company_id)
+            except Company.DoesNotExist:
+                return Response(
+                    {"error": "Company not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+          
+            try:
+                survey = SupplierEvaluation.objects.get(id=survey_id, company=company)
+            except SupplierEvaluation.DoesNotExist:
+                return Response(
+                    {"error": "Survey not found or does not belong to the specified company."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+           
+            company_users = Users.objects.filter(company=company, is_trash=False)
+           
+            submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
+                survey=survey,
+                user__isnull=False
+            ).values_list('user_id', flat=True).distinct()
+            
+            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
+      
+            user_data = [
+                {
+                    "id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "status": user.status
+                }
+                for user in not_submitted_users
+            ]
+
+            return Response(user_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred.", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class AddSSuppAnswerToQuestionAPIView(APIView):
+    def patch(self, request, question_id, *args, **kwargs):
+        try:
+            question = SupplierEvaluationQuestions.objects.get(id=question_id)
+            answer = request.data.get('answer')
+            user_id = request.data.get('user_id')
+
+            if not answer:
+                return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not user_id:
+                return Response({"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            question.answer = answer
+            question.user_id = user_id  
+            question.save()
+
+            return Response({"message": "Answer and user updated successfully."}, status=status.HTTP_200_OK)
+
+        except SupplierEvaluationQuestions.DoesNotExist:
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 

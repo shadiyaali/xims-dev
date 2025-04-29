@@ -7,16 +7,6 @@ admin.site.register(Users)
 admin.site.register(Permission)
 
 
-
-
- 
- 
-
- 
-
-
-
-
 admin.site.register(Customer)
 admin.site.register(Complaints)
 admin.site.register(Question)

@@ -748,3 +748,24 @@ class SupplierProblemSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupplierProblem
         fields = '__all__'
+
+
+class SupplierProblemGetSerializer(serializers.ModelSerializer):
+    supplier = SupplierSerializer()
+    no_car = CarNumberSerializer()
+    class Meta:
+        model = SupplierProblem
+        fields = '__all__'
+
+class SupplierEvaluationSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = SupplierEvaluation
+        fields = '__all__'
+        
+        
+class SupEvalQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupplierEvaluationQuestions
+        fields = ['id', 'supp_evaluation', 'question_text', 'answer']
+        

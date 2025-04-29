@@ -1062,3 +1062,29 @@ class SupplierProblem(models.Model):
 
     def __str__(self):
         return self.problem or "No Problem Description"
+    
+    
+
+class SupplierEvaluation(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supp_eval", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='supp_eval_com', null=True, blank=True) 
+    title = models.CharField(max_length=100,blank=True, null=True)
+    valid_till = models.DateField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return self.title
+    
+class SupplierEvaluationQuestions(models.Model):
+    supp_evaluation = models.ForeignKey(SupplierEvaluation, on_delete=models.CASCADE, related_name="supp_evlua",blank=True, null=True)
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="surveqsn_supp", blank=True, null=True)
+    question_text = models.TextField(blank=True, null=True)
+    answer= models.CharField(blank=True, null=True)
+    
+   
+    def __str__(self):
+        if self.survey and self.supp_evaluation.title:
+            return f"{self.supp_evaluation.title} - {self.question_text or 'Unnamed Question'}"
+        return self.question_text or "Unnamed Question"
+    
