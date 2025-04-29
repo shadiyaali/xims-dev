@@ -1042,12 +1042,14 @@ class Supplier(models.Model):
     
 
 class SupplierProblem(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier_problem", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='supplier_com_problem', null=True, blank=True)
     TITLE_CHOICES = [
         ('Yes', 'Yes'),
         ('No', 'No'),
         
     ]
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True )
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="supplier_pr", blank=True, null=True)
     problem = models.TextField(blank=True,null=True)
     executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True )
     corrective_action_need = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
@@ -1059,4 +1061,4 @@ class SupplierProblem(models.Model):
     is_draft = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Problem with {self.supplier.company_name}" if self.supplier else "Problem without supplier"
+        return self.problem
