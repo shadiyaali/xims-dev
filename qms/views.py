@@ -21,11 +21,9 @@ from django.utils.html import strip_tags
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.generics import RetrieveDestroyAPIView
-from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
+from django.core.mail import EmailMultiAlternatives
 
-
+from ximspro.utils.email_backend import CertifiEmailBackend
 
 
 
@@ -251,9 +249,6 @@ class ManualCreateView(APIView):
                 if action_type == "review":
                     subject = f"Manual Ready for Review: {manual.title}"
 
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
-
                     context = {
                         'recipient_name': recipient.first_name,
                         'title': manual.title,
@@ -262,30 +257,50 @@ class ManualCreateView(APIView):
                         'review_frequency_month': manual.review_frequency_month or 0,
                         'document_type': manual.document_type,
                         'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
+                        'revision': getattr(manual, 'rivision', ''),
+                        'written_by': manual.written_by,
+                        'checked_by': manual.checked_by,
+                        'approved_by': manual.approved_by,
                         'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    # Create email message
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if manual.upload_attachment:
+                        try:
+                            file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = manual.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached manual document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching manual file: {str(attachment_error)}")
+
+                    # Optional: Use custom backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
@@ -454,59 +469,76 @@ class SubmitCorrectionView(APIView):
             print(f"Failed to create correction notification: {str(e)}")
 
     def send_correction_email_notification(self, correction):
-        manual    = correction.manual
+        manual = correction.manual
         from_user = correction.from_user
-        to_user   = correction.to_user
+        to_user = correction.to_user
         recipient_email = to_user.email if to_user else None
 
-       
         if from_user == manual.checked_by and to_user == manual.written_by:
-           
             template_name = 'qms/manual/manual_correction_to_writer.html'
             subject = f"Correction Requested on '{manual.title}'"
-           
             should_send = True
         elif from_user == manual.approved_by and to_user == manual.checked_by:
-        
             template_name = 'qms/manual/manual_correction_to_checker.html'
             subject = f"Correction Requested on '{manual.title}'"
             should_send = manual.send_email_to_checked_by
         else:
-     
-            return
+            return  # Not a valid correction flow
 
         if not recipient_email or not should_send:
             return
 
-  
         context = {
-                        'recipient_name': to_user.first_name,
-                        'title': manual.title,
-                        'document_number': manual.no or 'N/A',
-                        'review_frequency_year': manual.review_frequency_year or 0,
-                        'review_frequency_month': manual.review_frequency_month or 0,
-                        'document_type': manual.document_type,
-                        'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
-                        'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
-                    }
+            'recipient_name': to_user.first_name,
+            'title': manual.title,
+            'document_number': manual.no or 'N/A',
+            'review_frequency_year': manual.review_frequency_year or 0,
+            'review_frequency_month': manual.review_frequency_month or 0,
+            'document_type': manual.document_type,
+            'section_number': manual.no,
+            'revision': getattr(manual, 'rivision', ''),
+            'written_by': manual.written_by,
+            'checked_by': manual.checked_by,
+            'approved_by': manual.approved_by,
+            'date': manual.date,
+        }
 
-        # Render and send
-        html_message  = render_to_string(template_name, context)
+        html_message = render_to_string(template_name, context)
         plain_message = strip_tags(html_message)
-        send_mail(
+
+        from django.core.mail import EmailMultiAlternatives
+
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient_email]
         )
+        email.attach_alternative(html_message, "text/html")
+
+        # Attach the manual file if it exists
+        if manual.upload_attachment:
+            try:
+                file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = manual.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached manual file {file_name} to correction email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        # Use custom backend (optional)
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+
+        logger.info(f"Correction email sent to {recipient_email} with attachment.")
+
 
 
 
@@ -623,7 +655,8 @@ class ManualReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, manual, recipients, action_type):
-        from decouple import config   
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
@@ -633,42 +666,42 @@ class ManualReviewView(APIView):
                     if action_type == "review":
                         subject = f"Manual Submitted for Approval: {manual.title}"
                         context = {
-                        'recipient_name': recipient.first_name,
-                        'title': manual.title,
-                        'document_number': manual.no or 'N/A',
-                        'review_frequency_year': manual.review_frequency_year or 0,
-                        'review_frequency_month': manual.review_frequency_month or 0,
-                        'document_type': manual.document_type,
-                        'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
-                        'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
-                    }
+                            'recipient_name': recipient.first_name,
+                            'title': manual.title,
+                            'document_number': manual.no or 'N/A',
+                            'review_frequency_year': manual.review_frequency_year or 0,
+                            'review_frequency_month': manual.review_frequency_month or 0,
+                            'document_type': manual.document_type,
+                            'section_number': manual.no,
+                            'revision': manual.rivision,
+                            'written_by': manual.written_by,
+                            'checked_by': manual.checked_by,
+                            'approved_by': manual.approved_by,
+                            'date': manual.date,
+                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                        }
                         html_message = render_to_string('qms/manual/manual_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
 
                     elif action_type == "approved":
                         subject = f"Manual Approved: {manual.title}"
                         context = {
-                        'recipient_name': recipient.first_name,
-                        'title': manual.title,
-                        'document_number': manual.no or 'N/A',
-                        'review_frequency_year': manual.review_frequency_year or 0,
-                        'review_frequency_month': manual.review_frequency_month or 0,
-                        'document_type': manual.document_type,
-                        'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
-                        'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
-                    }
+                            'recipient_name': recipient.first_name,
+                            'title': manual.title,
+                            'document_number': manual.no or 'N/A',
+                            'review_frequency_year': manual.review_frequency_year or 0,
+                            'review_frequency_month': manual.review_frequency_month or 0,
+                            'document_type': manual.document_type,
+                            'section_number': manual.no,
+                            'revision': manual.rivision,
+                            'written_by': manual.written_by,
+                            'checked_by': manual.checked_by,
+                            'approved_by': manual.approved_by,
+                            'date': manual.date,
+                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                        }
                         html_message = render_to_string('qms/manual/manual_publish.html', context)
                         plain_message = strip_tags(html_message)
 
@@ -676,20 +709,43 @@ class ManualReviewView(APIView):
                         logger.warning(f"Unknown action type '{action_type}' for email notification.")
                         continue
 
-                    send_mail(
+                    # Create email
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config('DEFAULT_FROM_EMAIL'),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the manual document if it exists
+                    if manual.upload_attachment:
+                        try:
+                            file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = manual.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached manual file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom backend (optional)
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
                     logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
 
                 except Exception as e:
                     logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
             else:
                 logger.warning("Recipient email is None. Skipping email send.")
+
 
 
 
@@ -782,6 +838,7 @@ class ManualUpdateView(APIView):
 
                     from django.template.loader import render_to_string
                     from django.utils.html import strip_tags
+                    from django.core.mail import EmailMultiAlternatives
 
                     context = {
                         'recipient_name': recipient.first_name,
@@ -791,30 +848,48 @@ class ManualUpdateView(APIView):
                         'review_frequency_month': manual.review_frequency_month or 0,
                         'document_type': manual.document_type,
                         'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
+                        'revision': getattr(manual, 'rivision', ''),
+                        'written_by': manual.written_by,
+                        'checked_by': manual.checked_by,
+                        'approved_by': manual.approved_by,
                         'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/manual/manual_update_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the manual file if available
+                    if manual.upload_attachment:
+                        try:
+                            file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = manual.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached manual file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom email backend (optional, can be removed if not needed)
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
@@ -1014,7 +1089,12 @@ class ManualPublishNotificationView(APIView):
     from django.utils.html import strip_tags
 
     def _send_publish_email(self, manual, recipient):
-        """Helper method to send email notifications with template"""
+        """Helper method to send email notifications with template and attach manual document"""
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+        from django.utils.html import strip_tags
+        from django.template.loader import render_to_string
+
         publisher_name = "N/A"
         if manual.published_user:
             publisher_name = f"{manual.published_user.first_name} {manual.published_user.last_name}"
@@ -1023,37 +1103,58 @@ class ManualPublishNotificationView(APIView):
 
         subject = f"New Manual Published: {manual.title}"
 
-        # Context for the email template
         context = {
-                        'recipient_name': recipient.first_name,
-                        'title': manual.title,
-                        'document_number': manual.no or 'N/A',
-                        'review_frequency_year': manual.review_frequency_year or 0,
-                        'review_frequency_month': manual.review_frequency_month or 0,
-                        'document_type': manual.document_type,
-                        'section_number': manual.no,
-                        'revision': manual.rivision,
-                        "written_by": manual.written_by,
-                        "checked_by": manual.checked_by,
-                        "approved_by": manual.approved_by,
-                        'date': manual.date,
-                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
-                    }
+            'recipient_name': recipient.first_name,
+            'title': manual.title,
+            'document_number': manual.no or 'N/A',
+            'review_frequency_year': manual.review_frequency_year or 0,
+            'review_frequency_month': manual.review_frequency_month or 0,
+            'document_type': manual.document_type,
+            'section_number': manual.no,
+            'revision': manual.rivision,
+            "written_by": manual.written_by,
+            "checked_by": manual.checked_by,
+            "approved_by": manual.approved_by,
+            'date': manual.date,
+            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+        }
 
-        # Render the HTML email
         html_message = render_to_string('qms/manual/manual_published_notification.html', context)
         plain_message = strip_tags(html_message)
 
-        send_mail(
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-            html_message=html_message,
+            to=[recipient.email]
         )
-        logger.info(f"HTML Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        if manual.upload_attachment:
+            try:
+                file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = manual.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached manual file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        # Use custom backend if needed
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
 
  
 
@@ -1185,9 +1286,6 @@ class ProcedureCreateView(APIView):
                 if action_type == "review":
                     subject = f"Procedure Ready for Review: {procedure.title}"
 
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
-
                     context = {
                         'recipient_name': recipient.first_name,
                         'title': procedure.title,
@@ -1196,27 +1294,47 @@ class ProcedureCreateView(APIView):
                         'review_frequency_month': procedure.review_frequency_month or 0,
                         'document_type': procedure.document_type,
                         'section_number': procedure.no,
-                        'revision': procedure.rivision,
-                        "written_by": procedure.written_by,
-                        "checked_by": procedure.checked_by,
-                        "approved_by": procedure.approved_by,
+                        'revision': getattr(procedure, 'rivision', ''),
+                        'written_by': procedure.written_by,
+                        'checked_by': procedure.checked_by,
+                        'approved_by': procedure.approved_by,
                         'date': procedure.date,
-                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if procedure.upload_attachment:
+                        try:
+                            file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = procedure.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached procedure document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching procedure file: {str(attachment_error)}")
+
+                    # Optional: Use custom backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
             except Exception as e:
@@ -1341,10 +1459,11 @@ class ProcedureUpdateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Manual Corrections Updated: {procedure.title}"
-                    
+                    subject = f"Procedure Corrections Updated: {procedure.title}"
+
                     from django.template.loader import render_to_string
                     from django.utils.html import strip_tags
+
                     context = {
                         'recipient_name': recipient.first_name,
                         'title': procedure.title,
@@ -1358,25 +1477,43 @@ class ProcedureUpdateView(APIView):
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
                         'date': procedure.date,
-                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_update_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the uploaded procedure file if it exists
+                    if procedure.upload_attachment:
+                        try:
+                            file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = procedure.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached procedure file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom backend if required
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
@@ -1501,27 +1638,44 @@ class SubmitCorrectionProcedureView(APIView):
                 'checked_by': procedure.checked_by,
                 'approved_by': procedure.approved_by,
                 'date': procedure.date,
-                'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-                'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
             }
 
             html_message = render_to_string(template_name, context)
             plain_message = strip_tags(html_message)
 
-            send_mail(
+            email = EmailMultiAlternatives(
                 subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_email],
-                fail_silently=False,
-                html_message=html_message,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
             )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach the file if present
+            if procedure.upload_attachment:
+                try:
+                    file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = procedure.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached file {file_name} to correction email.")
+                except Exception as attachment_error:
+                    print(f"Failed to attach file: {str(attachment_error)}")
+
+            # Optional custom backend (if you're using it)
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+
+            email.send(fail_silently=False)
             print(f"Correction email successfully sent to {recipient_email}")
 
-         
-
         except Exception as e:
-                print(f"Failed to send correction email: {str(e)}")
+            print(f"Failed to send correction email: {str(e)}")
             
             
 class CorrectionProcedureList(generics.ListAPIView):
@@ -1621,7 +1775,8 @@ class ProcedureReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, procedure, recipients, action_type):
-        from decouple import config   
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
@@ -1674,14 +1829,36 @@ class ProcedureReviewView(APIView):
                         logger.warning(f"Unknown action type '{action_type}' for email notification.")
                         continue
 
-                    send_mail(
+                    # Create email
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config('DEFAULT_FROM_EMAIL'),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the procedure document if it exists
+                    if procedure.upload_attachment:
+                        try:
+                            file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = procedure.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached procedure file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom backend (optional)
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
                     logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
 
                 except Exception as e:
@@ -1847,10 +2024,6 @@ class RecordCreateView(APIView):
         logger.error(f"record creation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    from django.core.mail import EmailMessage
-    from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
-
     def send_email_notification(self, record, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
@@ -1867,43 +2040,59 @@ class RecordCreateView(APIView):
                         'review_frequency_month': record.review_frequency_month or 0,
                         'document_type': record.document_type,
                         'section_number': record.no,
-                        'revision': getattr(record, 'rivision', ''),
+                        'revision': getattr(record, 'revision', ''),
                         'written_by': record.written_by,
                         'checked_by': record.checked_by,
                         'approved_by': record.approved_by,
                         'date': record.date,
-                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/record/record_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    # Use EmailMessage to allow file attachments
-                    email = EmailMessage(
+                    # Create email message
+                    email = EmailMultiAlternatives(
                         subject=subject,
                         body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        to=[recipient_email],
+                        to=[recipient_email]
                     )
-                    email.content_subtype = "html"  # Send as HTML
-
-                    # Attach file if available
-                    if record.upload_attachment and record.upload_attachment.path:
-                        email.attach_file(record.upload_attachment.path)
-
+                    email.attach_alternative(html_message, "text/html")
+                    
+                    # Attach the document if it exists
+                    if record.upload_attachment:
+                        try:
+                            file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = record.upload_attachment.read()
+                            
+                            # Attach the file to the email
+                            email.attach(file_name, file_content)
+                            
+                            logger.info(f"Attached document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+                    
+                    # Use your custom email backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    
+                    # Send the email with the custom connection
+                    email.connection = connection
                     email.send(fail_silently=False)
-                    logger.info(f"Email with attachment sent to {recipient_email} for action: {action_type}")
-
+                    
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
-
 
             
 class RecordAllList(APIView):
@@ -2722,7 +2911,11 @@ class ProcedurePublishNotificationView(APIView):
             )
 
     def _send_publish_email(self, procedure, recipient):
-        """Helper method to send email notifications with template"""
+        """Helper method to send email notifications with template and attach procedure document"""
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+        from django.utils.html import strip_tags
+        from django.template.loader import render_to_string
 
         publisher_name = "N/A"
         if procedure.published_user:
@@ -2753,15 +2946,40 @@ class ProcedurePublishNotificationView(APIView):
         html_message = render_to_string('qms/procedure/procedure_published_notification.html', context)
         plain_message = strip_tags(html_message)
 
-        send_mail(
+        # Create email
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-            html_message=html_message,
+            to=[recipient.email]
         )
-        logger.info(f"HTML Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        # Attach the procedure document if it exists
+        if procedure.upload_attachment:
+            try:
+                file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = procedure.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached procedure file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        # Use custom backend if needed
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
         
         
 
