@@ -1112,6 +1112,7 @@ class Customer(models.Model):
 
    
 class Category(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='category', null=True, blank=True) 
     title = models.CharField(max_length=255,blank=True, null=True)
     
     def __str__(self):
