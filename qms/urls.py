@@ -122,7 +122,8 @@ urlpatterns = [
     path("evaluation-notification/<int:user_id>/", NotificationsLastEvaluation.as_view(), name="notifications_by_user"),
     path('evaluation/count-notifications/<int:user_id>/', UnreadEvaluationNotificationsAPIView.as_view(), name='unread-notifications'),
     path('notifications-evaluation/<int:notification_id>/read/', MarkEvaluationNotificationReadAPIView.as_view(), name='mark-notification-read'),
-    
+    path('evaluation/create/<int:id>/',  EvaluationDraftEditView.as_view(), name='manual-update'),
+   
     # mamagement of change
     path('changes/<int:company_id>/', ChangesList.as_view(), name='manual-list'),
     path('changes-get/<int:pk>/', ChangesDetailView.as_view(), name='compliance-detail'),   

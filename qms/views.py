@@ -4632,19 +4632,7 @@ class EvaluationDetailView(APIView):
         evaluation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-from django.core.mail import send_mail, EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.conf import settings
-from .models import Evaluation, NotificationEvaluations
-from .serializers import EvaluationUpdateSerializer
-from .utils import parse_bool, now
-from .email_backend import CertifiEmailBackend
-from decouple import config  # To access config values from .env
+
 
 class EvaluationUpdateView(APIView):
     def put(self, request, pk):
@@ -9694,6 +9682,118 @@ class ProcedureDraftEditView(APIView):
                     }
 
                     html_message = render_to_string('qms/Procedure/Procedure_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+            
+            
+class EvaluationDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received manual edit request.")
+
+        try:
+            # Try to get the manual by ID
+            manual = Evaluation.objects.get(id=id)
+            
+            # Create a serializer instance for updating the manual
+            serializer = EvaluationSerializer(manual, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save the changes to the manual
+                        manual = serializer.save()
+
+                        # Set `is_draft` to False when the manual is edited
+                        manual.is_draft = False  # This is crucial for your requirement
+
+                        # Apply the changes to the manual
+                        manual.save()
+
+                        logger.info(f"Evaluation updated successfully with ID: {manual.id}")
+
+                        # Send notifications and emails like in manual creation
+                        if manual.checked_by:
+                            if manual.send_notification_to_checked_by:
+                                self._send_notifications(manual)
+
+                            if manual.send_email_to_checked_by and manual.checked_by.email:
+                                self.send_email_notification(manual, manual.checked_by, "review")
+
+                        return Response(
+                            {"message": "Evaluation updated successfully", "id": manual.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during Evaluation update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Evaluation.DoesNotExist:
+            return Response({"error": "Evaluation not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, manual):
+        # Your notification sending logic (same as in the creation view)
+        if manual.checked_by:
+            try:
+                NotificationEvaluation.objects.create(
+                    user=manual.checked_by,
+                    manual=manual,
+                    title="Notification for Checking/Review",
+                    message="A Evaluation has been created for your review."
+                )
+                logger.info(f"Notification created for checked_by user {manual.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, Procedure, recipient, action_type):
+        # Same email logic as in the creation view
+        recipient_email = recipient.email if recipient else None
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Procedure Ready for Review: {Procedure.title}"
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': Procedure.title,
+                        'document_number': Procedure.no or 'N/A',
+                        'review_frequency_year': Procedure.review_frequency_year or 0,
+                        'review_frequency_month': Procedure.review_frequency_month or 0,
+                        'document_type': Procedure.document_type,
+                        'section_number': Procedure.no,
+                        'rivision': Procedure.rivision,
+                        "written_by": Procedure.written_by,
+                        "checked_by": Procedure.checked_by,
+                        "approved_by": Procedure.approved_by,
+                        'date': Procedure.date,
+                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
+                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
                     send_mail(
