@@ -386,24 +386,28 @@ class NotificationView(APIView):
 class SubmitCorrectionView(APIView):
     def post(self, request):
         try:
+            # Extract data from request
             manual_id = request.data.get('manual_id')
             correction_text = request.data.get('correction')
             from_user_id = request.data.get('from_user')
 
+            # Check if all required fields are provided
             if not all([manual_id, correction_text, from_user_id]):
                 return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Get manual object
             try:
                 manual = Manual.objects.get(id=manual_id)
             except Manual.DoesNotExist:
                 return Response({'error': 'Manual not found'}, status=status.HTTP_404_NOT_FOUND)
 
+            # Get user object
             try:
                 from_user = Users.objects.get(id=from_user_id)
             except Users.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-         
+            # Validate user role and determine the recipient of the correction
             if from_user == manual.checked_by:
                 to_user = manual.written_by
             elif from_user == manual.approved_by:
@@ -411,10 +415,7 @@ class SubmitCorrectionView(APIView):
             else:
                 return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
 
-     
-            
-
-     
+            # Create correction
             correction = CorrectionQMS.objects.create(
                 manual=manual,
                 to_user=to_user,
@@ -422,14 +423,15 @@ class SubmitCorrectionView(APIView):
                 correction=correction_text
             )
 
-         
+            # Update manual status
             manual.status = 'Correction Requested'
             manual.save()
 
-  
+            # Create notification and send email
             self.create_correction_notification(correction)
             self.send_correction_email_notification(correction)
 
+            # Serialize and return response
             serializer = CorrectionQMSSerializer(correction)
             return Response(
                 {'message': 'Correction submitted successfully', 'correction': serializer.data},
@@ -437,6 +439,7 @@ class SubmitCorrectionView(APIView):
             )
 
         except Exception as e:
+            print(f"Error occurred in submit correction: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create_correction_notification(self, correction):
@@ -445,6 +448,7 @@ class SubmitCorrectionView(APIView):
             to_user = correction.to_user
             from_user = correction.from_user
 
+            # Determine if notification should be sent based on user roles
             if from_user == manual.approved_by and to_user == manual.checked_by:
                 should_send = manual.send_notification_to_checked_by
             elif from_user == manual.checked_by and to_user == manual.written_by:
@@ -469,75 +473,82 @@ class SubmitCorrectionView(APIView):
             print(f"Failed to create correction notification: {str(e)}")
 
     def send_correction_email_notification(self, correction):
-        manual = correction.manual
-        from_user = correction.from_user
-        to_user = correction.to_user
-        recipient_email = to_user.email if to_user else None
+        try:
+            manual = correction.manual
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
 
-        if from_user == manual.checked_by and to_user == manual.written_by:
-            template_name = 'qms/manual/manual_correction_to_writer.html'
-            subject = f"Correction Requested on '{manual.title}'"
-            should_send = True
-        elif from_user == manual.approved_by and to_user == manual.checked_by:
-            template_name = 'qms/manual/manual_correction_to_checker.html'
-            subject = f"Correction Requested on '{manual.title}'"
-            should_send = manual.send_email_to_checked_by
-        else:
-            return  # Not a valid correction flow
+            # Define template and subject based on user roles
+            if from_user == manual.checked_by and to_user == manual.written_by:
+                template_name = 'qms/manual/manual_correction_to_writer.html'
+                subject = f"Correction Requested on '{manual.title}'"
+                should_send = True
+            elif from_user == manual.approved_by and to_user == manual.checked_by:
+                template_name = 'qms/manual/manual_correction_to_checker.html'
+                subject = f"Correction Requested on '{manual.title}'"
+                should_send = manual.send_email_to_checked_by
+            else:
+                return  # Not a valid correction flow
 
-        if not recipient_email or not should_send:
-            return
+            # Check if email sending is enabled and recipient is valid
+            if not recipient_email or not should_send:
+                return
 
-        context = {
-            'recipient_name': to_user.first_name,
-            'title': manual.title,
-            'document_number': manual.no or 'N/A',
-            'review_frequency_year': manual.review_frequency_year or 0,
-            'review_frequency_month': manual.review_frequency_month or 0,
-            'document_type': manual.document_type,
-            'section_number': manual.no,
-            'rivision': getattr(manual, 'rivision', ''),
-            'written_by': manual.written_by,
-            'checked_by': manual.checked_by,
-            'approved_by': manual.approved_by,
-            'date': manual.date,
-        }
+            # Prepare email context
+            context = {
+                'recipient_name': to_user.first_name,
+                'title': manual.title,
+                'document_number': manual.no or 'N/A',
+                'review_frequency_year': manual.review_frequency_year or 0,
+                'review_frequency_month': manual.review_frequency_month or 0,
+                'document_type': manual.document_type,
+                'section_number': manual.no,
+                'rivision': getattr(manual, 'rivision', ''),
+                'written_by': manual.written_by,
+                'checked_by': manual.checked_by,
+                'approved_by': manual.approved_by,
+                'date': manual.date,
+            }
 
-        html_message = render_to_string(template_name, context)
-        plain_message = strip_tags(html_message)
+            # Render email message
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
 
-        from django.core.mail import EmailMultiAlternatives
+            # Send email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
 
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            to=[recipient_email]
-        )
-        email.attach_alternative(html_message, "text/html")
+            # Attach manual file if exists
+            if manual.upload_attachment:
+                try:
+                    file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = manual.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached file {file_name} to correction email.")
+                except Exception as attachment_error:
+                    print(f"Failed to attach file: {str(attachment_error)}")
 
-        # Attach the manual file if it exists
-        if manual.upload_attachment:
-            try:
-                file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
-                file_content = manual.upload_attachment.read()
-                email.attach(file_name, file_content)
-                logger.info(f"Attached manual file {file_name} to correction email")
-            except Exception as attachment_error:
-                logger.error(f"Error attaching file: {str(attachment_error)}")
+            # Use custom email backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
 
-        # Use custom backend (optional)
-        connection = CertifiEmailBackend(
-            host=config('EMAIL_HOST'),
-            port=config('EMAIL_PORT'),
-            username=config('EMAIL_HOST_USER'),
-            password=config('EMAIL_HOST_PASSWORD'),
-            use_tls=True
-        )
-        email.connection = connection
-        email.send(fail_silently=False)
+            print(f"Correction email successfully sent to {recipient_email}")
 
-        logger.info(f"Correction email sent to {recipient_email} with attachment.")
+        except Exception as e:
+            print(f"Error sending correction email: {str(e)}")
 
 
 
@@ -9518,7 +9529,7 @@ class UserCustomerSurveyAnswersView(APIView):
             company_users = Users.objects.filter(company=company, is_trash=False)
            
             submitted_user_ids = CustomerQuestions.objects.filter(
-                survey=survey,
+                customer=survey,
                 user__isnull=False
             ).values_list('user_id', flat=True).distinct()
             
