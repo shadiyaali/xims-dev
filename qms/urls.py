@@ -66,6 +66,8 @@ urlpatterns = [
     path("record-notification/<int:user_id>/", NotificationsLastRecord.as_view(), name="notifications_by_user"),
     path('record/count-notifications/<int:user_id>/', UnreadRecordNotificationsAPIView.as_view(), name='unread-notifications'),
     path('notifications-record/<int:notification_id>/read/', MarkRecordNotificationReadAPIView.as_view(), name='mark-notification-read'),
+    path('record/create/<int:id>/', RecordraftEditView.as_view(), name='manual-update'),
+ 
  
     # Compliance
     path('compliance/<int:company_id>/', ComplianecesList.as_view(), name='manual-list'),

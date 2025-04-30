@@ -2546,11 +2546,7 @@ class RecordReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, record, recipients, action_type):
-        from decouple import config
-        from django.core.mail import EmailMultiAlternatives
-        from qms.utils import CertifiEmailBackend  # Assuming you have a custom backend
-        from django.template.loader import render_to_string
-        from django.utils.html import strip_tags
+        
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
@@ -9500,7 +9496,7 @@ class AddSCustomerSurveyAnswerToQuestionAPIView(APIView):
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
 
 class UserCustomerSurveyAnswersView(APIView):
-    def get(self, request, company_id, supp_evaluation_id):
+    def get(self, request, company_id, customer_id):
         try:
   
             try:
@@ -9512,7 +9508,7 @@ class UserCustomerSurveyAnswersView(APIView):
                 )
           
             try:
-                survey = CustomerSatisfaction.objects.get(id=supp_evaluation_id, company=company)
+                survey = CustomerSatisfaction.objects.get(id=customer_id, company=company)
             except CustomerSatisfaction.DoesNotExist:
                 return Response(
                     {"error": "CustomerS atisfaction not found or does not belong to the specified company."},
@@ -9641,12 +9637,12 @@ class ProcedureDraftEditView(APIView):
             return Response({"error": "Procedure not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def _send_notifications(self, manual):
-        # Your notification sending logic (same as in the creation view)
+     
         if manual.checked_by:
             try:
-                NotificationQMS.objects.create(
+                NotificatioProcedure.objects.create(
                     user=manual.checked_by,
-                    manual=manual,
+                    procedure=manual,
                     title="Notification for Checking/Review",
                     message="A Procedure has been created/updated for your review."
                 )
@@ -9655,7 +9651,7 @@ class ProcedureDraftEditView(APIView):
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
     def send_email_notification(self, Procedure, recipient, action_type):
-        # Same email logic as in the creation view
+ 
         recipient_email = recipient.email if recipient else None
         if recipient_email:
             try:
@@ -9794,6 +9790,119 @@ class EvaluationDraftEditView(APIView):
                     }
 
                     html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+            
+            
+
+class RecordraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received manual edit request.")
+
+        try:
+            # Try to get the manual by ID
+            manual = RecordFormat.objects.get(id=id)
+            
+            # Create a serializer instance for updating the manual
+            serializer = RecordFormatSerializer(manual, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save the changes to the manual
+                        manual = serializer.save()
+
+                        # Set `is_draft` to False when the manual is edited
+                        manual.is_draft = False  # This is crucial for your requirement
+
+                        # Apply the changes to the manual
+                        manual.save()
+
+                        logger.info(f"Evaluation updated successfully with ID: {manual.id}")
+
+                        # Send notifications and emails like in manual creation
+                        if manual.checked_by:
+                            if manual.send_notification_to_checked_by:
+                                self._send_notifications(manual)
+
+                            if manual.send_email_to_checked_by and manual.checked_by.email:
+                                self.send_email_notification(manual, manual.checked_by, "review")
+
+                        return Response(
+                            {"message": "RecordFormat updated successfully", "id": manual.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during RecordFormat update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except RecordFormat.DoesNotExist:
+            return Response({"error": "RecordFormat not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, manual):
+        # Your notification sending logic (same as in the creation view)
+        if manual.checked_by:
+            try:
+                NotificationRecord.objects.create(
+                    user=manual.checked_by,
+                    record=manual,
+                    title="Notification for Checking/Review",
+                    message="A RecordFormat has been created for your review."
+                )
+                logger.info(f"Notification created for checked_by user {manual.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, Procedure, recipient, action_type):
+        # Same email logic as in the creation view
+        recipient_email = recipient.email if recipient else None
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Procedure Ready for Review: {Procedure.title}"
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': Procedure.title,
+                        'document_number': Procedure.no or 'N/A',
+                        'review_frequency_year': Procedure.review_frequency_year or 0,
+                        'review_frequency_month': Procedure.review_frequency_month or 0,
+                        'document_type': Procedure.document_type,
+                        'section_number': Procedure.no,
+                        'rivision': Procedure.rivision,
+                        "written_by": Procedure.written_by,
+                        "checked_by": Procedure.checked_by,
+                        "approved_by": Procedure.approved_by,
+                        'date': Procedure.date,
+                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
+                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/record/record_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
                     send_mail(
