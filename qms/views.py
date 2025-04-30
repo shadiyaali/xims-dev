@@ -2160,22 +2160,21 @@ class SubmitCorrectionRecordView(APIView):
                 return
 
             context = {
-                'recipient_name': to_user.first_name,
-                'title': record.title,
-                'document_number': record.no or 'N/A',
-                'review_frequency_year': record.review_frequency_year or 0,
-                'review_frequency_month': record.review_frequency_month or 0,
-                'document_type': record.document_type,
-                'section_number': record.no,
-                'revision': record.revision,
-                'written_by': record.written_by,
-                'checked_by': record.checked_by,
-                'approved_by': record.approved_by,
-                'date': record.date,
-                'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
-                'correction_detail': correction.correction,
-            }
+                        'recipient_name': to_user.first_name,
+                        'title': record.title,
+                        'document_number': record.no or 'N/A',
+                        'review_frequency_year': record.review_frequency_year or 0,
+                        'review_frequency_month': record.review_frequency_month or 0,
+                        'document_type': record.document_type,
+                        'section_number': record.no,
+                        'revision': record.rivision,
+                        "written_by": record.written_by,
+                        "checked_by": record.checked_by,
+                        "approved_by": record.approved_by,
+                        'date': record.date,
+                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                    }
 
             html_message = render_to_string(template_name, context)
             plain_message = strip_tags(html_message)
@@ -2291,19 +2290,69 @@ class RecordReviewView(APIView):
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, recipient, subject, message):
-        if recipient and recipient.email:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {str(e)}")
+    def send_email_notification(self, record, recipients, action_type):
+        from decouple import config
+
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Record Submitted for Approval: {record.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': record.title,
+                            'document_number': record.no or 'N/A',
+                            'review_frequency_year': record.review_frequency_year or 0,
+                            'review_frequency_month': record.review_frequency_month or 0,
+                            'document_type': record.document_type,
+                            'section_number': record.no,
+                            'revision': record.revision,
+                            'written_by': record.written_by,
+                            'checked_by': record.checked_by,
+                            'approved_by': record.approved_by,
+                            'date': record.date,
+                            'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                        }
+                        html_message = render_to_string('qms/record/record_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Record Approved: {record.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': record.title,
+                            'document_number': record.no or 'N/A',
+                            'document_type': record.document_type,
+                            'revision': record.revision,
+                            'date': record.date,
+                            'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                        }
+                        html_message = render_to_string('qms/record/record_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for record email notification.")
+                        continue
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
+                    )
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send record email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
                 
                 
 class RecordPublishNotificationView(APIView):
@@ -8610,15 +8659,25 @@ class CustomerDetailAPIView(APIView):
 
    
     def put(self, request, pk):
-        supplier = self.get_object(pk)
-        if not supplier:
+        customer = self.get_object(pk)
+        if not customer:
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CustomerSerializer(supplier, data=request.data)
+        
+        # Create a serializer instance with the request data
+        serializer = CustomerSerializer(customer, data=request.data)
+        
         if serializer.is_valid():
-            serializer.save(is_draft=False)
+            # Set is_draft=False manually before saving
+            customer.is_draft = False
+            customer.save()  # Save changes to the customer object
+            
+            # Save using the serializer to apply other data
             serializer.save()
+            
             return Response(serializer.data, status=status.HTTP_200_OK)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     
     def delete(self, request, pk):
@@ -8835,7 +8894,7 @@ class  CustomerSurveyUpdateView(APIView):
         data['is_draft'] = False
         serializer = CustomerSatisfactionSerializer(documentation, data=data)
         if serializer.is_valid():
-            serializer.save(is_draft=False)
+            
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
