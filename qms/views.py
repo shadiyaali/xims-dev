@@ -21,7 +21,9 @@ from django.utils.html import strip_tags
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.generics import RetrieveDestroyAPIView
-
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
 
 
@@ -1845,6 +1847,10 @@ class RecordCreateView(APIView):
         logger.error(f"record creation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    from django.core.mail import EmailMessage
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
     def send_email_notification(self, record, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
@@ -1861,7 +1867,7 @@ class RecordCreateView(APIView):
                         'review_frequency_month': record.review_frequency_month or 0,
                         'document_type': record.document_type,
                         'section_number': record.no,
-                        'revision': getattr(record, 'rivision', ''),   
+                        'revision': getattr(record, 'rivision', ''),
                         'written_by': record.written_by,
                         'checked_by': record.checked_by,
                         'approved_by': record.approved_by,
@@ -1873,22 +1879,31 @@ class RecordCreateView(APIView):
                     html_message = render_to_string('qms/record/record_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    # Use EmailMessage to allow file attachments
+                    email = EmailMessage(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email],
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.content_subtype = "html"  # Send as HTML
+
+                    # Attach file if available
+                    if record.upload_attachment and record.upload_attachment.path:
+                        email.attach_file(record.upload_attachment.path)
+
+                    email.send(fail_silently=False)
+                    logger.info(f"Email with attachment sent to {recipient_email} for action: {action_type}")
+
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
+
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
 
             
 class RecordAllList(APIView):
@@ -8776,7 +8791,7 @@ class ComplaintsCreateView(generics.CreateAPIView):
 class ComplaintsView(APIView):
     def get(self, request, company_id):
         agendas = Complaints.objects.filter(company_id=company_id,is_draft=False)
-        serializer = InternalProblemGetSerializer(agendas, many=True)
+        serializer = ComplaintGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
