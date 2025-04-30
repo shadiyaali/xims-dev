@@ -257,7 +257,7 @@ class ManualCreateView(APIView):
                         'review_frequency_month': manual.review_frequency_month or 0,
                         'document_type': manual.document_type,
                         'section_number': manual.no,
-                        'revision': getattr(manual, 'rivision', ''),
+                        'rivision': getattr(manual, 'rivision', ''),
                         'written_by': manual.written_by,
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
@@ -496,7 +496,7 @@ class SubmitCorrectionView(APIView):
             'review_frequency_month': manual.review_frequency_month or 0,
             'document_type': manual.document_type,
             'section_number': manual.no,
-            'revision': getattr(manual, 'rivision', ''),
+            'rivision': getattr(manual, 'rivision', ''),
             'written_by': manual.written_by,
             'checked_by': manual.checked_by,
             'approved_by': manual.approved_by,
@@ -673,7 +673,7 @@ class ManualReviewView(APIView):
                             'review_frequency_month': manual.review_frequency_month or 0,
                             'document_type': manual.document_type,
                             'section_number': manual.no,
-                            'revision': manual.rivision,
+                            'rivision': manual.rivision,
                             'written_by': manual.written_by,
                             'checked_by': manual.checked_by,
                             'approved_by': manual.approved_by,
@@ -694,7 +694,7 @@ class ManualReviewView(APIView):
                             'review_frequency_month': manual.review_frequency_month or 0,
                             'document_type': manual.document_type,
                             'section_number': manual.no,
-                            'revision': manual.rivision,
+                            'rivision': manual.rivision,
                             'written_by': manual.written_by,
                             'checked_by': manual.checked_by,
                             'approved_by': manual.approved_by,
@@ -848,7 +848,7 @@ class ManualUpdateView(APIView):
                         'review_frequency_month': manual.review_frequency_month or 0,
                         'document_type': manual.document_type,
                         'section_number': manual.no,
-                        'revision': getattr(manual, 'rivision', ''),
+                        'rivision': getattr(manual, 'rivision', ''),
                         'written_by': manual.written_by,
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
@@ -1111,7 +1111,7 @@ class ManualPublishNotificationView(APIView):
             'review_frequency_month': manual.review_frequency_month or 0,
             'document_type': manual.document_type,
             'section_number': manual.no,
-            'revision': manual.rivision,
+            'rivision': manual.rivision,
             "written_by": manual.written_by,
             "checked_by": manual.checked_by,
             "approved_by": manual.approved_by,
@@ -1294,7 +1294,7 @@ class ProcedureCreateView(APIView):
                         'review_frequency_month': procedure.review_frequency_month or 0,
                         'document_type': procedure.document_type,
                         'section_number': procedure.no,
-                        'revision': getattr(procedure, 'rivision', ''),
+                        'rivision': getattr(procedure, 'rivision', ''),
                         'written_by': procedure.written_by,
                         'checked_by': procedure.checked_by,
                         'approved_by': procedure.approved_by,
@@ -1472,7 +1472,7 @@ class ProcedureUpdateView(APIView):
                         'review_frequency_month': procedure.review_frequency_month or 0,
                         'document_type': procedure.document_type,
                         'section_number': procedure.no,
-                        'revision': procedure.rivision,
+                        'rivision': procedure.rivision,
                         "written_by": procedure.written_by,
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
@@ -1633,7 +1633,7 @@ class SubmitCorrectionProcedureView(APIView):
                 'review_frequency_month': procedure.review_frequency_month or 0,
                 'document_type': procedure.document_type,
                 'section_number': procedure.no,
-                'revision': procedure.rivision,
+                'rivision': procedure.rivision,
                 'written_by': procedure.written_by,
                 'checked_by': procedure.checked_by,
                 'approved_by': procedure.approved_by,
@@ -1793,7 +1793,7 @@ class ProcedureReviewView(APIView):
                             'review_frequency_month': procedure.review_frequency_month or 0,
                             'document_type': procedure.document_type,
                             'section_number': procedure.no,
-                            'revision': procedure.rivision,
+                            'rivision': procedure.rivision,
                             "written_by": procedure.written_by,
                             "checked_by": procedure.checked_by,
                             "approved_by": procedure.approved_by,
@@ -1814,7 +1814,7 @@ class ProcedureReviewView(APIView):
                             'review_frequency_month': procedure.review_frequency_month or 0,
                             'document_type': procedure.document_type,
                             'section_number': procedure.no,
-                            'revision': procedure.rivision,
+                            'rivision': procedure.rivision,
                             "written_by": procedure.written_by,
                             "checked_by": procedure.checked_by,
                             "approved_by": procedure.approved_by,
@@ -2027,72 +2027,67 @@ class RecordCreateView(APIView):
     def send_email_notification(self, record, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
-        if recipient_email:
-            try:
-                if action_type == "review":
-                    subject = f"Record Ready for Review: {record.title}"
-
-                    context = {
-                        'recipient_name': recipient.first_name,
-                        'title': record.title,
-                        'document_number': record.no or 'N/A',
-                        'review_frequency_year': record.review_frequency_year or 0,
-                        'review_frequency_month': record.review_frequency_month or 0,
-                        'document_type': record.document_type,
-                        'section_number': record.no,
-                        'revision': getattr(record, 'revision', ''),
-                        'written_by': record.written_by,
-                        'checked_by': record.checked_by,
-                        'approved_by': record.approved_by,
-                        'date': record.date,
-                    }
-
-                    html_message = render_to_string('qms/record/record_to_checked_by.html', context)
-                    plain_message = strip_tags(html_message)
-
-                    # Create email message
-                    email = EmailMultiAlternatives(
-                        subject=subject,
-                        body=plain_message,
-                        from_email=config("DEFAULT_FROM_EMAIL"),
-                        to=[recipient_email]
-                    )
-                    email.attach_alternative(html_message, "text/html")
-                    
-                    # Attach the document if it exists
-                    if record.upload_attachment:
-                        try:
-                            file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
-                            file_content = record.upload_attachment.read()
-                            
-                            # Attach the file to the email
-                            email.attach(file_name, file_content)
-                            
-                            logger.info(f"Attached document {file_name} to email")
-                        except Exception as attachment_error:
-                            logger.error(f"Error attaching file: {str(attachment_error)}")
-                    
-                    # Use your custom email backend
-                    connection = CertifiEmailBackend(
-                        host=config('EMAIL_HOST'),
-                        port=config('EMAIL_PORT'),
-                        username=config('EMAIL_HOST_USER'),
-                        password=config('EMAIL_HOST_PASSWORD'),
-                        use_tls=True
-                    )
-                    
-                    # Send the email with the custom connection
-                    email.connection = connection
-                    email.send(fail_silently=False)
-                    
-                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
-                else:
-                    logger.warning("Unknown action type provided for email.")
-                    return
-            except Exception as e:
-                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-        else:
+        if not recipient_email:
             logger.warning("Recipient email is None. Skipping email send.")
+            return
+
+        try:
+            if action_type == "review":
+                subject = f"Record Ready for Review: {record.title}"
+
+                context = {
+                    'recipient_name': recipient.first_name,
+                    'title': record.title,
+                    'document_number': record.no or 'N/A',
+                    'review_frequency_year': record.review_frequency_year or 0,
+                    'review_frequency_month': record.review_frequency_month or 0,
+                    'document_type': record.document_type,
+                    'section_number': record.no,
+                    'rivision': getattr(record, 'rivision', ''),  # fixed typo if any
+                    'written_by': record.written_by,
+                    'checked_by': record.checked_by,
+                    'approved_by': record.approved_by,
+                    'date': record.date,
+                }
+
+                html_message = render_to_string('qms/record/record_to_checked_by.html', context)
+                plain_message = strip_tags(html_message)
+
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=plain_message,
+                    from_email=config("DEFAULT_FROM_EMAIL"),
+                    to=[recipient_email]
+                )
+                email.attach_alternative(html_message, "text/html")
+
+                # Attach document if available
+                if record.upload_attachment:
+                    try:
+                        file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                        file_content = record.upload_attachment.read()
+                        email.attach(file_name, file_content)
+                        logger.info(f"Attached document {file_name} to email")
+                    except Exception as attachment_error:
+                        logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                # Send using custom backend
+                connection = CertifiEmailBackend(
+                    host=config('EMAIL_HOST'),
+                    port=config('EMAIL_PORT'),
+                    username=config('EMAIL_HOST_USER'),
+                    password=config('EMAIL_HOST_PASSWORD'),
+                    use_tls=True
+                )
+                email.connection = connection
+                email.send(fail_silently=False)
+
+                logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+            else:
+                logger.warning(f"Unknown action type '{action_type}' provided for email.")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+
 
             
 class RecordAllList(APIView):
@@ -2222,50 +2217,69 @@ class RecordUpdateView(APIView):
     def send_email_notification(self, record, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
-        if recipient_email:
-            try:
-                if action_type == "review":
-                    subject = f"Record Corrections Updated: {record.title}"
-
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
-
-                    context = {
-                        'recipient_name': recipient.first_name,
-                        'title': record.title,
-                        'document_number': record.no or 'N/A',
-                        'review_frequency_year': record.review_frequency_year or 0,
-                        'review_frequency_month': record.review_frequency_month or 0,
-                        'document_type': record.document_type,
-                        'section_number': record.no,
-                        'revision': record.rivision,
-                        "written_by": record.written_by,
-                        "checked_by": record.checked_by,
-                        "approved_by": record.approved_by,
-                        'date': record.date,
-                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
-                    }
-
-                    html_message = render_to_string('qms/record/record_update_to_checked_by.html', context)
-                    plain_message = strip_tags(html_message)
-
-                    send_mail(
-                        subject=subject,
-                        message=plain_message,
-                        from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
-                    )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
-                else:
-                    logger.warning("Unknown action type provided for email.")
-                    return
-            except Exception as e:
-                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-        else:
+        if not recipient_email:
             logger.warning("Recipient email is None. Skipping email send.")
+            return
+
+        try:
+            if action_type == "review":
+                subject = f"Record Corrections Updated: {record.title}"
+
+                context = {
+                    'recipient_name': recipient.first_name,
+                    'title': record.title,
+                    'document_number': record.no or 'N/A',
+                    'review_frequency_year': record.review_frequency_year or 0,
+                    'review_frequency_month': record.review_frequency_month or 0,
+                    'document_type': record.document_type,
+                    'section_number': record.no,
+                    'rivision': getattr(record, 'rivision', ''),  # fixed typo 'rivision'
+                    "written_by": record.written_by,
+                    "checked_by": record.checked_by,
+                    "approved_by": record.approved_by,
+                    'date': record.date,
+                    'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                    'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                }
+
+                html_message = render_to_string('qms/record/record_update_to_checked_by.html', context)
+                plain_message = strip_tags(html_message)
+
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=plain_message,
+                    from_email=config("DEFAULT_FROM_EMAIL"),
+                    to=[recipient_email]
+                )
+                email.attach_alternative(html_message, "text/html")
+
+                # Attach the document if available
+                if record.upload_attachment:
+                    try:
+                        file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                        file_content = record.upload_attachment.read()
+                        email.attach(file_name, file_content)
+                        logger.info(f"Attached document {file_name} to email")
+                    except Exception as attachment_error:
+                        logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                # Send using custom backend
+                connection = CertifiEmailBackend(
+                    host=config('EMAIL_HOST'),
+                    port=config('EMAIL_PORT'),
+                    username=config('EMAIL_HOST_USER'),
+                    password=config('EMAIL_HOST_PASSWORD'),
+                    use_tls=True
+                )
+                email.connection = connection
+                email.send(fail_silently=False)
+
+                logger.info(f"HTML email with attachment successfully sent to {recipient_email} for action: {action_type}")
+            else:
+                logger.warning(f"Unknown action type '{action_type}' provided for email.")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+
 
             
 
@@ -2361,6 +2375,7 @@ class SubmitCorrectionRecordView(APIView):
             from_user = correction.from_user
             recipient_email = to_user.email if to_user else None
 
+            # Determine template and subject based on roles
             if from_user == record.approved_by and to_user == record.checked_by:
                 template_name = 'qms/record/record_correction_to_checker.html'
                 subject = f"Correction Requested on '{record.title}'"
@@ -2370,43 +2385,69 @@ class SubmitCorrectionRecordView(APIView):
                 subject = f"Correction Requested on '{record.title}'"
                 should_send = True
             else:
-                return  # Invalid role relationship
-
-            if not recipient_email or not should_send:
+                logger.warning("Invalid role relationship. Email not sent.")
                 return
 
+            if not recipient_email or not should_send:
+                logger.info("Email sending skipped due to missing recipient or disabled flag.")
+                return
+
+            # Prepare email context
             context = {
-                        'recipient_name': to_user.first_name,
-                        'title': record.title,
-                        'document_number': record.no or 'N/A',
-                        'review_frequency_year': record.review_frequency_year or 0,
-                        'review_frequency_month': record.review_frequency_month or 0,
-                        'document_type': record.document_type,
-                        'section_number': record.no,
-                        'revision': record.rivision,
-                        "written_by": record.written_by,
-                        "checked_by": record.checked_by,
-                        "approved_by": record.approved_by,
-                        'date': record.date,
-                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
-                    }
+                'recipient_name': to_user.first_name,
+                'title': record.title,
+                'document_number': record.no or 'N/A',
+                'review_frequency_year': record.review_frequency_year or 0,
+                'review_frequency_month': record.review_frequency_month or 0,
+                'document_type': record.document_type,
+                'section_number': record.no,
+                'rivision': getattr(record, 'rivision', ''),  # safe access
+                "written_by": record.written_by,
+                "checked_by": record.checked_by,
+                "approved_by": record.approved_by,
+                'date': record.date,
+                'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+            }
 
             html_message = render_to_string(template_name, context)
             plain_message = strip_tags(html_message)
 
-            send_mail(
+            # Construct email
+            email = EmailMultiAlternatives(
                 subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_email],
-                fail_silently=False,
-                html_message=html_message,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
             )
-            print(f"Correction email successfully sent to {recipient_email}")
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if available
+            if record.upload_attachment:
+                try:
+                    file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = record.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached document {file_name} to email")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching file: {str(attachment_error)}")
+
+            # Use custom backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Correction email successfully sent to {recipient_email}")
 
         except Exception as e:
-            print(f"Failed to send correction email: {str(e)}")
+            logger.error(f"Failed to send correction email: {str(e)}")
+
 
 
 class CorrectionRecordList(generics.ListAPIView):
@@ -2506,6 +2547,10 @@ class RecordReviewView(APIView):
 
     def send_email_notification(self, record, recipients, action_type):
         from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+        from qms.utils import CertifiEmailBackend  # Assuming you have a custom backend
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
@@ -2558,18 +2603,40 @@ class RecordReviewView(APIView):
                         logger.warning(f"Unknown action type '{action_type}' for email notification.")
                         continue
 
-                    send_mail(
+                    # Create email
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config('DEFAULT_FROM_EMAIL'),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the record document if it exists
+                    if record.upload_attachment:
+                        try:
+                            file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = record.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached record file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
                     logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
 
                 except Exception as e:
-                    logger.error(f"Failed to send record email to {recipient_email}: {str(e)}")
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
             else:
                 logger.warning("Recipient email is None. Skipping email send.")
 
@@ -2671,34 +2738,75 @@ class RecordPublishNotificationView(APIView):
             )
 
     def _send_publish_email(self, record, recipient):
-        """Helper method to send email notifications"""
-        # Get publisher name
+        """Helper method to send email notifications with template and attach record document"""
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+        from django.utils.html import strip_tags
+        from django.template.loader import render_to_string
+        
+
         publisher_name = "N/A"
         if record.published_user:
             publisher_name = f"{record.published_user.first_name} {record.published_user.last_name}"
         elif record.approved_by:
             publisher_name = f"{record.approved_by.first_name} {record.approved_by.last_name}"
-            
-        subject = f"New record Published: {record.title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new record titled '{record.title}' has been published.\n\n"
-            f"record Details:\n"
-            f"- Document Number: {record.no or 'N/A'}\n"
-            f"- Document Type: {record.document_type}\n"
-            f"- Published By: {publisher_name}\n\n"
-            f"Please login to view this document.\n\n"
-            f"Best regards,\nDocumentation Team"
-        )
 
-        send_mail(
+        subject = f"New Record Published: {record.title}"
+
+        context = {
+            'recipient_name': recipient.first_name,
+            'title': record.title,
+            'document_number': record.no or 'N/A',
+            'review_frequency_year': record.review_frequency_year or 0,
+            'review_frequency_month': record.review_frequency_month or 0,
+            'document_type': record.document_type,
+            'section_number': record.no,
+            'rivision': record.rivision,
+            "written_by": record.written_by,
+            "checked_by": record.checked_by,
+            "approved_by": record.approved_by,
+            'date': record.date,
+            'publisher_name': publisher_name,
+            'document_url': record.upload_attachment.url if record.upload_attachment else None,
+            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+        }
+
+        html_message = render_to_string('qms/record/record_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
+            to=[recipient.email]
         )
-        logger.info(f"Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        # Attach file if present
+        if record.upload_attachment:
+            try:
+                file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = record.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached record file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        # Use custom backend
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
  
 class RecordDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -2934,7 +3042,7 @@ class ProcedurePublishNotificationView(APIView):
             'review_frequency_month': procedure.review_frequency_month or 0,
             'document_type': procedure.document_type,
             'section_number': procedure.no,
-            'revision': procedure.rivision,
+            'rivision': procedure.rivision,
             "written_by": procedure.written_by,
             "checked_by": procedure.checked_by,
             "approved_by": procedure.approved_by,
@@ -4070,7 +4178,7 @@ class EditsCompliance(APIView):
             f"Details:\n"
             f"- Category: {compliance.compliance_type}\n"
             f"- Remarks: {compliance.compliance_remarks}\n"
-            f"- Revision: {compliance.rivision}\n"
+            f"- Rivision: {compliance.rivision}\n"
             f"- Date: {compliance.date}\n"
             f"- Related Document: {compliance.relate_document}\n"
             f"- Special Requirements: {compliance.special_requirements if hasattr(compliance, 'special_requirements') else ''}\n"
@@ -4208,7 +4316,7 @@ class LegalCreateAPIView(APIView):
                 f"A new legal requirement '{legal.legal_name}' has been Updated.\n\n"
                 f"Details:\n"
                 f"- Document Type: {legal.document_type}\n"
-                f"- Revision: {legal.rivision}\n"
+                f"- Rivision: {legal.rivision}\n"
                 f"- Date: {legal.date}\n"
                 f"- Related Record Format: {legal.related_record_format}\n\n"
                 f"Please log in to view more details.\n\n"
@@ -4314,7 +4422,7 @@ class EditsLegal(APIView):
                 f"A new legal requirement '{legal.legal_name}' has been updated.\n\n"
                 f"Details:\n"
                 f"- Document Type: {legal.document_type}\n"
-                f"- Revision: {legal.rivision}\n"
+                f"- Rivision: {legal.rivision}\n"
                 f"- Date: {legal.date}\n"
                 f"- Related Record Format: {legal.related_record_format}\n\n"
                 f"Please log in to view more details.\n\n"
@@ -4358,7 +4466,6 @@ class LegalView(APIView):
         
 
 class EvaluationCreateView(APIView):
- 
     def post(self, request):
         logger.info("Received evaluation creation request.")
         serializer = EvaluationSerializer(data=request.data)
@@ -4376,10 +4483,9 @@ class EvaluationCreateView(APIView):
                     evaluation.send_email_to_checked_by = parse_bool(
                         request.data.get('send_email_to_checked_by')
                     )
-                 
 
                     evaluation.save()
-                    logger.info(f"evaluation created successfully with ID: {evaluation.id}")
+                    logger.info(f"Evaluation created successfully with ID: {evaluation.id}")
 
                     if evaluation.checked_by:
                         if evaluation.send_notification_to_checked_by:
@@ -4402,7 +4508,7 @@ class EvaluationCreateView(APIView):
                         logger.warning("No checked_by user assigned.")
 
                     return Response(
-                        {"message": "evaluation created successfully", "id": evaluation.id},
+                        {"message": "Evaluation created successfully", "id": evaluation.id},
                         status=status.HTTP_201_CREATED
                     )
 
@@ -4413,7 +4519,7 @@ class EvaluationCreateView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
-        logger.error(f"evaluation creation failed: {serializer.errors}")
+        logger.error(f"Evaluation creation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def send_email_notification(self, evaluation, recipient, action_type):
@@ -4422,30 +4528,60 @@ class EvaluationCreateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"evaluation Ready for Review: {evaluation.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"A evaluation titled '{evaluation.title}' requires your review.\n\n"
-                        f"Document Number: {evaluation.no or 'N/A'}\n"
-                        f"Review Frequency: {evaluation.review_frequency_year or 0} year(s), "
-                        f"{evaluation.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {evaluation.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Evaluation Ready for Review: {evaluation.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': evaluation.title,
+                        'document_number': evaluation.no or 'N/A',
+                        'review_frequency_year': evaluation.review_frequency_year or 0,
+                        'review_frequency_month': evaluation.review_frequency_month or 0,
+                        'document_type': evaluation.document_type,
+                        'section_number': evaluation.no,
+                        'rivision': getattr(evaluation, 'rivision', ''),
+                        'written_by': evaluation.written_by,
+                        'checked_by': evaluation.checked_by,
+                        'approved_by': evaluation.approved_by,
+                        'date': evaluation.date,
+                    }
+
+                    html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    # Create email message
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
                     )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if evaluation.upload_attachment:
+                        try:
+                            file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = evaluation.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached evaluation document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching evaluation file: {str(attachment_error)}")
+
+                    # Optional: Use custom backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
@@ -4496,9 +4632,23 @@ class EvaluationDetailView(APIView):
         evaluation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.db import transaction
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
+from .models import Evaluation, NotificationEvaluations
+from .serializers import EvaluationUpdateSerializer
+from .utils import parse_bool, now
+from .email_backend import CertifiEmailBackend
+from decouple import config  # To access config values from .env
+
 class EvaluationUpdateView(APIView):
     def put(self, request, pk):
-        print("fsddf",request.data)
+        print("Request data:", request.data)
         try:
             with transaction.atomic():
                 evaluation = Evaluation.objects.get(pk=pk)
@@ -4506,60 +4656,39 @@ class EvaluationUpdateView(APIView):
                 serializer = EvaluationUpdateSerializer(evaluation, data=request.data, partial=True)
 
                 if serializer.is_valid():
-                    updated_procedure = serializer.save()
+                    updated_evaluation = serializer.save()
 
-                 
-                    updated_procedure.written_at = now()
-                    updated_procedure.is_draft = False
-                    updated_procedure.status = 'Pending for Review/Checking'
- 
-                    updated_procedure.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
-                    updated_procedure.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
-                    updated_procedure.send_notification_to_approved_by = parse_bool(request.data.get('send_system_approved'))
-                    updated_procedure.send_email_to_approved_by = parse_bool(request.data.get('send_email_approved'))
+                    updated_evaluation.written_at = now()
+                    updated_evaluation.is_draft = False
+                    updated_evaluation.status = 'Pending for Review/Checking'
 
+                    updated_evaluation.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_evaluation.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
 
+                    updated_evaluation.save()
 
-                    updated_procedure.save()
-
-                 
-                    if updated_procedure.checked_by:
-                        if updated_procedure.send_notification_to_checked_by:
+                    # Handle notification/email to checked_by
+                    if updated_evaluation.checked_by:
+                        if updated_evaluation.send_notification_to_checked_by:
                             try:
                                 NotificationEvaluations.objects.create(
-                                    user=updated_procedure.checked_by,
-                                    evaluation=updated_procedure,
-                                    title="evaluation Updated - Review Required",
-                                    message=f"evaluation '{updated_procedure.title}' has been updated and requires your review."
+                                    user=updated_evaluation.checked_by,
+                                    evaluation=updated_evaluation,
+                                    title="Evaluation Updated - Review Required",
+                                    message=f"Evaluation '{updated_evaluation.title}' has been updated and requires your review."
                                 )
                             except Exception as e:
                                 logger.error(f"Notification error for checked_by: {str(e)}")
 
-                        if updated_procedure.send_email_to_checked_by and updated_procedure.checked_by.email:
-                            self.send_email_notification(updated_procedure, updated_procedure.checked_by, "review")
+                        if updated_evaluation.send_email_to_checked_by and updated_evaluation.checked_by.email:
+                            self.send_email_notification(updated_evaluation, updated_evaluation.checked_by, "review")
 
-                    
-                    if updated_procedure.approved_by:
-                        if updated_procedure.send_notification_to_approved_by:
-                            try:
-                                NotificationEvaluations.objects.create(
-                                    user=updated_procedure.approved_by,
-                                    evaluation=updated_procedure,
-                                    title="evaluation Updated - Approval Required",
-                                    message=f"evaluation '{updated_procedure.title}' has been updated and is ready for your approval."
-                                )
-                            except Exception as e:
-                                logger.error(f"Notification error for approved_by: {str(e)}")
-
-                        if updated_procedure.send_email_to_approved_by and updated_procedure.approved_by.email:
-                            self.send_email_notification(updated_procedure, updated_procedure.approved_by, "approval")
-
-                    return Response(serializer.data, status=status.HTTP_200_OK)
+                    return Response({"message": "Evaluation updated successfully"}, status=status.HTTP_200_OK)
 
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Evaluation.DoesNotExist:
-            return Response({"error": "procedure not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Evaluation not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def send_email_notification(self, evaluation, recipient, action_type):
         recipient_email = recipient.email if recipient else None
@@ -4567,49 +4696,68 @@ class EvaluationUpdateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"evaluation Ready for Review: {evaluation.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The evaluation '{evaluation.title}' has been updated and requires your review.\n\n"
-                        f"Document Number: {evaluation.no or 'N/A'}\n"
-                        f"Review Frequency: {evaluation.review_frequency_year or 0} year(s), "
-                        f"{evaluation.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {evaluation.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Evaluation Ready for Review: {evaluation.title}"
+
+                    # Prepare email content using a custom HTML template
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': evaluation.title,
+                        'document_number': evaluation.no or 'N/A',
+                        'review_frequency_year': evaluation.review_frequency_year or 0,
+                        'review_frequency_month': evaluation.review_frequency_month or 0,
+                        'document_type': evaluation.document_type,
+                        'section_number': evaluation.no,
+                        'rivision': getattr(evaluation, 'rivision', ''),
+                        'written_by': evaluation.written_by,
+                        'checked_by': evaluation.checked_by,
+                        'approved_by': evaluation.approved_by,
+                        'date': evaluation.date,
+                    }
+
+                    html_message = render_to_string('evaluation/evaluation_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[recipient_email]
                     )
-                elif action_type == "approval":
-                    subject = f"evaluation Pending Approval: {evaluation.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The evaluation '{evaluation.title}' has been updated and is ready for your approval.\n\n"
-                        f"Document Number: {evaluation.no or 'N/A'}\n"
-                        f"Review Frequency: {evaluation.review_frequency_year or 0} year(s), "
-                        f"{evaluation.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {evaluation.document_type}\n\n"
-                        f"Please login to the system to approve.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the evaluation file if available
+                    if evaluation.upload_attachment:
+                        try:
+                            file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = evaluation.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached evaluation file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use the CertifiEmailBackend for sending email
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
                     )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
-                    logger.warning("Unknown action type for email notification.")
-                    return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient_email} for action: {action_type}")
-
+                    logger.warning("Unknown action type provided for email.")
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
-            logger.warning("Recipient email is missing, skipping email.")
+            logger.warning("Recipient email is None. Skipping email send.")
 
 
-class SubmitCorrectionEvaluationView(APIView):
+
+class SubmitEvaluationCorrectionView(APIView):
     def post(self, request):
         try:
             evaluation_id = request.data.get('evaluation_id')
@@ -4622,14 +4770,13 @@ class SubmitCorrectionEvaluationView(APIView):
             try:
                 evaluation = Evaluation.objects.get(id=evaluation_id)
             except Evaluation.DoesNotExist:
-                return Response({'error': 'evaluation not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Evaluation not found'}, status=status.HTTP_404_NOT_FOUND)
 
             try:
                 from_user = Users.objects.get(id=from_user_id)
             except Users.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Determine to_user based on from_user
             if from_user == evaluation.checked_by:
                 to_user = evaluation.written_by
             elif from_user == evaluation.approved_by:
@@ -4637,10 +4784,6 @@ class SubmitCorrectionEvaluationView(APIView):
             else:
                 return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Delete old correction
-            
-
-            # Create new correction
             correction = CorrectionEvaluation.objects.create(
                 evaluation=evaluation,
                 to_user=to_user,
@@ -4648,11 +4791,9 @@ class SubmitCorrectionEvaluationView(APIView):
                 correction=correction_text
             )
 
-            # Update status
             evaluation.status = 'Correction Requested'
             evaluation.save()
 
-            # Send notification and email
             self.create_correction_notification(correction)
             self.send_correction_email_notification(correction)
 
@@ -4681,7 +4822,7 @@ class SubmitCorrectionEvaluationView(APIView):
             if should_send:
                 message = (
                     f"Correction Request from {from_user.first_name} "
-                    f"to {to_user.first_name} for evaluation: {evaluation.title}"
+                    f"to {to_user.first_name} for Evaluation: {evaluation.title}"
                 )
                 notification = NotificationEvaluations.objects.create(
                     user=to_user,
@@ -4695,39 +4836,76 @@ class SubmitCorrectionEvaluationView(APIView):
             print(f"Failed to create correction notification: {str(e)}")
 
     def send_correction_email_notification(self, correction):
-        try:
-            evaluation = correction.evaluation
-            to_user = correction.to_user
-            from_user = correction.from_user
-            recipient_email = to_user.email if to_user else None
+        evaluation = correction.evaluation
+        from_user = correction.from_user
+        to_user = correction.to_user
+        recipient_email = to_user.email if to_user else None
 
-            if from_user == evaluation.approved_by and to_user == evaluation.checked_by:
-                should_send = evaluation.send_email_to_checked_by
-            elif from_user == evaluation.checked_by and to_user == evaluation.written_by:
-                should_send = True
-            else:
-                should_send = False
+        if from_user == evaluation.checked_by and to_user == evaluation.written_by:
+            template_name = 'qms/evaluation/evaluation_correction_to_writer.html'
+            subject = f"Correction Requested on '{evaluation.title}'"
+            should_send = True
+        elif from_user == evaluation.approved_by and to_user == evaluation.checked_by:
+            template_name = 'qms/evaluation/evaluation_correction_to_checker.html'
+            subject = f"Correction Requested on '{evaluation.title}'"
+            should_send = evaluation.send_email_to_checked_by
+        else:
+            return  # Not a valid correction flow
 
-            if recipient_email and should_send:
-                send_mail(
-                    subject=f"Correction Request: {evaluation.title}",
-                    message=(
-                        f"Dear {to_user.first_name},\n\n"
-                        f"A correction has been requested by {from_user.first_name} for the evaluation '{evaluation.title}'.\n\n"
-                        f"Correction details:\n"
-                        f"{correction.correction}\n\n"
-                        f"Please review and take necessary actions.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    ),
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                print(f"Correction email successfully sent to {recipient_email}")
-            else:
-                print("Email not sent due to permission flags, invalid roles, or missing email.")
-        except Exception as e:
-            print(f"Failed to send correction email: {str(e)}")
+        if not recipient_email or not should_send:
+            return
+
+        context = {
+            'recipient_name': to_user.first_name,
+            'title': evaluation.title,
+            'document_number': evaluation.no or 'N/A',
+            'review_frequency_year': evaluation.review_frequency_year or 0,
+            'review_frequency_month': evaluation.review_frequency_month or 0,
+            'document_type': evaluation.document_type,
+            'section_number': evaluation.no,
+            'rivision': getattr(evaluation, 'rivision', ''),
+            'written_by': evaluation.written_by,
+            'checked_by': evaluation.checked_by,
+            'approved_by': evaluation.approved_by,
+            'date': evaluation.date,
+        }
+
+        html_message = render_to_string(template_name, context)
+        plain_message = strip_tags(html_message)
+
+        from django.core.mail import EmailMultiAlternatives
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient_email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        if evaluation.upload_attachment:
+            try:
+                file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = evaluation.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached evaluation file {file_name} to correction email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+
+        logger.info(f"Correction email sent to {recipient_email} with attachment.")
+
+
+
             
 class CorrectionEvaluationList(generics.ListAPIView):
     serializer_class = CorrectionEvaluationSerializer
@@ -4738,10 +4916,9 @@ class CorrectionEvaluationList(generics.ListAPIView):
     
     
 class EvaluationReviewView(APIView):
-    
     def post(self, request):
-        logger.info("Received request for Evaluation review process.")
-        
+        logger.info("Received request for evaluation review process.")
+
         try:
             evaluation_id = request.data.get('evaluation_id')
             current_user_id = request.data.get('current_user_id')
@@ -4753,141 +4930,212 @@ class EvaluationReviewView(APIView):
                 evaluation = Evaluation.objects.get(id=evaluation_id)
                 current_user = Users.objects.get(id=current_user_id)
             except (Evaluation.DoesNotExist, Users.DoesNotExist):
-                return Response({'error': 'Invalid Evaluation or user'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Invalid evaluation or user'}, status=status.HTTP_404_NOT_FOUND)
 
             with transaction.atomic():
-                # Written by - First Submission
                 if current_user == evaluation.written_by and not evaluation.written_at:
                     evaluation.written_at = now()
+                    evaluation.save()
 
-                # Review process
-                if evaluation.status == 'Pending for Review/Checking' and current_user == evaluation.checked_by:
+                current_status = evaluation.status
+
+                # Case 1: Checked_by reviews
+                if current_status == 'Pending for Review/Checking' and current_user == evaluation.checked_by:
                     evaluation.status = 'Reviewed,Pending for Approval'
                     evaluation.checked_at = now()
                     evaluation.save()
 
-                    # Notification to approved_by (only if flag is True)
                     if evaluation.send_notification_to_approved_by:
                         NotificationEvaluations.objects.create(
                             user=evaluation.approved_by,
                             evaluation=evaluation,
-                            message=f"evaluation '{evaluation.title}' is ready for approval."
+                            message=f"Evaluation '{evaluation.title}' is ready for approval."
                         )
 
-                    # Email to approved_by (only if flag is True)
                     if evaluation.send_email_to_approved_by:
                         self.send_email_notification(
-                            recipient=evaluation.approved_by,
-                            subject=f"evaluation {evaluation.title} - Pending Approval",
-                            message=f"The evaluation '{evaluation.title}' has been reviewed and is pending your approval."
+                            evaluation=evaluation,
+                            recipients=[evaluation.approved_by],
+                            action_type="review"
                         )
 
-                # Approval process
-                elif evaluation.status == 'Reviewed,Pending for Approval' and current_user == evaluation.approved_by:
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == evaluation.approved_by:
                     evaluation.status = 'Pending for Publish'
                     evaluation.approved_at = now()
                     evaluation.save()
- 
-                elif current_user == evaluation.written_by and evaluation.status == 'Correction Requested':
+
+                    for user in [evaluation.written_by, evaluation.checked_by, evaluation.approved_by]:
+                        if user:
+                            NotificationEvaluations.objects.create(
+                                user=user,
+                                evaluation=evaluation,
+                                message=f"Evaluation '{evaluation.title}' has been approved and is pending for publish."
+                            )
+
+                    self.send_email_notification(
+                        evaluation=evaluation,
+                        recipients=[u for u in [evaluation.written_by, evaluation.checked_by, evaluation.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                # Case 3: Correction requested
+                elif current_status == 'Correction Requested' and current_user == evaluation.written_by:
                     evaluation.status = 'Pending for Review/Checking'
                     evaluation.save()
 
                 else:
                     return Response({
-                        'message': 'No action taken. User not authorized for this Procedure.'
+                        'message': 'No action taken. User not authorized for current evaluation status.'
                     }, status=status.HTTP_200_OK)
 
             return Response({
                 'status': 'success',
-                'message': 'evaluation processed successfully',
+                'message': 'Evaluation processed successfully',
                 'evaluation_status': evaluation.status
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Error in procedure review process: {str(e)}")
+            logger.error(f"Error in evaluation review process: {str(e)}")
             return Response({
                 'error': 'An unexpected error occurred',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, recipient, subject, message):
-        if recipient and recipient.email:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {str(e)}")
+    def send_email_notification(self, evaluation, recipients, action_type):
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Evaluation Submitted for Approval: {evaluation.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': evaluation.title,
+                            'document_number': evaluation.no or 'N/A',
+                            'review_frequency_year': evaluation.review_frequency_year or 0,
+                            'review_frequency_month': evaluation.review_frequency_month or 0,
+                            'document_type': evaluation.document_type,
+                            'section_number': evaluation.no,
+                            'rivision': evaluation.rivision,
+                            'written_by': evaluation.written_by,
+                            'checked_by': evaluation.checked_by,
+                            'approved_by': evaluation.approved_by,
+                            'date': evaluation.date,
+                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
+                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                        }
+                        html_message = render_to_string('evaluation/evaluation_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Evaluation Approved: {evaluation.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': evaluation.title,
+                            'document_number': evaluation.no or 'N/A',
+                            'review_frequency_year': evaluation.review_frequency_year or 0,
+                            'review_frequency_month': evaluation.review_frequency_month or 0,
+                            'document_type': evaluation.document_type,
+                            'section_number': evaluation.no,
+                            'rivision': evaluation.rivision,
+                            'written_by': evaluation.written_by,
+                            'checked_by': evaluation.checked_by,
+                            'approved_by': evaluation.approved_by,
+                            'date': evaluation.date,
+                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
+                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                        }
+                        html_message = render_to_string('evaluation/evaluation_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
 
 
 
 class EvaluationPublishNotificationView(APIView):
-
- 
     """
-    Endpoint to handle publishing a manual and sending notifications to company users.
+    Endpoint to handle publishing an evaluation and sending notifications to company users.
     """
 
     def post(self, request, evaluation_id):
         try:
-          
             evaluation = Evaluation.objects.get(id=evaluation_id)
             company_id = request.data.get('company_id')
             published_by = request.data.get('published_by')  
             send_notification = request.data.get('send_notification', False)
-            
+
             if not company_id:
                 return Response(
                     {"error": "Company ID is required"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             company = Company.objects.get(id=company_id)
 
             with transaction.atomic():
-                
                 evaluation.status = 'Published'
                 evaluation.published_at = now()
-                
- 
+
                 if published_by:
                     try:
                         publishing_user = Users.objects.get(id=published_by)
                         evaluation.published_user = publishing_user
                     except Users.DoesNotExist:
                         logger.warning(f"Publisher user ID {published_by} not found")
-                
-      
+
                 evaluation.send_notification = send_notification
                 evaluation.save()
 
-      
                 if send_notification:
-             
                     company_users = Users.objects.filter(company=company)
 
-       
                     notifications = [
                         NotificationEvaluations(
                             user=user,
                             evaluation=evaluation,
-                            title=f"procedure Published: {evaluation.title}",
+                            title=f"Evaluation Published: {evaluation.title}",
                             message=f"A new evaluation '{evaluation.title}' has been published."
                         )
                         for user in company_users
                     ]
 
-                    # Bulk create all notifications
                     if notifications:
                         NotificationEvaluations.objects.bulk_create(notifications)
                         logger.info(f"Created {len(notifications)} notifications for evaluation {evaluation_id}")
 
-                    # Send emails
                     for user in company_users:
                         if user.email:
                             try:
@@ -4897,7 +5145,7 @@ class EvaluationPublishNotificationView(APIView):
 
             return Response(
                 {
-                    "message": "evaluation published successfully",
+                    "message": "Evaluation published successfully",
                     "notification_sent": send_notification,
                     "publisher_set": published_by is not None
                 },
@@ -4905,51 +5153,78 @@ class EvaluationPublishNotificationView(APIView):
             )
 
         except Evaluation.DoesNotExist:
-            return Response(
-                {"error": "evaluation not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Evaluation not found"}, status=status.HTTP_404_NOT_FOUND)
         except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Error in publish notification: {str(e)}")
-            return Response(
-                {"error": f"Failed to publish evaluation: {str(e)}"}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": f"Failed to publish evaluation: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _send_publish_email(self, evaluation, recipient):
-        """Helper method to send email notifications"""
-        # Get publisher name
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
+
         publisher_name = "N/A"
         if evaluation.published_user:
             publisher_name = f"{evaluation.published_user.first_name} {evaluation.published_user.last_name}"
         elif evaluation.approved_by:
             publisher_name = f"{evaluation.approved_by.first_name} {evaluation.approved_by.last_name}"
-            
-        subject = f"New evaluation Published: {evaluation.title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new evaluation titled '{evaluation.title}' has been published.\n\n"
-            f"evaluation Details:\n"
-            f"- Document Number: {evaluation.no or 'N/A'}\n"
-            f"- Document Type: {evaluation.document_type}\n"
-            f"- Published By: {publisher_name}\n\n"
-            f"Please login to view this document.\n\n"
-            f"Best regards,\nDocumentation Team"
-        )
 
-        send_mail(
+        subject = f"New Evaluation Published: {evaluation.title}"
+
+        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': evaluation.title,
+                            'document_number': evaluation.no or 'N/A',
+                            'review_frequency_year': evaluation.review_frequency_year or 0,
+                            'review_frequency_month': evaluation.review_frequency_month or 0,
+                            'document_type': evaluation.document_type,
+                            'section_number': evaluation.no,
+                            'rivision': evaluation.rivision,
+                            'written_by': evaluation.written_by,
+                            'checked_by': evaluation.checked_by,
+                            'approved_by': evaluation.approved_by,
+                            'date': evaluation.date,
+                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
+                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                        }
+
+        html_message = render_to_string('evaluations/evaluation_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
+            to=[recipient.email]
         )
-        logger.info(f"Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        if evaluation.upload_attachment:
+            try:
+                file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = evaluation.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached evaluation file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
         
 
 class PEvaluationDraftAPIView(APIView):
@@ -5165,7 +5440,7 @@ class ChangesCreateAPIView(APIView):
             f"- MOC No: {changes.moc_no}\n"
             f"- Type: {changes.moc_type}\n"
             f"- Date: {changes.date}\n"
-            f"- Revision: {changes.rivision}\n"
+            f"- Rivision: {changes.rivision}\n"
             f"- Related Record Format: {changes.related_record_format}\n\n"
             f"Please log in to view more details.\n\n"
             f"Best regards,\nYour Company Team"
@@ -5265,7 +5540,7 @@ class EditsChanges(APIView):
             f"A management of change (MOC) titled '{changes.moc_title}' has been updated.\n\n"
             f"Details:\n"
             f"- MOC Type: {changes.moc_type}\n"
-            f"- Revision: {changes.rivision}\n"
+            f"- Rivision: {changes.rivision}\n"
             f"- Date: {changes.date}\n"
             f"- Related Record Format: {changes.related_record_format}\n\n"
             f"Please log in to view more details.\n\n"
@@ -5451,7 +5726,7 @@ class SustainabilityCreateView(APIView):
                         'review_frequency_month': sustainability.review_frequency_month or 0,
                         'document_type': sustainability.document_type,
                         'section_number': sustainability.no,
-                        'revision': sustainability.rivision,
+                        'rivision': sustainability.rivision,
                          "written_by": sustainability.written_by,
                          "checked_by": sustainability.checked_by,
                          "approved_by": sustainability.approved_by,
@@ -8651,7 +8926,7 @@ class ManualDraftEditView(APIView):
                         'review_frequency_month': manual.review_frequency_month or 0,
                         'document_type': manual.document_type,
                         'section_number': manual.no,
-                        'revision': manual.rivision,
+                        'rivision': manual.rivision,
                         "written_by": manual.written_by,
                         "checked_by": manual.checked_by,
                         "approved_by": manual.approved_by,
@@ -9033,13 +9308,13 @@ class ComplaintsDetailView(APIView):
         if not internal_problem:
             return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = ComplaintsSerializer(internal_problem, data=request.data, partial=True)  # partial update
+        serializer = ComplaintsSerializer(internal_problem, data=request.data, partial=True)   
         if serializer.is_valid():
             complaint = serializer.save(is_draft=False)
             
-            # Handle ManyToMany manually if needed
+           
             if 'category' in request.data:
-                complaint.category.set(request.data['category'])  # Set the many-to-many field
+                complaint.category.set(request.data['category'])   
             
             return Response(ComplaintsSerializer(complaint).data, status=status.HTTP_200_OK)
         
@@ -9057,7 +9332,7 @@ class ComplaintsDetailView(APIView):
 
 class ComplaintsDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Don't copy the entire request.data, just extract what we need
+      
         data = {}
         
         # Copy over simple data fields 
@@ -9199,8 +9474,8 @@ class CustomerSurveyQuestionQuestionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class CustomerSurveyByEvaluationAPIView(APIView):
-    def get(self, request, survey_id, *args, **kwargs):
-        questions = CustomerQuestions.objects.filter(survey_id=survey_id)
+    def get(self, request, supp_evaluation_id, *args, **kwargs):
+        questions = CustomerQuestions.objects.filter(supp_evaluation_id=supp_evaluation_id)
         serializer = CustomerQuestionSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)   
     
@@ -9237,7 +9512,7 @@ class AddSCustomerSurveyAnswerToQuestionAPIView(APIView):
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
 
 class UserCustomerSurveyAnswersView(APIView):
-    def get(self, request, company_id, survey_id):
+    def get(self, request, company_id, supp_evaluation_id):
         try:
   
             try:
@@ -9249,7 +9524,7 @@ class UserCustomerSurveyAnswersView(APIView):
                 )
           
             try:
-                survey = CustomerSatisfaction.objects.get(id=survey_id, company=company)
+                survey = CustomerSatisfaction.objects.get(id=supp_evaluation_id, company=company)
             except CustomerSatisfaction.DoesNotExist:
                 return Response(
                     {"error": "CustomerS atisfaction not found or does not belong to the specified company."},
@@ -9409,7 +9684,7 @@ class ProcedureDraftEditView(APIView):
                         'review_frequency_month': Procedure.review_frequency_month or 0,
                         'document_type': Procedure.document_type,
                         'section_number': Procedure.no,
-                        'revision': Procedure.rivision,
+                        'rivision': Procedure.rivision,
                         "written_by": Procedure.written_by,
                         "checked_by": Procedure.checked_by,
                         "approved_by": Procedure.approved_by,
