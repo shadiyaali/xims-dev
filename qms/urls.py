@@ -325,10 +325,10 @@ urlpatterns = [
     path('customer/survey-draft/<int:user_id>/', CustomerSurveyDraftAllList.as_view(), name='manual-list'),
     path('customer/survey/drafts-count/<int:user_id>/',  CustomerSurveyView.as_view(), name='draft-manuals'),
     path('customer/survey/question-add/', CustomerSurveyQuestionQuestionAPIView.as_view(), name='add-performance-question'),
-    path('customer/survey/<int:supp_evaluation_id>/questions/', CustomerSurveyByEvaluationAPIView.as_view(), name='performance-questions'),
+    path('customer/survey/<int:customer_id>/questions/', CustomerSurveyByEvaluationAPIView.as_view(), name='performance-questions'),
     path('customer/survey/question/<int:question_id>/delete/', DeleteCustomerSurveyQuestionAPIView.as_view(), name='delete-performance-question'),
     path('customer/survey/question/answer/<int:question_id>/', AddSCustomerSurveyAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
-    path('customer/survey/<int:company_id>/evaluation/<int:supp_evaluation_id>/',UserCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
+    path('customer/survey/<int:company_id>/evaluation/<int:customer_id>/',UserCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
     
 ]
 
