@@ -652,15 +652,21 @@ class ManualReviewView(APIView):
                     elif action_type == "approved":
                         subject = f"Manual Approved: {manual.title}"
                         context = {
-                            'recipient_name': recipient.first_name,
-                            'title': manual.title,
-                            'document_number': manual.no or 'N/A',
-                            'document_type': manual.document_type,
-                            'revision': manual.rivision,
-                            'date': manual.date,
-                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
-                        }
+                        'recipient_name': recipient.first_name,
+                        'title': manual.title,
+                        'document_number': manual.no or 'N/A',
+                        'review_frequency_year': manual.review_frequency_year or 0,
+                        'review_frequency_month': manual.review_frequency_month or 0,
+                        'document_type': manual.document_type,
+                        'section_number': manual.no,
+                        'revision': manual.rivision,
+                        "written_by": manual.written_by,
+                        "checked_by": manual.checked_by,
+                        "approved_by": manual.approved_by,
+                        'date': manual.date,
+                        'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
+                        'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                    }
                         html_message = render_to_string('qms/manual/manual_publish.html', context)
                         plain_message = strip_tags(html_message)
 
@@ -1647,8 +1653,14 @@ class ProcedureReviewView(APIView):
                             'recipient_name': recipient.first_name,
                             'title': procedure.title,
                             'document_number': procedure.no or 'N/A',
+                            'review_frequency_year': procedure.review_frequency_year or 0,
+                            'review_frequency_month': procedure.review_frequency_month or 0,
                             'document_type': procedure.document_type,
+                            'section_number': procedure.no,
                             'revision': procedure.rivision,
+                            "written_by": procedure.written_by,
+                            "checked_by": procedure.checked_by,
+                            "approved_by": procedure.approved_by,
                             'date': procedure.date,
                             'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                             'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
@@ -2203,7 +2215,7 @@ class CorrectionRecordList(generics.ListAPIView):
 class RecordReviewView(APIView):
     def post(self, request):
         logger.info("Received request for record review process.")
-        
+
         try:
             record_id = request.data.get('record_id')
             current_user_id = request.data.get('current_user_id')
@@ -2218,18 +2230,19 @@ class RecordReviewView(APIView):
                 return Response({'error': 'Invalid record or user'}, status=status.HTTP_404_NOT_FOUND)
 
             with transaction.atomic():
-                # Written by - First Submission
+                # Mark as written
                 if current_user == record.written_by and not record.written_at:
                     record.written_at = now()
+                    record.save()
 
-                # Review process
                 current_status = record.status
+
+                # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == record.checked_by:
                     record.status = 'Reviewed,Pending for Approval'
                     record.checked_at = now()
                     record.save()
 
-                    # Notification to approved_by (only if flag is True)
                     if record.send_notification_to_approved_by:
                         NotificationRecord.objects.create(
                             user=record.approved_by,
@@ -2237,44 +2250,41 @@ class RecordReviewView(APIView):
                             message=f"Record '{record.title}' is ready for approval."
                         )
 
-                    # Email to approved_by (only if flag is True)
                     if record.send_email_to_approved_by:
                         self.send_email_notification(
-                            recipient=record.approved_by,
-                            subject=f"Record {record.title} - Pending Approval",
-                            message=f"The Record '{record.title}' has been reviewed and is pending your approval."
+                            record=record,
+                            recipients=[record.approved_by],
+                            action_type="review"
                         )
 
-                # Approval process
-                elif current_user == record.approved_by:
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == record.approved_by:
                     record.status = 'Pending for Publish'
                     record.approved_at = now()
                     record.save()
 
-                    # Notification to approved_by (only if flag is True)
-                    if record.send_notification_to_checked_by:
-                        NotificationRecord.objects.create(
-                            user=record.written_by,
-                            record=record,
-                            message=f"record '{record.title}' has been approved."
-                        )
+                    for user in [record.written_by, record.checked_by, record.approved_by]:
+                        if user:
+                            NotificationRecord.objects.create(
+                                user=user,
+                                record=record,
+                                message=f"Record '{record.title}' has been approved and is pending for publish."
+                            )
 
-                    # Email to approved_by (only if flag is True)
-                    if record.send_email_to_checked_by:
-                        self.send_email_notification(
-                            recipient=record.written_by,
-                            subject=f"Record {record.title} - Approved",
-                            message=f"Your Record '{record.title}' has been approved."
-                        )
+                    self.send_email_notification(
+                        record=record,
+                        recipients=[u for u in [record.written_by, record.checked_by, record.approved_by] if u],
+                        action_type="approved"
+                    )
 
-                # Resubmission after correction
-                elif current_status == 'Reviewed,Pending for Approval' and current_user == record.approved_by:
+                # Correction requested, reverting status
+                elif current_status == 'Correction Requested' and current_user == record.written_by:
                     record.status = 'Pending for Review/Checking'
                     record.save()
 
                 else:
                     return Response({
-                        'message': 'No action taken. User not authorized for this record.'
+                        'message': 'No action taken. User not authorized for current record status.'
                     }, status=status.HTTP_200_OK)
 
             return Response({
@@ -2308,7 +2318,7 @@ class RecordReviewView(APIView):
                             'review_frequency_month': record.review_frequency_month or 0,
                             'document_type': record.document_type,
                             'section_number': record.no,
-                            'revision': record.revision,
+                            'rivision': record.rivision,
                             'written_by': record.written_by,
                             'checked_by': record.checked_by,
                             'approved_by': record.approved_by,
@@ -2325,8 +2335,14 @@ class RecordReviewView(APIView):
                             'recipient_name': recipient.first_name,
                             'title': record.title,
                             'document_number': record.no or 'N/A',
+                            'review_frequency_year': record.review_frequency_year or 0,
+                            'review_frequency_month': record.review_frequency_month or 0,
                             'document_type': record.document_type,
-                            'revision': record.revision,
+                            'section_number': record.no,
+                            'rivision': record.rivision,
+                            'written_by': record.written_by,
+                            'checked_by': record.checked_by,
+                            'approved_by': record.approved_by,
                             'date': record.date,
                             'document_url': record.upload_attachment.url if record.upload_attachment else None,
                             'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
@@ -2335,7 +2351,7 @@ class RecordReviewView(APIView):
                         plain_message = strip_tags(html_message)
 
                     else:
-                        logger.warning(f"Unknown action type '{action_type}' for record email notification.")
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
                         continue
 
                     send_mail(
@@ -2352,6 +2368,7 @@ class RecordReviewView(APIView):
                     logger.error(f"Failed to send record email to {recipient_email}: {str(e)}")
             else:
                 logger.warning("Recipient email is None. Skipping email send.")
+
 
                 
                 
