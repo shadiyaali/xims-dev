@@ -799,7 +799,7 @@ class ComplaintGetSerializer(serializers.ModelSerializer):
     no_car = CarNumberSerializer()
     executor = UserSerializer()
     customer = CustomerSerializer()  
-    category = CategorySerializer()
+    category = CategorySerializer(many=True)
     
     class Meta:
         model = Complaints
