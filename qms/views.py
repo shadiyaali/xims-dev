@@ -1839,30 +1839,40 @@ class RecordCreateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"record Ready for Review: {record.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"A record titled '{record.title}' requires your review.\n\n"
-                        f"Document Number: {record.no or 'N/A'}\n"
-                        f"Review Frequency: {record.review_frequency_year or 0} year(s), "
-                        f"{record.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {record.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Record Ready for Review: {record.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': record.title,
+                        'document_number': record.no or 'N/A',
+                        'review_frequency_year': record.review_frequency_year or 0,
+                        'review_frequency_month': record.review_frequency_month or 0,
+                        'document_type': record.document_type,
+                        'section_number': record.no,
+                        'revision': getattr(record, 'rivision', ''),   
+                        'written_by': record.written_by,
+                        'checked_by': record.checked_by,
+                        'approved_by': record.approved_by,
+                        'date': record.date,
+                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/record/record_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
@@ -1999,46 +2009,48 @@ class RecordUpdateView(APIView):
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Record Ready for Review: {record.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The Record '{record.title}' has been updated and requires your review.\n\n"
-                        f"Document Number: {record.no or 'N/A'}\n"
-                        f"Review Frequency: {record.review_frequency_year or 0} year(s), "
-                        f"{record.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {record.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+                    subject = f"Record Corrections Updated: {record.title}"
+
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': record.title,
+                        'document_number': record.no or 'N/A',
+                        'review_frequency_year': record.review_frequency_year or 0,
+                        'review_frequency_month': record.review_frequency_month or 0,
+                        'document_type': record.document_type,
+                        'section_number': record.no,
+                        'revision': record.rivision,
+                        "written_by": record.written_by,
+                        "checked_by": record.checked_by,
+                        "approved_by": record.approved_by,
+                        'date': record.date,
+                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('qms/record/record_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        recipient_list=[recipient_email],
+                        fail_silently=False,
+                        html_message=html_message,
                     )
-                elif action_type == "approval":
-                    subject = f"procedure Pending Approval: {record.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The record '{record.title}' has been updated and is ready for your approval.\n\n"
-                        f"Document Number: {record.no or 'N/A'}\n"
-                        f"Review Frequency: {record.review_frequency_year or 0} year(s), "
-                        f"{record.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {record.document_type}\n\n"
-                        f"Please login to the system to approve.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    )
+                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
                 else:
-                    logger.warning("Unknown action type for email notification.")
+                    logger.warning("Unknown action type provided for email.")
                     return
-
-                send_mail(
-                    subject=subject,
-                    message=message,
-                     from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient_email} for action: {action_type}")
-
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
-            logger.warning("Recipient email is missing, skipping email.")
+            logger.warning("Recipient email is None. Skipping email send.")
+
             
 
 class SubmitCorrectionRecordView(APIView):
@@ -2134,32 +2146,53 @@ class SubmitCorrectionRecordView(APIView):
             recipient_email = to_user.email if to_user else None
 
             if from_user == record.approved_by and to_user == record.checked_by:
+                template_name = 'qms/record/record_correction_to_checker.html'
+                subject = f"Correction Requested on '{record.title}'"
                 should_send = record.send_email_to_checked_by
             elif from_user == record.checked_by and to_user == record.written_by:
+                template_name = 'qms/record/record_correction_to_writer.html'
+                subject = f"Correction Requested on '{record.title}'"
                 should_send = True
             else:
-                should_send = False
+                return  # Invalid role relationship
 
-            if recipient_email and should_send:
-                send_mail(
-                    subject=f"Correction Request: {record.title}",
-                    message=(
-                        f"Dear {to_user.first_name},\n\n"
-                        f"A correction has been requested by {from_user.first_name} for the record '{record.title}'.\n\n"
-                        f"Correction details:\n"
-                        f"{correction.correction}\n\n"
-                        f"Please review and take necessary actions.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    ),
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                print(f"Correction email successfully sent to {recipient_email}")
-            else:
-                print("Email not sent due to permission flags, invalid roles, or missing email.")
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+                'recipient_name': to_user.first_name,
+                'title': record.title,
+                'document_number': record.no or 'N/A',
+                'review_frequency_year': record.review_frequency_year or 0,
+                'review_frequency_month': record.review_frequency_month or 0,
+                'document_type': record.document_type,
+                'section_number': record.no,
+                'revision': record.revision,
+                'written_by': record.written_by,
+                'checked_by': record.checked_by,
+                'approved_by': record.approved_by,
+                'date': record.date,
+                'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                'correction_detail': correction.correction,
+            }
+
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+                html_message=html_message,
+            )
+            print(f"Correction email successfully sent to {recipient_email}")
+
         except Exception as e:
             print(f"Failed to send correction email: {str(e)}")
+
 
 class CorrectionRecordList(generics.ListAPIView):
     serializer_class = CorrectionRecordSerializer
@@ -7559,6 +7592,7 @@ class InspectionDetailView(APIView):
             return Response({"error": "Inspection not found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = InspectionSerializer(audit, data=request.data)
         if serializer.is_valid():
+            
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -8801,6 +8835,7 @@ class  CustomerSurveyUpdateView(APIView):
         data['is_draft'] = False
         serializer = CustomerSatisfactionSerializer(documentation, data=data)
         if serializer.is_valid():
+            serializer.save(is_draft=False)
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -9041,7 +9076,7 @@ class ProcedureDraftEditView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         except Procedure.DoesNotExist:
-            return Response({"error": "Manual not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Procedure not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def _send_notifications(self, manual):
         # Your notification sending logic (same as in the creation view)
@@ -9051,7 +9086,7 @@ class ProcedureDraftEditView(APIView):
                     user=manual.checked_by,
                     manual=manual,
                     title="Notification for Checking/Review",
-                    message="A manual has been created/updated for your review."
+                    message="A Procedure has been created/updated for your review."
                 )
                 logger.info(f"Notification created for checked_by user {manual.checked_by.id}")
             except Exception as e:
