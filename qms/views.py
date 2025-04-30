@@ -9462,8 +9462,8 @@ class CustomerSurveyQuestionQuestionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class CustomerSurveyByEvaluationAPIView(APIView):
-    def get(self, request, supp_evaluation_id, *args, **kwargs):
-        questions = CustomerQuestions.objects.filter(supp_evaluation_id=supp_evaluation_id)
+    def get(self, request, customer_id, *args, **kwargs):
+        questions = CustomerQuestions.objects.filter(customer_id=customer_id)
         serializer = CustomerQuestionSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)   
     

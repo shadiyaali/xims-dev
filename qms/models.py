@@ -1144,17 +1144,7 @@ class Complaints(models.Model):
         return str(self.customer.name)
     
     
-class CustomerQuestions(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="supp_evlua",blank=True, null=True)
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="us_user", blank=True, null=True)
-    question_text = models.TextField(blank=True, null=True)
-    answer= models.CharField(blank=True, null=True)
-    
-   
-    def __str__(self):
-        if self.customer and self.customer.name:
-            return f"{self.customer.name} - {self.question_text or 'Unnamed Question'}"
-        return self.question_text or "Unnamed Question"
+
     
     
 class CustomerSatisfaction(models.Model):
@@ -1167,4 +1157,16 @@ class CustomerSatisfaction(models.Model):
     
     def __str__(self):
         return self.title
+
+
+class CustomerQuestions(models.Model):
+    customer = models.ForeignKey(CustomerSatisfaction, on_delete=models.CASCADE, related_name="supp_evlua",blank=True, null=True)
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="us_user", blank=True, null=True)
+    question_text = models.TextField(blank=True, null=True)
+    answer= models.CharField(blank=True, null=True)
     
+   
+    def __str__(self):
+        if self.customer and self.customer.name:
+            return f"{self.customer.name} - {self.question_text or 'Unnamed Question'}"
+        return self.question_text or "Unnamed Question"
