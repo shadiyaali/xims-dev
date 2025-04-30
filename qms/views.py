@@ -8662,22 +8662,12 @@ class CustomerDetailAPIView(APIView):
         customer = self.get_object(pk)
         if not customer:
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Create a serializer instance with the request data
         serializer = CustomerSerializer(customer, data=request.data)
-        
         if serializer.is_valid():
-            # Set is_draft=False manually before saving
-            customer.is_draft = False
-            customer.save()  # Save changes to the customer object
-            
-            # Save using the serializer to apply other data
+            serializer.save(is_draft=False)
             serializer.save()
-            
             return Response(serializer.data, status=status.HTTP_200_OK)
-        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
     
     def delete(self, request, pk):
