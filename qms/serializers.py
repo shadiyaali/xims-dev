@@ -796,7 +796,7 @@ class ComplaintsSerializer(serializers.ModelSerializer):
 
 
 class ComplaintGetSerializer(serializers.ModelSerializer):
-    car_no = CarNumberSerializer()
+    no_car = CarNumberSerializer()
     executor = UserSerializer()
     category = serializers.PrimaryKeyRelatedField(
         many=True,
