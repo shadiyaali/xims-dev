@@ -4764,14 +4764,19 @@ class SubmitEvaluationCorrectionView(APIView):
 
             try:
                 evaluation = Evaluation.objects.get(id=evaluation_id)
+                print(f"Evaluation found: {evaluation.title}")
             except Evaluation.DoesNotExist:
+                print(f"Evaluation with ID {evaluation_id} not found.")
                 return Response({'error': 'Evaluation not found'}, status=status.HTTP_404_NOT_FOUND)
 
             try:
                 from_user = Users.objects.get(id=from_user_id)
+                print(f"User found: {from_user.first_name}")
             except Users.DoesNotExist:
+                print(f"User with ID {from_user_id} not found.")
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
+            # Determine the recipient based on user role
             if from_user == evaluation.checked_by:
                 to_user = evaluation.written_by
             elif from_user == evaluation.approved_by:
@@ -4779,16 +4784,21 @@ class SubmitEvaluationCorrectionView(APIView):
             else:
                 return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Creating correction record
             correction = CorrectionEvaluation.objects.create(
                 evaluation=evaluation,
                 to_user=to_user,
                 from_user=from_user,
                 correction=correction_text
             )
+            print(f"Correction created successfully for {correction.id}.")
 
+            # Update evaluation status
             evaluation.status = 'Correction Requested'
             evaluation.save()
+            print(f"Evaluation status updated to 'Correction Requested'.")
 
+            # Create and send notification and email
             self.create_correction_notification(correction)
             self.send_correction_email_notification(correction)
 
@@ -4799,6 +4809,7 @@ class SubmitEvaluationCorrectionView(APIView):
             )
 
         except Exception as e:
+            print(f"Unexpected error occurred: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create_correction_notification(self, correction):
@@ -4824,80 +4835,85 @@ class SubmitEvaluationCorrectionView(APIView):
                     evaluation=evaluation,
                     message=message
                 )
-                print(f"Correction Notification created successfully: {notification.id}")
+                print(f"Notification created successfully: {notification.id}")
             else:
                 print("Notification not sent due to permission flags or invalid role flow.")
         except Exception as e:
             print(f"Failed to create correction notification: {str(e)}")
 
     def send_correction_email_notification(self, correction):
-        evaluation = correction.evaluation
-        from_user = correction.from_user
-        to_user = correction.to_user
-        recipient_email = to_user.email if to_user else None
+        try:
+            evaluation = correction.evaluation
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
 
-        if from_user == evaluation.checked_by and to_user == evaluation.written_by:
-            template_name = 'qms/evaluation/evaluation_correction_to_writer.html'
-            subject = f"Correction Requested on '{evaluation.title}'"
-            should_send = True
-        elif from_user == evaluation.approved_by and to_user == evaluation.checked_by:
-            template_name = 'qms/evaluation/evaluation_correction_to_checker.html'
-            subject = f"Correction Requested on '{evaluation.title}'"
-            should_send = evaluation.send_email_to_checked_by
-        else:
-            return  # Not a valid correction flow
+            if from_user == evaluation.checked_by and to_user == evaluation.written_by:
+                template_name = 'qms/evaluation/evaluation_correction_to_writer.html'
+                subject = f"Correction Requested on '{evaluation.title}'"
+                should_send = True
+            elif from_user == evaluation.approved_by and to_user == evaluation.checked_by:
+                template_name = 'qms/evaluation/evaluation_correction_to_checker.html'
+                subject = f"Correction Requested on '{evaluation.title}'"
+                should_send = evaluation.send_email_to_checked_by
+            else:
+                return  # Not a valid correction flow
 
-        if not recipient_email or not should_send:
-            return
+            if not recipient_email or not should_send:
+                return
 
-        context = {
-            'recipient_name': to_user.first_name,
-            'title': evaluation.title,
-            'document_number': evaluation.no or 'N/A',
-            'review_frequency_year': evaluation.review_frequency_year or 0,
-            'review_frequency_month': evaluation.review_frequency_month or 0,
-            'document_type': evaluation.document_type,
-            'section_number': evaluation.no,
-            'rivision': getattr(evaluation, 'rivision', ''),
-            'written_by': evaluation.written_by,
-            'checked_by': evaluation.checked_by,
-            'approved_by': evaluation.approved_by,
-            'date': evaluation.date,
-        }
+            context = {
+                'recipient_name': to_user.first_name,
+                'title': evaluation.title,
+                'document_number': evaluation.no or 'N/A',
+                'review_frequency_year': evaluation.review_frequency_year or 0,
+                'review_frequency_month': evaluation.review_frequency_month or 0,
+                'document_type': evaluation.document_type,
+                'section_number': evaluation.no,
+                'rivision': getattr(evaluation, 'rivision', ''),
+                'written_by': evaluation.written_by,
+                'checked_by': evaluation.checked_by,
+                'approved_by': evaluation.approved_by,
+                'date': evaluation.date,
+            }
 
-        html_message = render_to_string(template_name, context)
-        plain_message = strip_tags(html_message)
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
 
-        from django.core.mail import EmailMultiAlternatives
+            from django.core.mail import EmailMultiAlternatives
 
-        email = EmailMultiAlternatives(
-            subject=subject,
-            body=plain_message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            to=[recipient_email]
-        )
-        email.attach_alternative(html_message, "text/html")
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
 
-        if evaluation.upload_attachment:
-            try:
-                file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
-                file_content = evaluation.upload_attachment.read()
-                email.attach(file_name, file_content)
-                logger.info(f"Attached evaluation file {file_name} to correction email")
-            except Exception as attachment_error:
-                logger.error(f"Error attaching file: {str(attachment_error)}")
+            if evaluation.upload_attachment:
+                try:
+                    file_name = evaluation.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = evaluation.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached evaluation file {file_name} to correction email.")
+                except Exception as attachment_error:
+                    print(f"Error attaching file: {str(attachment_error)}")
 
-        connection = CertifiEmailBackend(
-            host=config('EMAIL_HOST'),
-            port=config('EMAIL_PORT'),
-            username=config('EMAIL_HOST_USER'),
-            password=config('EMAIL_HOST_PASSWORD'),
-            use_tls=True
-        )
-        email.connection = connection
-        email.send(fail_silently=False)
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
 
-        logger.info(f"Correction email sent to {recipient_email} with attachment.")
+            print(f"Correction email sent to {recipient_email}.")
+
+        except Exception as e:
+            print(f"Error sending correction email: {str(e)}")
+
 
 
 
@@ -9763,9 +9779,10 @@ class EvaluationDraftEditView(APIView):
         # Your notification sending logic (same as in the creation view)
         if manual.checked_by:
             try:
-                NotificationEvaluation.objects.create(
+                # Using the correct model name 'NotificationEvaluations' (plural)
+                NotificationEvaluations.objects.create(
                     user=manual.checked_by,
-                    manual=manual,
+                    evaluation=manual,
                     title="Notification for Checking/Review",
                     message="A Evaluation has been created for your review."
                 )
@@ -9773,31 +9790,28 @@ class EvaluationDraftEditView(APIView):
             except Exception as e:
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
-    def send_email_notification(self, Procedure, recipient, action_type):
+    def send_email_notification(self, procedure, recipient, action_type):
         # Same email logic as in the creation view
         recipient_email = recipient.email if recipient else None
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Procedure Ready for Review: {Procedure.title}"
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
-
+                    subject = f"Procedure Ready for Review: {procedure.title}"
                     context = {
                         'recipient_name': recipient.first_name,
-                        'title': Procedure.title,
-                        'document_number': Procedure.no or 'N/A',
-                        'review_frequency_year': Procedure.review_frequency_year or 0,
-                        'review_frequency_month': Procedure.review_frequency_month or 0,
-                        'document_type': Procedure.document_type,
-                        'section_number': Procedure.no,
-                        'rivision': Procedure.rivision,
-                        "written_by": Procedure.written_by,
-                        "checked_by": Procedure.checked_by,
-                        "approved_by": Procedure.approved_by,
-                        'date': Procedure.date,
-                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
-                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                        'title': procedure.title,
+                        'document_number': procedure.no or 'N/A',
+                        'review_frequency_year': procedure.review_frequency_year or 0,
+                        'review_frequency_month': procedure.review_frequency_month or 0,
+                        'document_type': procedure.document_type,
+                        'section_number': procedure.no,
+                        'rivision': procedure.rivision,
+                        "written_by": procedure.written_by,
+                        "checked_by": procedure.checked_by,
+                        "approved_by": procedure.approved_by,
+                        'date': procedure.date,
+                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
@@ -9806,7 +9820,7 @@ class EvaluationDraftEditView(APIView):
                     send_mail(
                         subject=subject,
                         message=plain_message,
-                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[recipient_email],
                         fail_silently=False,
                         html_message=html_message,
