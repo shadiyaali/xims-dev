@@ -691,7 +691,14 @@ class CarNumberSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarNumber
         fields = '__all__' 
-        
+
+class CarNumberGetSerializer(serializers.ModelSerializer):
+    executor = UserSerializer()
+    root_cause = RootCauseSerializer()
+    
+    class Meta:
+        model = CarNumber
+        fields = '__all__'       
  
 from .models import InternalProblem
 

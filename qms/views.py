@@ -9002,7 +9002,7 @@ class CarNumberDetailView(APIView):
         car_number = self.get_object(pk)
         if not car_number:
             return Response({"error": "CarNumber not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CarNumberSerializer(car_number)
+        serializer = CarNumberGetSerializer(car_number)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
@@ -9054,7 +9054,7 @@ class CarDraftAPIView(APIView):
 class CarNCompanyCauseView(APIView):
     def get(self, request, company_id):
         agendas = CarNumber.objects.filter(company_id=company_id)
-        serializer = CarNumberSerializer(agendas, many=True)
+        serializer = CarNumberGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class GetNextActionNumberView(APIView):
