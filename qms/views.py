@@ -9573,10 +9573,10 @@ class DeleteSuppQuestionAPIView(APIView):
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
         
         
-class UserSuppEvlAnswersView(APIView):
+class SupplierSuppEvlAnswersView(APIView):
     def get(self, request, company_id, supp_evaluation_id):
         try:
-  
+            # Retrieve the company object
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
@@ -9584,42 +9584,63 @@ class UserSuppEvlAnswersView(APIView):
                     {"error": "Company not found."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-          
+
+            # Retrieve the supplier evaluation object
             try:
                 supp_evaluation = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
             except SupplierEvaluation.DoesNotExist:
                 return Response(
-                    {"error": "Survey not found or does not belong to the specified company."},
+                    {"error": "Supplier evaluation not found or does not belong to the specified company."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-           
-            company_users = Users.objects.filter(company=company, is_trash=False)
-           
-            submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
+
+            # Get all suppliers associated with the company
+            company_suppliers = Supplier.objects.filter(company=company)
+
+            # Get a list of supplier IDs who have submitted answers
+            submitted_supplier_ids = SupplierEvaluationQuestions.objects.filter(
                 supp_evaluation=supp_evaluation,
-                user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
-            
-            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
-      
-            user_data = [
+                supplier__isnull=False
+            ).values_list('supplier_id', flat=True).distinct()
+
+            # Filter out suppliers who have already submitted answers
+            not_submitted_suppliers = company_suppliers.exclude(id__in=submitted_supplier_ids)
+
+            # Format the supplier data to return
+            supplier_data = [
                 {
-                    "id": user.id,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "email": user.email,
-                    "status": user.status
+                    "id": supplier.id,
+                    "company_name": supplier.company_name,
+                    "email": supplier.email,
+                    "address": supplier.address,
+                    "state": supplier.state,
+                    "country": supplier.country,
+                    "city": supplier.city,
+                    "postal_code": supplier.postal_code,
+                    "phone": supplier.phone,
+                    "alternate_phone": supplier.alternate_phone,
+                    "fax": supplier.fax,
+                    "contact_person": supplier.contact_person,
+                    "qualified_to_supply": supplier.qualified_to_supply,
+                    "notes": supplier.notes,
+                    "active": supplier.active,
+                    "status": supplier.status,
+                    "approved_by": supplier.approved_by.first_name if supplier.approved_by else None,
+                    "selection_criteria": supplier.selection_criteria,
+                    "approved_date": supplier.approved_date,
+                    "is_draft": supplier.is_draft
                 }
-                for user in not_submitted_users
+                for supplier in not_submitted_suppliers
             ]
 
-            return Response(user_data, status=status.HTTP_200_OK)
+            return Response(supplier_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response(
                 {"error": "An unexpected error occurred.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class AddSSuppAnswerToQuestionAPIView(APIView):
     def patch(self, request, question_id, *args, **kwargs):
@@ -10005,10 +10026,10 @@ class AddSCustomerSurveyAnswerToQuestionAPIView(APIView):
         except CustomerQuestions.DoesNotExist:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
 
-class UserCustomerSurveyAnswersView(APIView):
+class CustomerCustomerSurveyAnswersView(APIView):
     def get(self, request, company_id, customer_id):
         try:
-  
+            # Retrieve the company object
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
@@ -10016,42 +10037,57 @@ class UserCustomerSurveyAnswersView(APIView):
                     {"error": "Company not found."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-          
+
+            # Retrieve the customer satisfaction survey
             try:
                 survey = CustomerSatisfaction.objects.get(id=customer_id, company=company)
             except CustomerSatisfaction.DoesNotExist:
                 return Response(
-                    {"error": "CustomerS atisfaction not found or does not belong to the specified company."},
+                    {"error": "Customer satisfaction not found or does not belong to the specified company."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-           
-            company_users = Users.objects.filter(company=company, is_trash=False)
-           
-            submitted_user_ids = CustomerQuestions.objects.filter(
+
+            # Get all customers associated with the company
+            company_customers = Customer.objects.filter(company=company)
+
+            # Get a list of customer IDs who have submitted survey answers
+            submitted_customer_ids = CustomerQuestions.objects.filter(
                 customer=survey,
                 user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
-            
-            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
-      
-            user_data = [
+            ).values_list('customer_id', flat=True).distinct()
+
+            # Filter out the customers who have already submitted answers
+            not_submitted_customers = company_customers.exclude(id__in=submitted_customer_ids)
+
+            # Format the customer data to return
+            customer_data = [
                 {
-                    "id": user.id,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "email": user.email,
-                    "status": user.status
+                    "id": customer.id,
+                    "name": customer.name,
+                    "address": customer.address,
+                    "city": customer.city,
+                    "state": customer.state,
+                    "zipcode": customer.zipcode,
+                    "country": customer.country,
+                    "email": customer.email,
+                    "contact_person": customer.contact_person,
+                    "phone": customer.phone,
+                    "alternate_phone": customer.alternate_phone,
+                    "fax": customer.fax,
+                    "notes": customer.notes,
+                    "is_draft": customer.is_draft
                 }
-                for user in not_submitted_users
+                for customer in not_submitted_customers
             ]
 
-            return Response(user_data, status=status.HTTP_200_OK)
+            return Response(customer_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response(
                 {"error": "An unexpected error occurred.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
             
             
 class SupplierproblemDraftAPIView(APIView):

@@ -297,7 +297,7 @@ urlpatterns = [
     path('supplier/evaluation/<int:supp_evaluation_id>/questions/', SupEvalQuestionQuestionsByEvaluationAPIView.as_view(), name='performance-questions'),
     path('supplier/evaluation/question/<int:question_id>/delete/', DeleteSuppQuestionAPIView.as_view(), name='delete-performance-question'),
     path('supplier/evaluation/question/answer/<int:question_id>/', AddSSuppAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
-    path('supplier/evaluation/<int:company_id>/evaluation/<int:supp_evaluation_id>/',UserSuppEvlAnswersView.as_view(),name='unsubmitted-users'),  
+    path('supplier/evaluation/<int:company_id>/evaluation/<int:supp_evaluation_id>/',SupplierSuppEvlAnswersView.as_view(),name='unsubmitted-users'),  
     
     
     # customer
@@ -332,7 +332,7 @@ urlpatterns = [
     path('customer/survey/<int:customer_id>/questions/', CustomerSurveyByEvaluationAPIView.as_view(), name='performance-questions'),
     path('customer/survey/question/<int:question_id>/delete/', DeleteCustomerSurveyQuestionAPIView.as_view(), name='delete-performance-question'),
     path('customer/survey/question/answer/<int:question_id>/', AddSCustomerSurveyAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
-    path('customer/survey/<int:company_id>/evaluation/<int:customer_id>/',UserCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
+    path('customer/survey/<int:company_id>/evaluation/<int:customer_id>/',CustomerCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
     
 ]
 
