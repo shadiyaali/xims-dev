@@ -524,6 +524,7 @@ class AwarenessSerializer(serializers.ModelSerializer):
         
         
 class TrainingSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = Training
         fields = '__all__'  

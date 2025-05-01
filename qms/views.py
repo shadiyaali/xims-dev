@@ -9597,11 +9597,14 @@ class SupplierSuppEvlAnswersView(APIView):
             # Get all suppliers associated with the company
             company_suppliers = Supplier.objects.filter(company=company)
 
-            # Get a list of supplier IDs who have submitted answers
-            submitted_supplier_ids = SupplierEvaluationQuestions.objects.filter(
+            # Get the user IDs who have submitted answers
+            submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
                 supp_evaluation=supp_evaluation,
-                supplier__isnull=False
-            ).values_list('supplier_id', flat=True).distinct()
+                user__isnull=False
+            ).values_list('user_id', flat=True).distinct()
+
+            # Get the supplier IDs whose user has submitted answers
+            submitted_supplier_ids = Supplier.objects.filter(user_id__in=submitted_user_ids).values_list('id', flat=True)
 
             # Filter out suppliers who have already submitted answers
             not_submitted_suppliers = company_suppliers.exclude(id__in=submitted_supplier_ids)
