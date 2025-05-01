@@ -9645,38 +9645,32 @@ class SupplierSuppEvlAnswersView(APIView):
             )
 
 
- 
-
 class AddSSuppAnswerToQuestionAPIView(APIView):
     def patch(self, request, question_id, *args, **kwargs):
         try:
-            # Fetch the question based on the ID
             question = SupplierEvaluationQuestions.objects.get(id=question_id)
-            answer = request.data.get('answer')
-            user_id = request.data.get('user_id')
-
-            if not answer:
-                return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            if not user_id:
-                return Response({"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check if the user_id exists in the Supplier model
-            if not Supplier.objects.filter(user_id=user_id).exists():
-                return Response({"error": f"Supplier with User ID {user_id} does not exist."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Proceed to update the question's answer and user_id
-            question.answer = answer
-            question.user_id = user_id  
-            question.save()
-
-            return Response({"message": "Answer and supplier updated successfully."}, status=status.HTTP_200_OK)
-
         except SupplierEvaluationQuestions.DoesNotExist:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        answer = request.data.get('answer')
+        supplier_id = request.data.get('supplier_id')
 
-        
+        if not answer:
+            return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not supplier_id:
+            return Response({"error": "Supplier ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            supplier = Supplier.objects.get(id=supplier_id)
+        except Supplier.DoesNotExist:
+            return Response({"error": "Supplier not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        question.answer = answer
+        question.Supplier = supplier  
+        question.save()
+
+        return Response({"message": "Answer and supplier updated successfully."}, status=status.HTTP_200_OK)
         
 
 class CustomerAPIView(APIView):

@@ -1074,13 +1074,13 @@ class SupplierEvaluation(models.Model):
     
 class SupplierEvaluationQuestions(models.Model):
     supp_evaluation = models.ForeignKey(SupplierEvaluation, on_delete=models.CASCADE, related_name="supp_evlua",blank=True, null=True)
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="surveqsn_supp", blank=True, null=True)
+    Supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="surveqsn_supp", blank=True, null=True)
     question_text = models.TextField(blank=True, null=True)
     answer= models.CharField(blank=True, null=True)
     
    
     def __str__(self):
-        if self.survey and self.supp_evaluation.title:
+        if self.supp_evaluation and self.supp_evaluation.title:
             return f"{self.supp_evaluation.title} - {self.question_text or 'Unnamed Question'}"
         return self.question_text or "Unnamed Question"
     
