@@ -9576,7 +9576,7 @@ class DeleteSuppQuestionAPIView(APIView):
 class SupplierSuppEvlAnswersView(APIView):
     def get(self, request, company_id, supp_evaluation_id):
         try:
-            # Retrieve the company object
+ 
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
@@ -9585,7 +9585,7 @@ class SupplierSuppEvlAnswersView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Retrieve the supplier evaluation object
+ 
             try:
                 supp_evaluation = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
             except SupplierEvaluation.DoesNotExist:
@@ -9594,22 +9594,22 @@ class SupplierSuppEvlAnswersView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            # Get all suppliers associated with the company
+         
             company_suppliers = Supplier.objects.filter(company=company)
 
-            # Get the user IDs who have submitted answers
+        
             submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
                 supp_evaluation=supp_evaluation,
                 user__isnull=False
             ).values_list('user_id', flat=True).distinct()
 
-            # Get the supplier IDs whose user has submitted answers
+        
             submitted_supplier_ids = Supplier.objects.filter(user_id__in=submitted_user_ids).values_list('id', flat=True)
 
-            # Filter out suppliers who have already submitted answers
+            
             not_submitted_suppliers = company_suppliers.exclude(id__in=submitted_supplier_ids)
 
-            # Format the supplier data to return
+       
             supplier_data = [
                 {
                     "id": supplier.id,
@@ -9645,9 +9645,12 @@ class SupplierSuppEvlAnswersView(APIView):
             )
 
 
+ 
+
 class AddSSuppAnswerToQuestionAPIView(APIView):
     def patch(self, request, question_id, *args, **kwargs):
         try:
+         
             question = SupplierEvaluationQuestions.objects.get(id=question_id)
             answer = request.data.get('answer')
             user_id = request.data.get('user_id')
@@ -9658,14 +9661,22 @@ class AddSSuppAnswerToQuestionAPIView(APIView):
             if not user_id:
                 return Response({"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        
+            try:
+                supplier = Supplier.objects.get(user_id=user_id)
+            except Supplier.DoesNotExist:
+                return Response({"error": f"Supplier with User ID {user_id} does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+
+         
             question.answer = answer
             question.user_id = user_id  
             question.save()
 
-            return Response({"message": "Answer and user updated successfully."}, status=status.HTTP_200_OK)
+            return Response({"message": "Answer and supplier updated successfully."}, status=status.HTTP_200_OK)
 
         except SupplierEvaluationQuestions.DoesNotExist:
-            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+
         
         
 
