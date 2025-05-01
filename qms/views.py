@@ -9576,73 +9576,55 @@ class DeleteSuppQuestionAPIView(APIView):
 class SupplierSuppEvlAnswersView(APIView):
     def get(self, request, company_id, supp_evaluation_id):
         try:
- 
-            try:
-                company = Company.objects.get(id=company_id)
-            except Company.DoesNotExist:
-                return Response(
-                    {"error": "Company not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
 
- 
-            try:
-                supp_evaluation = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
-            except SupplierEvaluation.DoesNotExist:
-                return Response(
-                    {"error": "Supplier evaluation not found or does not belong to the specified company."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        try:
+            supp_evaluation = SupplierEvaluation.objects.get(id=supp_evaluation_id, company=company)
+        except SupplierEvaluation.DoesNotExist:
+            return Response({"error": "Supplier evaluation not found or does not belong to the specified company."},
+                            status=status.HTTP_404_NOT_FOUND)
 
-         
-            company_suppliers = Supplier.objects.filter(company=company)
+        # Get all suppliers for the company
+        company_suppliers = Supplier.objects.filter(company=company)
 
-        
-            submitted_user_ids = SupplierEvaluationQuestions.objects.filter(
-                supp_evaluation=supp_evaluation,
-                user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
+        # Get supplier IDs that have submitted answers
+        submitted_supplier_ids = SupplierEvaluationQuestions.objects.filter(
+            supp_evaluation=supp_evaluation,
+            Supplier__isnull=False
+        ).values_list('Supplier_id', flat=True).distinct()
 
-        
-            submitted_supplier_ids = Supplier.objects.filter(user_id__in=submitted_user_ids).values_list('id', flat=True)
+        # Get suppliers who have NOT submitted
+        not_submitted_suppliers = company_suppliers.exclude(id__in=submitted_supplier_ids)
 
-            
-            not_submitted_suppliers = company_suppliers.exclude(id__in=submitted_supplier_ids)
+        supplier_data = [
+            {
+                "id": supplier.id,
+                "company_name": supplier.company_name,
+                "email": supplier.email,
+                "address": supplier.address,
+                "state": supplier.state,
+                "country": supplier.country,
+                "city": supplier.city,
+                "postal_code": supplier.postal_code,
+                "phone": supplier.phone,
+                "alternate_phone": supplier.alternate_phone,
+                "fax": supplier.fax,
+                "contact_person": supplier.contact_person,
+                "qualified_to_supply": supplier.qualified_to_supply,
+                "notes": supplier.notes,
+                "active": supplier.active,
+                "status": supplier.status,
+                "approved_by": supplier.approved_by.first_name if supplier.approved_by else None,
+                "selection_criteria": supplier.selection_criteria,
+                "approved_date": supplier.approved_date,
+                "is_draft": supplier.is_draft
+            }
+            for supplier in not_submitted_suppliers
+        ]
 
-       
-            supplier_data = [
-                {
-                    "id": supplier.id,
-                    "company_name": supplier.company_name,
-                    "email": supplier.email,
-                    "address": supplier.address,
-                    "state": supplier.state,
-                    "country": supplier.country,
-                    "city": supplier.city,
-                    "postal_code": supplier.postal_code,
-                    "phone": supplier.phone,
-                    "alternate_phone": supplier.alternate_phone,
-                    "fax": supplier.fax,
-                    "contact_person": supplier.contact_person,
-                    "qualified_to_supply": supplier.qualified_to_supply,
-                    "notes": supplier.notes,
-                    "active": supplier.active,
-                    "status": supplier.status,
-                    "approved_by": supplier.approved_by.first_name if supplier.approved_by else None,
-                    "selection_criteria": supplier.selection_criteria,
-                    "approved_date": supplier.approved_date,
-                    "is_draft": supplier.is_draft
-                }
-                for supplier in not_submitted_suppliers
-            ]
-
-            return Response(supplier_data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response(
-                {"error": "An unexpected error occurred.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response(supplier_data, status=status.HTTP_200_OK)
 
 
 class AddSSuppAnswerToQuestionAPIView(APIView):
