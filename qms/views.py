@@ -3116,56 +3116,98 @@ class ComplianecesList(APIView):
 
 class InterestedPartyCreateView(APIView):
     """
-    Endpoint to handle creation of Interested Party, Needs, Expectations, and optionally send notifications.
+    Endpoint to handle creation of Interested Party, Needs with both needs and expectations fields,
+    and optionally send notifications.
     """
     def post(self, request):
-        print("Received Data:", request.data)  
+        print("Received Data:", request.data)  # Print all incoming data for debugging
         try:
+            # Extract data from the request
             company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', 'false') == 'true'  
-            needs_data = request.data.get('needs', [])   
-            expectations_data = request.data.get('expectations', [])  
+            send_notification = request.data.get('send_notification', False)  # Default to False if not provided
+            needs_data = request.data.get('needs', [])  # Will contain both needs and expectations
 
+            # Debugging print statements
+            print(f"Company ID: {company_id}")
+            print(f"Send Notification: {send_notification}")
+            print(f"Needs Data: {needs_data}")
+
+            # Check if company_id is provided
             if not company_id:
                 return Response(
                     {"error": "Company ID is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            company = Company.objects.get(id=company_id)
+            # Ensure we can get the company record
+            try:
+                company = Company.objects.get(id=company_id)
+                print(f"Found company: {company.name if hasattr(company, 'name') else company.id}")
+            except Company.DoesNotExist:
+                print(f"Company with ID {company_id} not found!")
+                return Response(
+                    {"error": "Company not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
             serializer = InterestedPartySerializer(data=request.data)
 
+            # Validate the serializer and proceed if valid
             if serializer.is_valid():
                 with transaction.atomic():
- 
                     interested_party = serializer.save()
                     logger.info(f"Interested Party created: {interested_party.name}")
 
-                  
+                    # Log the interested party data
+                    print(f"Interested Party Created: {interested_party.name}")
+                    print(f"Interested Party ID: {interested_party.id}")
+                    print(f"Interested Party Send Notification: {interested_party.send_notification}")
+
+                    # Create needs with both needs and expectations if provided
                     if needs_data:
-                        needs_instances = [
-                            Needs(interested_party=interested_party, title=need['title']) 
-                            for need in needs_data
-                        ]
+                        needs_instances = []
+                        for need_item in needs_data:
+                            needs_instances.append(
+                                Needs(
+                                    interested_party=interested_party,
+                                    needs=need_item.get('needs', ''),
+                                    expectation=need_item.get('expectation', '')
+                                )
+                            )
+                        
                         Needs.objects.bulk_create(needs_instances)
                         logger.info(f"Created {len(needs_instances)} Needs for Interested Party {interested_party.id}")
+                        print(f"Created {len(needs_instances)} Needs records for IP {interested_party.id}")
+                        
+                        # Debug: Print created needs details
+                        for i, need in enumerate(needs_instances):
+                            print(f"Need {i+1}: needs='{need.needs}', expectation='{need.expectation}'")
 
-         
-                    if expectations_data:
-                        expectations_instances = [
-                            Expectations(interested_party=interested_party, title=expectation['title']) 
-                            for expectation in expectations_data
-                        ]
-                        Expectations.objects.bulk_create(expectations_instances)
-                        logger.info(f"Created {len(expectations_instances)} Expectations for Interested Party {interested_party.id}")
-
-     
-                    interested_party.send_notification = send_notification
+                    # Save the send_notification flag - make sure we handle string values too
+                    print(f"Setting Send Notification Flag to: {send_notification}")
+                    if isinstance(send_notification, str):
+                        interested_party.send_notification = send_notification.lower() == 'true'
+                    else:
+                        interested_party.send_notification = bool(send_notification)
                     interested_party.save()
+                    print(f"Updated send_notification to: {interested_party.send_notification}")
 
-    
-                    if send_notification:
+                    # If send_notification is True, send notifications and emails
+                    if interested_party.send_notification:
+                        print(f"Preparing to send notifications for company ID: {company.id}")
+                        
+                        # Get all users for the company - add debugging
                         company_users = Users.objects.filter(company=company)
+                        user_count = company_users.count()
+                        print(f"Found {user_count} users for company {company.id}")
+                        
+                        # Debug: List users found
+                        for i, user in enumerate(company_users):
+                            print(f"User {i+1}: ID={user.id}, Email={user.email}, Name={user.first_name} {user.last_name if hasattr(user, 'last_name') else ''}")
+                        
+                        if user_count == 0:
+                            print("WARNING: No users found for this company! Cannot send notifications.")
+                            
                         notifications = [
                             NotificationInterest(
                                 interest=interested_party,
@@ -3175,76 +3217,173 @@ class InterestedPartyCreateView(APIView):
                             for user in company_users
                         ]
 
-                
                         if notifications:
-                            NotificationInterest.objects.bulk_create(notifications)
-                            logger.info(f"Created {len(notifications)} notifications for Interested Party {interested_party.id}")
+                            # Check the NotificationInterest model fields
+                            print(f"Creating {len(notifications)} notifications")
+                            try:
+                                NotificationInterest.objects.bulk_create(notifications)
+                                logger.info(f"Created {len(notifications)} notifications for Interested Party {interested_party.id}")
+                                print(f"Successfully created {len(notifications)} notifications")
+                            except Exception as e:
+                                print(f"ERROR creating notifications: {str(e)}")
+                                logger.error(f"Failed to create notifications: {str(e)}")
+                        else:
+                            print("No notifications to create - no users in company.")
 
-                 
-                        for user in company_users:
+                        # Send email notifications to users
+                        print("Preparing to send email notifications")
+                        for i, user in enumerate(company_users):
                             if user.email:
+                                print(f"Sending email to user {i+1}: {user.email}")
                                 try:
                                     self._send_notification_email(interested_party, user)
+                                    print(f"Email sent successfully to {user.email}")
                                 except Exception as e:
-                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                    error_msg = f"Failed to send email to {user.email}: {str(e)}"
+                                    logger.error(error_msg)
+                                    print(error_msg)
+                            else:
+                                print(f"User {i+1} has no email address, skipping")
+                    else:
+                        print("Notification flag is set to False. Skipping notifications and emails.")
 
                 return Response(
                     {
                         "message": "Interested Party created successfully",
-                        "notification_sent": send_notification
+                        "notification_sent": interested_party.send_notification,
+                        "id": interested_party.id
                     },
                     status=status.HTTP_201_CREATED
                 )
             else:
+                # Log serializer errors for debugging
                 logger.warning(f"Validation error: {serializer.errors}")
+                print(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error occurred: {str(e)}")
+            print(f"Error occurred: {str(e)}")
+            import traceback
+            print(traceback.format_exc())  # Print full stack trace
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def _send_notification_email(self, interested_party, recipient, manual=None):
+        """
+        Sends an HTML email with optional attachments (Interested Party + Manual) using a secure backend.
+        """
+        recipient_email = recipient.email
+        if not recipient_email:
+            logger.warning("Recipient email is missing.")
+            print("Recipient email is missing.")
+            return
 
-        except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        try:
+            logger.info(f"Preparing to send email to {recipient_email}")
+            print(f"Preparing email for {recipient_email}")
+            subject = f"New Interested Party Created: {interested_party.name}"
+ 
+            # Get all needs objects for this interested party
+            all_needs = interested_party.needs.all()
+            needs_count = all_needs.count()
+            print(f"Found {needs_count} needs records for this interested party")
+            
+            # Debug: Print what we found
+            needs_list = []
+            expectations_list = []
+            for i, need in enumerate(all_needs):
+                print(f"Need {i+1}: needs='{need.needs}', expectation='{need.expectation}'")
+                if need.needs:
+                    needs_list.append(need.needs)
+                if need.expectation:
+                    expectations_list.append(need.expectation)
+            
+            context = {
+                'recipient_name': recipient.first_name if hasattr(recipient, 'first_name') else 'User',
+                'name': interested_party.name,
+                'category': interested_party.category,
+                'needs': needs_list,
+                'expectations': expectations_list,
+                'special_requirements': interested_party.special_requirements,
+                'legal_requirements': interested_party.legal_requirements,
+                'custom_legal_requirements': interested_party.custom_legal_requirements,
+                'user_first_name': interested_party.user.first_name if interested_party.user else '',
+                'user_last_name': interested_party.user.last_name if interested_party.user else '',
+            }
+
+            print(f"Email context prepared: {context}")
+            
+            try:
+                html_message = render_to_string('qms/interested_party/intereste_party_add.html', context)
+                print("HTML email template rendered successfully")
+                plain_message = strip_tags(html_message)
+            except Exception as e:
+                print(f"ERROR rendering email template: {str(e)}")
+                logger.error(f"Template rendering error: {str(e)}")
+                raise
+
+            try:
+                # Try to get email configuration values for debugging
+                email_host = config("EMAIL_HOST", default="Not configured")
+                email_port = config("EMAIL_PORT", default="Not configured")
+                email_user = config("EMAIL_HOST_USER", default="Not configured")
+                email_from = config("DEFAULT_FROM_EMAIL", default="Not configured")
+                
+                print(f"Email configuration - HOST: {email_host}, PORT: {email_port}, USER: {email_user}, FROM: {email_from}")
+                
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=plain_message,
+                    from_email=email_from,
+                    to=[recipient_email]
+                )
+                email.attach_alternative(html_message, "text/html")
+                print("Email object created")
+            except Exception as e:
+                print(f"ERROR creating email object: {str(e)}")
+                logger.error(f"Email creation error: {str(e)}")
+                raise
+ 
+            if interested_party.file:
+                try:
+                    file_name = interested_party.file.name.split('/')[-1]
+                    file_content = interested_party.file.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached Interested Party document: {file_name}")
+                    print(f"Attached file: {file_name}")
+                except Exception as e:
+                    logger.error(f"Error attaching Interested Party document: {str(e)}")
+                    print(f"Error attaching Interested Party document: {str(e)}")
+            
+            try:
+                connection = CertifiEmailBackend(
+                    host=config('EMAIL_HOST'),
+                    port=config('EMAIL_PORT'),
+                    username=config('EMAIL_HOST_USER'),
+                    password=config('EMAIL_HOST_PASSWORD'),
+                    use_tls=True
+                )
+                print("Email connection established")
+                
+                email.connection = connection
+                print("Sending email now...")
+                email.send(fail_silently=False)
+                print("Email sent successfully!")
+
+                logger.info(f"Notification email sent to {recipient_email}")
+            except Exception as e:
+                print(f"ERROR sending email: {str(e)}")
+                logger.error(f"Email sending error: {str(e)}")
+                raise
+
         except Exception as e:
-            logger.error(f"Error creating Interested Party: {str(e)}")
-            return Response(
-                {"error": "Internal Server Error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
+            print(f"Failed to send notification email to {recipient_email}: {str(e)}")
+            import traceback
+            print(traceback.format_exc())  # Print full stack trace
 
-    def _send_notification_email(self, interested_party, recipient):
-        """
-        Helper method to send email notifications about a new Interested Party.
-        """
-        subject = f"New Interested Party Created: {interested_party.name}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new interested party '{interested_party.name}' has been created.\n\n"
-            f"Details:\n"
-            f"- Category: {interested_party.category}\n"
-            f"- Needs: {interested_party.needs}\n"
-            f"- Expectations: {interested_party.expectations}\n"
-            f"- Special Requirements: {interested_party.special_requirements}\n"
-            f"- Legal Requirements: {interested_party.legal_requirements}\n"
-            f"- Custom Legal Requirements: {interested_party.custom_legal_requirements}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
-        
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
 
 
 
@@ -3415,42 +3554,53 @@ class InterstDraftAllList(APIView):
 class EditInterestedParty(APIView):
     def put(self, request, pk):
         interested_party = get_object_or_404(InterestedParty, pk=pk)
-        send_notification = request.data.get('send_notification', 'false') == 'true'
 
-        # Extract Needs and Expectations separately
+        # ✅ FIX: Properly parse boolean input from string or actual boolean
+        raw_send_notification = request.data.get('send_notification', False)
+        send_notification = str(raw_send_notification).lower() == 'true'
+
+        logger.info(f"Request Data: {request.data}")
+        logger.info(f"Raw send_notification value: {raw_send_notification}")
+        logger.info(f"Evaluated send_notification: {send_notification}")
+
         needs_data = request.data.pop('needs', [])
-        expectations_data = request.data.pop('expectation', [])
+
+        logger.info(f"Needs Data: {needs_data}")
 
         serializer = InterestedPartySerializer(interested_party, data=request.data, partial=True)
 
         if serializer.is_valid():
             instance = serializer.save(is_draft=False)
 
-            # Update Needs
+            # Update Needs with both needs and expectations fields
             if needs_data:
-                instance.needs.all().delete()  # Clear old needs
-                needs_objs = [Needs(interested_party=instance, title=need.get('title', '')) for need in needs_data]
-                Needs.objects.bulk_create(needs_objs)
+                logger.info(f"Updating Needs...")
+                instance.needs.all().delete()
+                needs_instances = []
+                for need_item in needs_data:
+                    needs_instances.append(
+                        Needs(
+                            interested_party=instance,
+                            needs=need_item.get('needs', ''),
+                            expectation=need_item.get('expectation', '')
+                        )
+                    )
+                
+                Needs.objects.bulk_create(needs_instances)
+                logger.info("Needs updated")
 
-            # Update Expectations
-            if expectations_data:
-                instance.expectation.all().delete()  # Clear old expectations
-                expectations_objs = [Expectations(interested_party=instance, title=exp.get('title', '')) for exp in expectations_data]
-                Expectations.objects.bulk_create(expectations_objs)
-
-            # Send notification if requested
+            # Notifications & Emails
             if send_notification:
-                company = instance.company
-                company_users = Users.objects.filter(company=company)
-
+                company_users = Users.objects.filter(company=instance.company)
+                
                 notifications = [
                     NotificationInterest(
                         interest=instance,
                         title=f"Updated Interested Party: {instance.name}",
                         message=f"The interested party '{instance.name}' has been updated."
-                    )
-                    for user in company_users
+                    ) for user in company_users
                 ]
+
                 if notifications:
                     NotificationInterest.objects.bulk_create(notifications)
                     logger.info(f"Created {len(notifications)} notifications for interested party {instance.id}")
@@ -3462,38 +3612,72 @@ class EditInterestedParty(APIView):
                         except Exception as e:
                             logger.error(f"Failed to send email to {user.email}: {str(e)}")
 
+            logger.info(f"Interested Party '{instance.name}' updated successfully")
             return Response(InterestedPartyGetSerializer(instance).data, status=status.HTTP_200_OK)
 
+        logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_notification_email(self, interested_party, recipient):
-        subject = f"Interested Party Updated: {interested_party.name}"
-        needs_list = "\n".join([f"- {need.title}" for need in interested_party.needs.all()])
-        expectations_list = "\n".join([f"- {exp.title}" for exp in interested_party.expectation.all()])
+        recipient_email = recipient.email
+        if not recipient_email:
+            logger.warning("Recipient email is missing.")
+            return
 
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"The interested party '{interested_party.name}' has been updated.\n\n"
-            f"Details:\n"
-            f"- Category: {interested_party.category}\n"
-            f"- Needs:\n{needs_list}\n"
-            f"- Expectations:\n{expectations_list}\n"
-            f"- Special Requirements: {interested_party.special_requirements}\n"
-            f"- Legal Requirements: {interested_party.legal_requirements}\n"
-            f"- Custom Legal Requirements: {interested_party.custom_legal_requirements}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
+        try:
+            subject = f"Interested Party Updated: {interested_party.name}"
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+            # Get all needs objects for this interested party
+            all_needs = interested_party.needs.all()
 
+            context = {
+                'recipient_name': recipient.first_name,
+                'name': interested_party.name,
+                'category': interested_party.category,
+                'needs': [need.needs for need in all_needs if need.needs],
+                'expectations': [need.expectation for need in all_needs if need.expectation],
+                'special_requirements': interested_party.special_requirements,
+                'legal_requirements': interested_party.legal_requirements,
+                'custom_legal_requirements': interested_party.custom_legal_requirements,
+                'user_first_name': interested_party.user.first_name if interested_party.user else '',
+                'user_last_name': interested_party.user.last_name if interested_party.user else '',
+            }
+
+            html_message = render_to_string('qms/interested_party/intereste_party_edit.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if exists
+            if interested_party.file:
+                try:
+                    file_name = interested_party.file.name.split('/')[-1]
+                    file_content = interested_party.file.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached Interested Party document: {file_name}")
+                except Exception as e:
+                    logger.error(f"Error attaching Interested Party document: {str(e)}")
+
+            # Custom email backend (if you're using one)
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Notification email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
 
 
 
@@ -3699,15 +3883,21 @@ class ProcessDetailView(APIView):
 
 
 
+ 
+
 class ProcessCreateView(APIView):
     """
     Endpoint to handle creation of process and optionally send notifications.
     """
     def post(self, request):
-        print("Received Data:", request.data)   
+        print("Received Data:", request.data)  # Print all the received data
         try:
             company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', 'false') == 'true'  # Handle as boolean
+            
+            # More flexible handling of send_notification flag
+            send_notification_value = request.data.get('send_notification', 'false')
+            send_notification = send_notification_value == 'true' or send_notification_value is True or send_notification_value == '1'
+            print(f"Send notification value: {send_notification_value}, Interpreted as: {send_notification}")
 
             if not company_id:
                 return Response(
@@ -3716,32 +3906,37 @@ class ProcessCreateView(APIView):
                 )
 
             company = Company.objects.get(id=company_id)
-            
+            print("Company retrieved:", company)
+
             # Extract legal_requirements IDs from request data
             legal_requirements_ids = []
             for key in request.data.keys():
                 if key.startswith('legal_requirements[') and key.endswith(']'):
                     legal_requirements_ids.append(request.data.get(key))
-            
+            print("Legal Requirements IDs:", legal_requirements_ids)
+
             # Create a mutable copy of the data
             data = request.data.copy()
-            
+
             # Remove the legal_requirements entries from the data before validation
-            # since they're handled separately after the initial save
             for key in list(data.keys()):
                 if key.startswith('legal_requirements[') and key.endswith(']'):
                     data.pop(key)
 
-            serializer = ProcessSerializer(data=data) 
+            # Print the cleaned data that will be validated
+            print("Data after cleaning legal_requirements:", data)
+
+            serializer = ProcessSerializer(data=data)
 
             if serializer.is_valid():
                 with transaction.atomic():
                     process = serializer.save()
-                    logger.info(f"Processes created: {process.name}")
+                    logger.info(f"Process created: {process.name}")
+                    print(f"Process created: {process.name} - ID: {process.id}")
 
                     # Update and save send_notification flag
                     process.send_notification = send_notification
-                    
+
                     # Add legal requirements relationships
                     if legal_requirements_ids:
                         for procedure_id in legal_requirements_ids:
@@ -3750,52 +3945,80 @@ class ProcessCreateView(APIView):
                                 process.legal_requirements.add(procedure)
                             except (Procedure.DoesNotExist, ValueError) as e:
                                 logger.warning(f"Failed to add procedure {procedure_id}: {str(e)}")
-                    
+                                print(f"Failed to add procedure {procedure_id}: {str(e)}")
+
                     process.save()
 
-                    # Send notifications only if requested
-                    if send_notification:
-                        company_users = Users.objects.filter(company=company)
-                        notifications = [
+                    # Always send notifications to all users in the company
+                    company_users = Users.objects.filter(company=company)
+                    users_count = company_users.count()
+                    print(f"Users to notify: {users_count}")
+                    
+                    if not company_users.exists():
+                        print("No users found for this company - no notifications will be sent")
+                    
+                    email_success_count = 0
+                    email_failure_count = 0
+                    
+                    notifications = []
+                    for user in company_users:
+                        # Create notification object
+                        notifications.append(
                             NotificationProcess(
                                 processes=process,
                                 title=f"New process Party: {process.name}",
                                 message=f"A new process party '{process.name}' has been added."
                             )
-                            for user in company_users  # Still iterating for sending emails below
-                        ]
-
-                        # Bulk create notifications
-                        if notifications:
-                            NotificationProcess.objects.bulk_create(notifications)
-                            logger.info(f"Created {len(notifications)} notifications for process party {process.id}")
-
-                        # Send email to each user
-                        for user in company_users:
-                            if user.email:
-                                try:
-                                    self._send_notification_email(process, user)
-                                except Exception as e:
-                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                        )
+                        
+                        # Try to send email to all users
+                        if user.email:
+                            try:
+                                email_sent = self._send_notification_email(process, user)
+                                if email_sent:
+                                    email_success_count += 1
+                                else:
+                                    email_failure_count += 1
+                            except Exception as e:
+                                email_failure_count += 1
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                print(f"Failed to send email to {user.email}: {str(e)}")
+                        else:
+                            print(f"User ID {user.id} has no email address - skipping email")
+                    
+                    # Bulk create notifications
+                    if notifications:
+                        NotificationProcess.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for process party {process.id}")
+                        print(f"Created {len(notifications)} notifications for process party {process.id}")
+                    
+                    print(f"Email sending summary: {email_success_count} succeeded, {email_failure_count} failed")
 
                 return Response(
                     {
-                        "message": "process Party created successfully",
-                        "notification_sent": send_notification
+                        "message": "Process Party created successfully",
+                        "notification_sent": True,
+                        "email_stats": {
+                            "success": email_success_count,
+                            "failure": email_failure_count
+                        }
                     },
                     status=status.HTTP_201_CREATED
                 )
             else:
                 logger.warning(f"Validation error: {serializer.errors}")
+                print(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Company.DoesNotExist:
+            print("Company not found.")
             return Response(
                 {"error": "Company not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
             logger.error(f"Error creating process Party: {str(e)}")
+            print(f"Error creating process Party: {str(e)}")
             return Response(
                 {"error": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -3803,31 +4026,93 @@ class ProcessCreateView(APIView):
 
     def _send_notification_email(self, process, recipient):
         """
-        Helper method to send email notifications about a new process Party.
+        Sends an HTML email with optional attachment using custom backend.
         """
-    
-        legal_requirements_titles = ", ".join([proc.title for proc in process.legal_requirements.all()])
+        # Debug email configuration
+        print("Email configuration:")
+        print(f"Host: {config('EMAIL_HOST')}")
+        print(f"Port: {config('EMAIL_PORT')}")
+        print(f"User: {config('EMAIL_HOST_USER')}")
+        print(f"Password set: {'Yes' if config('EMAIL_HOST_PASSWORD') else 'No'}")
         
-        subject = f"New process Party Created: {process.name}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new process party '{process.name}' has been created.\n\n"
-            f"Details:\n"
-            f"- Category: {process.type}\n"   
-            f"- Legal Requirements: {legal_requirements_titles or 'None'}\n"
-            f"- Custom Legal Requirements: {process.custom_legal_requirements or 'None'}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
-        
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+        recipient_email = recipient.email
+        if not recipient_email:
+            print("Recipient email is missing.")
+            logger.warning("Recipient email is missing.")
+            return False
+
+        try:
+            print(f"Preparing to send process email to {recipient_email}")
+            logger.info(f"Preparing to send process email to {recipient_email}")
+
+            subject = f"New Process Created: {process.name}"
+
+            context = {
+                'recipient_name': recipient.first_name,
+                'name': process.name,
+                'number': process.no,
+                'category': process.type,
+                'legal_requirements': [req.title for req in process.legal_requirements.all()],
+                'custom_legal_requirements': process.custom_legal_requirements,
+                'user_first_name': process.user.first_name if process.user else '',
+                'user_last_name': process.user.last_name if process.user else '',
+            }
+
+            html_message = render_to_string('qms/process/process_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if process.file:
+                try:
+                    file_name = process.file.name.split('/')[-1]
+                    file_content = process.file.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached process document: {file_name}")
+                    logger.info(f"Attached process document: {file_name}")
+                except Exception as e:
+                    print(f"Error attaching process document: {str(e)}")
+                    logger.error(f"Error attaching process document: {str(e)}")
+
+            # Use custom backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+
+            # Sending the email with specific error handling
+            try:
+                print("Sending the email...")
+                email.send(fail_silently=False)
+                
+                print(f"Notification email sent to {recipient_email}")
+                logger.info(f"Notification email sent to {recipient_email}")
+                return True  # Indicate success
+            except smtplib.SMTPException as smtp_e:
+                # Handle specific SMTP errors
+                print(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                logger.error(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                return False
+            except Exception as e:
+                print(f"Failed to send email to {recipient_email}: {str(e)}")
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+                return False
+
+        except Exception as e:
+            print(f"Failed to send email to {recipient_email}: {str(e)}")
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            return False
+
 
 class ProcessAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -3875,51 +4160,227 @@ class ProcessAllList(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class EditProcess(APIView):
+    """
+    Endpoint to handle updating of process and optionally send notifications.
+    """
     def put(self, request, pk):
-        process = get_object_or_404(Processes, pk=pk)
-      
-        print("Request data:", request.data)
-        print("Legal requirements data:", request.data.getlist('legal_requirements'))
-        print("Custom legal requirements:", request.data.get('custom_legal_requirements', ''))
-        
-     
-        data = request.data.copy()
-        
- 
-        has_custom_text = 'custom_legal_requirements' in request.data and request.data.get('custom_legal_requirements', '').strip()
-        
- 
-        serializer = ProcessManySerializer(process, data=data, partial=True)
-        if serializer.is_valid():
- 
-            instance = serializer.save(is_draft=False)
+        try:
+            process = get_object_or_404(Processes, pk=pk)
             
-           
-            if has_custom_text:
-         
-                instance.legal_requirements.clear()
-                print("N/A selected - cleared all legal requirements")
+            print("Request data:", request.data)
+            
+            # For DRF's request.data, we need to handle lists differently
+            # If legal_requirements is a list in the request, it will already be a list
+            # If it's a single value, we need to put it in a list
+            legal_requirements = request.data.get('legal_requirements', [])
+            if legal_requirements and not isinstance(legal_requirements, list):
+                legal_requirements = [legal_requirements]
+                
+            print("Legal requirements data:", legal_requirements)
+            print("Custom legal requirements:", request.data.get('custom_legal_requirements', ''))
+            
+            # More flexible handling of send_notification flag
+            send_notification_value = request.data.get('send_notification', 'false')
+            if isinstance(send_notification_value, bool):
+                send_notification = send_notification_value
             else:
-     
-                legal_req_data = request.data.getlist('legal_requirements')
-                if legal_req_data:
-           
-                    req_ids = [int(req_id) for req_id in legal_req_data if req_id and req_id.isdigit()]
-              
-                    instance.legal_requirements.set(req_ids)
-                    print(f"Set legal requirements to: {req_ids}")
-                else:
+                send_notification = str(send_notification_value).lower() == 'true' or send_notification_value == '1'
+            print(f"Send notification value: {send_notification_value}, Interpreted as: {send_notification}")
             
-                    instance.legal_requirements.clear()
-                    print("No legal requirements provided - cleared all")
+            data = request.data.copy()
             
- 
-            return Response(ProcessManySerializer(instance).data, status=status.HTTP_200_OK)
-        
-        print("Serializer errors:", serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
- 
+            has_custom_text = 'custom_legal_requirements' in request.data and request.data.get('custom_legal_requirements', '').strip()
+            
+            serializer = ProcessManySerializer(process, data=data, partial=True)
+            if serializer.is_valid():
+                with transaction.atomic():
+                    instance = serializer.save(is_draft=False)
+                    logger.info(f"Process updated: {instance.name}")
+                    print(f"Process updated: {instance.name} - ID: {instance.id}")
+                    
+                    # Update and save send_notification flag
+                    instance.send_notification = send_notification
+                    
+                    # Handle legal requirements
+                    if has_custom_text:
+                        instance.legal_requirements.clear()
+                        print("N/A selected - cleared all legal requirements")
+                    else:
+                        # Convert to integers, handling strings and non-digit values
+                        req_ids = []
+                        for req_id in legal_requirements:
+                            try:
+                                if req_id and str(req_id).isdigit():
+                                    req_ids.append(int(req_id))
+                            except (ValueError, TypeError):
+                                print(f"Skipping invalid legal requirement ID: {req_id}")
+                                
+                        instance.legal_requirements.set(req_ids)
+                        print(f"Set legal requirements to: {req_ids}")
+                    
+                    instance.save()
+                    
+                    # Send notifications if enabled
+                    email_success_count = 0
+                    email_failure_count = 0
+                    
+                    if send_notification:
+                        # Get company and users
+                        company = instance.company
+                        company_users = Users.objects.filter(company=company)
+                        users_count = company_users.count()
+                        print(f"Users to notify: {users_count}")
+                        
+                        if not company_users.exists():
+                            print("No users found for this company - no notifications will be sent")
+                        
+                        notifications = []
+                        for user in company_users:
+                            # Create notification object
+                            notifications.append(
+                                NotificationProcess(
+                                    processes=instance,
+                                    title=f"Process Updated: {instance.name}",
+                                    message=f"The process '{instance.name}' has been updated."
+                                )
+                            )
+                            
+                            # Try to send email to all users
+                            if user.email:
+                                try:
+                                    email_sent = self._send_notification_email(instance, user)
+                                    if email_sent:
+                                        email_success_count += 1
+                                    else:
+                                        email_failure_count += 1
+                                except Exception as e:
+                                    email_failure_count += 1
+                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                    print(f"Failed to send email to {user.email}: {str(e)}")
+                            else:
+                                print(f"User ID {user.id} has no email address - skipping email")
+                        
+                        # Bulk create notifications
+                        if notifications:
+                            NotificationProcess.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for process update {instance.id}")
+                            print(f"Created {len(notifications)} notifications for process update {instance.id}")
+                        
+                        print(f"Email sending summary: {email_success_count} succeeded, {email_failure_count} failed")
+                
+                return Response(
+                    {
+                        "message": "Process updated successfully",
+                        "notification_sent": send_notification,
+                        "email_stats": {
+                            "success": email_success_count if send_notification else 0,
+                            "failure": email_failure_count if send_notification else 0
+                        },
+                        "data": ProcessManySerializer(instance).data
+                    },
+                    status=status.HTTP_200_OK
+                )
+                
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Error updating process: {str(e)}")
+            print(f"Error updating process: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
+    def _send_notification_email(self, process, recipient):
+        """
+        Sends an HTML email with optional attachment using custom backend.
+        """
+        # Debug email configuration
+        print("Email configuration:")
+        print(f"Host: {config('EMAIL_HOST')}")
+        print(f"Port: {config('EMAIL_PORT')}")
+        print(f"User: {config('EMAIL_HOST_USER')}")
+        print(f"Password set: {'Yes' if config('EMAIL_HOST_PASSWORD') else 'No'}")
+        
+        recipient_email = recipient.email
+        if not recipient_email:
+            print("Recipient email is missing.")
+            logger.warning("Recipient email is missing.")
+            return False
+
+        try:
+            print(f"Preparing to send process update email to {recipient_email}")
+            logger.info(f"Preparing to send process update email to {recipient_email}")
+
+            subject = f"Process Updated: {process.name}"
+
+            context = {
+                'recipient_name': recipient.first_name,
+                'name': process.name,
+                'number': process.no,
+                'category': process.type,
+                'legal_requirements': [req.title for req in process.legal_requirements.all()],
+                'custom_legal_requirements': process.custom_legal_requirements,
+                'user_first_name': process.user.first_name if process.user else '',
+                'user_last_name': process.user.last_name if process.user else '',
+                'is_update': True, 
+            }
+
+            html_message = render_to_string('qms/process/process_edit.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if process.file:
+                try:
+                    file_name = process.file.name.split('/')[-1]
+                    file_content = process.file.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached process document: {file_name}")
+                    logger.info(f"Attached process document: {file_name}")
+                except Exception as e:
+                    print(f"Error attaching process document: {str(e)}")
+                    logger.error(f"Error attaching process document: {str(e)}")
+
+            # Use custom backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+
+            # Sending the email with specific error handling
+            try:
+                print("Sending the email...")
+                email.send(fail_silently=False)
+                
+                print(f"Update notification email sent to {recipient_email}")
+                logger.info(f"Update notification email sent to {recipient_email}")
+                return True  # Indicate success
+            except smtplib.SMTPException as smtp_e:
+                # Handle specific SMTP errors
+                print(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                logger.error(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                return False
+            except Exception as e:
+                print(f"Failed to send email to {recipient_email}: {str(e)}")
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+                return False
+
+        except Exception as e:
+            print(f"Failed to send email to {recipient_email}: {str(e)}")
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            return False
 class ProcessDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
         data = {}
@@ -8920,14 +9381,13 @@ class ManualDraftEditView(APIView):
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
     def send_email_notification(self, manual, recipient, action_type):
-        # Same email logic as in the creation view
         recipient_email = recipient.email if recipient else None
+
         if recipient_email:
             try:
                 if action_type == "review":
                     subject = f"Manual Ready for Review: {manual.title}"
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
+               
 
                     context = {
                         'recipient_name': recipient.first_name,
@@ -8949,15 +9409,38 @@ class ManualDraftEditView(APIView):
                     html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if manual.upload_attachment:
+                        try:
+                            file_name = manual.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = manual.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached manual document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching manual file: {str(attachment_error)}")
+
+                    # Use custom backend
+                    from your_app.email_backends import CertifiEmailBackend  # Adjust the import path as needed
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
@@ -9677,45 +10160,67 @@ class ProcedureDraftEditView(APIView):
             except Exception as e:
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
-    def send_email_notification(self, Procedure, recipient, action_type):
- 
+    def send_email_notification(self, procedure, recipient, action_type):
         recipient_email = recipient.email if recipient else None
+
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Procedure Ready for Review: {Procedure.title}"
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
+                    subject = f"Procedure Ready for Review: {procedure.title}"
+                   
 
                     context = {
                         'recipient_name': recipient.first_name,
-                        'title': Procedure.title,
-                        'document_number': Procedure.no or 'N/A',
-                        'review_frequency_year': Procedure.review_frequency_year or 0,
-                        'review_frequency_month': Procedure.review_frequency_month or 0,
-                        'document_type': Procedure.document_type,
-                        'section_number': Procedure.no,
-                        'rivision': Procedure.rivision,
-                        "written_by": Procedure.written_by,
-                        "checked_by": Procedure.checked_by,
-                        "approved_by": Procedure.approved_by,
-                        'date': Procedure.date,
-                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
-                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                        'title': procedure.title,
+                        'document_number': procedure.no or 'N/A',
+                        'review_frequency_year': procedure.review_frequency_year or 0,
+                        'review_frequency_month': procedure.review_frequency_month or 0,
+                        'document_type': procedure.document_type,
+                        'section_number': procedure.no,
+                        'rivision': procedure.rivision,
+                        "written_by": procedure.written_by,
+                        "checked_by": procedure.checked_by,
+                        "approved_by": procedure.approved_by,
+                        'date': procedure.date,
+                        'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
+                        'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/Procedure/Procedure_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if procedure.upload_attachment:
+                        try:
+                            file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = procedure.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached procedure document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching procedure file: {str(attachment_error)}")
+
+  
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
@@ -9900,45 +10405,65 @@ class RecordraftEditView(APIView):
             except Exception as e:
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
-    def send_email_notification(self, Procedure, recipient, action_type):
-        # Same email logic as in the creation view
+    def send_email_notification(self, record, recipient, action_type):
         recipient_email = recipient.email if recipient else None
+
         if recipient_email:
             try:
                 if action_type == "review":
-                    subject = f"Procedure Ready for Review: {Procedure.title}"
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
-
+                    subject = f"Record Format Ready for Review: {record.title}"
+          
                     context = {
                         'recipient_name': recipient.first_name,
-                        'title': Procedure.title,
-                        'document_number': Procedure.no or 'N/A',
-                        'review_frequency_year': Procedure.review_frequency_year or 0,
-                        'review_frequency_month': Procedure.review_frequency_month or 0,
-                        'document_type': Procedure.document_type,
-                        'section_number': Procedure.no,
-                        'rivision': Procedure.rivision,
-                        "written_by": Procedure.written_by,
-                        "checked_by": Procedure.checked_by,
-                        "approved_by": Procedure.approved_by,
-                        'date': Procedure.date,
-                        'document_url': Procedure.upload_attachment.url if Procedure.upload_attachment else None,
-                        'document_name': Procedure.upload_attachment.name.rsplit('/', 1)[-1] if Procedure.upload_attachment else None,
+                        'title': record.title,
+                        'document_number': record.no or 'N/A',
+                        'review_frequency_year': record.review_frequency_year or 0,
+                        'review_frequency_month': record.review_frequency_month or 0,
+                        'document_type': record.document_type,
+                        'section_number': record.no,
+                        'rivision': record.rivision,
+                        "written_by": record.written_by,
+                        "checked_by": record.checked_by,
+                        "approved_by": record.approved_by,
+                        'date': record.date,
+                        'document_url': record.upload_attachment.url if record.upload_attachment else None,
+                        'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
                     }
 
                     html_message = render_to_string('qms/record/record_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
-
-                    send_mail(
+ 
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if record.upload_attachment:
+                        try:
+                            file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = record.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached record document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching record file: {str(attachment_error)}")
+
+     
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
@@ -9946,3 +10471,447 @@ class RecordraftEditView(APIView):
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+            
+            
+class ProcessDraftEditView(APIView):
+    """
+    Endpoint to handle updating of a draft process to a final process with optional notifications.
+    """
+    def put(self, request, pk):
+        try:
+            process = get_object_or_404(Processes, pk=pk, is_draft=True)
+            print("Editing draft process:", process.name)
+            print("Received Data:", request.data)  # Print all the received data
+            
+            # More flexible handling of send_notification flag
+            send_notification_value = request.data.get('send_notification', 'false')
+            if isinstance(send_notification_value, bool):
+                send_notification = send_notification_value
+            else:
+                send_notification = str(send_notification_value).lower() == 'true' or send_notification_value == '1'
+            print(f"Send notification value: {send_notification_value}, Interpreted as: {send_notification}")
+            
+            # Extract legal_requirements IDs from request data
+            legal_requirements = request.data.get('legal_requirements', [])
+            if legal_requirements and not isinstance(legal_requirements, list):
+                legal_requirements = [legal_requirements]
+            print("Legal Requirements IDs:", legal_requirements)
+            
+            # Check for custom legal requirements
+            has_custom_text = 'custom_legal_requirements' in request.data and request.data.get('custom_legal_requirements', '').strip()
+            
+            # Create a mutable copy of the data
+            data = request.data.copy()
+            
+            # Ensure is_draft is set to False when finalizing
+            data['is_draft'] = False
+            
+            # Handle file upload if present
+            file_obj = request.FILES.get('file') or request.FILES.get('upload_attachment')
+            
+            serializer = ProcessManySerializer(process, data=data, partial=True)
+            
+            if serializer.is_valid():
+                with transaction.atomic():
+                    instance = serializer.save(is_draft=False)
+                    logger.info(f"Draft process finalized: {instance.name}")
+                    print(f"Draft process finalized: {instance.name} - ID: {instance.id}")
+                    
+                    # Update and save send_notification flag
+                    instance.send_notification = send_notification
+                    
+                    # Handle file if present
+                    if file_obj:
+                        instance.file = file_obj
+                    
+                    # Handle legal requirements
+                    if has_custom_text:
+                        instance.legal_requirements.clear()
+                        print("Custom text provided - cleared all legal requirements")
+                    else:
+                        # Convert to integers, handling strings and non-digit values
+                        req_ids = []
+                        for req_id in legal_requirements:
+                            try:
+                                if req_id and str(req_id).isdigit():
+                                    req_ids.append(int(req_id))
+                            except (ValueError, TypeError):
+                                print(f"Skipping invalid legal requirement ID: {req_id}")
+                                
+                        instance.legal_requirements.set(req_ids)
+                        print(f"Set legal requirements to: {req_ids}")
+                    
+                    instance.save()
+                    
+                    # Send notifications if enabled
+                    email_success_count = 0
+                    email_failure_count = 0
+                    
+                    if send_notification:
+                        # Get company and users
+                        company = instance.company
+                        company_users = Users.objects.filter(company=company)
+                        users_count = company_users.count()
+                        print(f"Users to notify: {users_count}")
+                        
+                        if not company_users.exists():
+                            print("No users found for this company - no notifications will be sent")
+                        
+                        notifications = []
+                        for user in company_users:
+                            # Create notification object
+                            notifications.append(
+                                NotificationProcess(
+                                    processes=instance,
+                                    title=f"New Process Published: {instance.name}",
+                                    message=f"The draft process '{instance.name}' has been finalized and published."
+                                )
+                            )
+                            
+                            # Try to send email to all users
+                            if user.email:
+                                try:
+                                    email_sent = self._send_notification_email(instance, user)
+                                    if email_sent:
+                                        email_success_count += 1
+                                    else:
+                                        email_failure_count += 1
+                                except Exception as e:
+                                    email_failure_count += 1
+                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                    print(f"Failed to send email to {user.email}: {str(e)}")
+                            else:
+                                print(f"User ID {user.id} has no email address - skipping email")
+                        
+                        # Bulk create notifications
+                        if notifications:
+                            NotificationProcess.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for process publication {instance.id}")
+                            print(f"Created {len(notifications)} notifications for process publication {instance.id}")
+                        
+                        print(f"Email sending summary: {email_success_count} succeeded, {email_failure_count} failed")
+                
+                return Response(
+                    {
+                        "message": "Draft process published successfully",
+                        "notification_sent": send_notification,
+                        "email_stats": {
+                            "success": email_success_count if send_notification else 0,
+                            "failure": email_failure_count if send_notification else 0
+                        },
+                        "data": ProcessManySerializer(instance).data
+                    },
+                    status=status.HTTP_200_OK
+                )
+                
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Error publishing draft process: {str(e)}")
+            print(f"Error publishing draft process: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _send_notification_email(self, process, recipient):
+        """
+        Sends an HTML email with optional attachment using custom backend.
+        """
+        # Debug email configuration
+        print("Email configuration:")
+        print(f"Host: {config('EMAIL_HOST')}")
+        print(f"Port: {config('EMAIL_PORT')}")
+        print(f"User: {config('EMAIL_HOST_USER')}")
+        print(f"Password set: {'Yes' if config('EMAIL_HOST_PASSWORD') else 'No'}")
+        
+        recipient_email = recipient.email
+        if not recipient_email:
+            print("Recipient email is missing.")
+            logger.warning("Recipient email is missing.")
+            return False
+
+        try:
+            print(f"Preparing to send process publication email to {recipient_email}")
+            logger.info(f"Preparing to send process publication email to {recipient_email}")
+
+            subject = f"New Process Published: {process.name}"
+
+            context = {
+                'recipient_name': recipient.first_name,
+                'name': process.name,
+                'number': process.no,
+                'category': process.type,
+                'legal_requirements': [req.title for req in process.legal_requirements.all()],
+                'custom_legal_requirements': process.custom_legal_requirements,
+                'user_first_name': process.user.first_name if process.user else '',
+                'user_last_name': process.user.last_name if process.user else '',
+                'is_draft_published': True,  # Flag to indicate this is a draft being published
+            }
+
+            # Use the same template as process_update.html
+            html_message = render_to_string('qms/process/process_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if process.file:
+                try:
+                    file_name = process.file.name.split('/')[-1]
+                    file_content = process.file.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached process document: {file_name}")
+                    logger.info(f"Attached process document: {file_name}")
+                except Exception as e:
+                    print(f"Error attaching process document: {str(e)}")
+                    logger.error(f"Error attaching process document: {str(e)}")
+
+            # Use custom backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+
+            # Sending the email with specific error handling
+            try:
+                print("Sending the email...")
+                email.send(fail_silently=False)
+                
+                print(f"Publication notification email sent to {recipient_email}")
+                logger.info(f"Publication notification email sent to {recipient_email}")
+                return True  # Indicate success
+            except smtplib.SMTPException as smtp_e:
+                # Handle specific SMTP errors
+                print(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                logger.error(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
+                return False
+            except Exception as e:
+                print(f"Failed to send email to {recipient_email}: {str(e)}")
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+                return False
+
+        except Exception as e:
+            print(f"Failed to send email to {recipient_email}: {str(e)}")
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            return False
+        
+        
+class InterestedPartyEditDraftView(APIView):
+    """
+    Endpoint to handle editing of Draft Interested Party, making it final, and optionally sending notifications.
+    """
+    def put(self, request, draft_id):
+        print("Received Data for Draft Edit:", request.data)  # Print all incoming data for debugging
+        try:
+            # Find the draft interested party
+            try:
+                interested_party = InterestedParty.objects.get(id=draft_id, is_draft=True)
+            except InterestedParty.DoesNotExist:
+                return Response(
+                    {"error": "Draft not found or already published"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Handle the case where request.data is a list instead of a dictionary
+            request_data = request.data
+            if isinstance(request_data, list) and len(request_data) > 0:
+                request_data = request_data[0]
+                print("Converted list data to dictionary:", request_data)
+            
+            # Extract data from the request
+            company_id = request_data.get('company')
+            send_notification = request_data.get('send_notification', False)  # Default to False if not provided
+            needs_data = request_data.get('needs', [])
+
+            # Debugging print statements
+            print(f"Company ID: {company_id}")
+            print(f"Send Notification: {send_notification}")
+            print(f"Needs Data: {needs_data}")
+
+            # Check if company_id is provided
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+            serializer = InterestedPartySerializer(interested_party, data=request_data, partial=True)
+
+            # Validate the serializer and proceed if valid
+            if serializer.is_valid():
+                with transaction.atomic():
+                    # Set is_draft to False to publish it
+                    serializer.validated_data['is_draft'] = False
+                    interested_party = serializer.save()
+                    logger.info(f"Interested Party published from draft: {interested_party.name}")
+
+                    # Log the interested party data
+                    print(f"Interested Party Published: {interested_party.name}")
+                    print(f"Interested Party ID: {interested_party.id}")
+                    print(f"Interested Party Send Notification: {interested_party.send_notification}")
+                    
+                    # Handle file upload if provided
+                    file_obj = request.FILES.get('upload_attachment') if hasattr(request, 'FILES') else None
+                    if file_obj:
+                        interested_party.file = file_obj
+                        interested_party.save()
+                        logger.info(f"Uploaded attachment for Interested Party {interested_party.id}")
+
+                    # Update needs with both needs and expectations fields
+                    if needs_data is not None:
+                        # Delete existing needs
+                        Needs.objects.filter(interested_party=interested_party).delete()
+                        
+                        # Create new needs with both needs and expectations fields
+                        needs_instances = []
+                        for need_item in needs_data:
+                            needs_instances.append(
+                                Needs(
+                                    interested_party=interested_party,
+                                    needs=need_item.get('needs', ''),
+                                    expectation=need_item.get('expectation', '')
+                                )
+                            )
+                        
+                        Needs.objects.bulk_create(needs_instances)
+                        logger.info(f"Updated {len(needs_instances)} Needs for Interested Party {interested_party.id}")
+
+                    # Save the send_notification flag
+                    print(f"Setting Send Notification Flag to: {send_notification}")
+                    interested_party.send_notification = send_notification
+                    interested_party.save()
+
+                    # If send_notification is True, send notifications and emails
+                    if send_notification:
+                        company_users = Users.objects.filter(company=company)
+                        notifications = [
+                            NotificationInterest(
+                                interest=interested_party,
+                                title=f"Interested Party Published: {interested_party.name}",
+                                message=f"An interested party '{interested_party.name}' has been published from draft."
+                            )
+                            for user in company_users
+                        ]
+
+                        if notifications:
+                            NotificationInterest.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for Interested Party {interested_party.id}")
+                        else:
+                            print("No notifications to send.")
+
+                        # Send email notifications to users
+                        for user in company_users:
+                            if user.email:
+                                try:
+                                    self._send_notification_email(interested_party, user)
+                                except Exception as e:
+                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                    print(f"Failed to send email to {user.email}: {str(e)}")
+                    else:
+                        print("Notification flag is set to False. Skipping notifications and emails.")
+
+                return Response(
+                    {
+                        "message": "Interested Party published successfully from draft",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # Log serializer errors for debugging
+                logger.warning(f"Validation error: {serializer.errors}")
+                print(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error occurred: {str(e)}")
+            print(f"Error occurred: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_notification_email(self, interested_party, recipient, manual=None):
+        """
+        Sends an HTML email with optional attachments (Interested Party + Manual) using a secure backend.
+        """
+        recipient_email = recipient.email
+        if not recipient_email:
+            logger.warning("Recipient email is missing.")
+            print("Recipient email is missing.")
+            return
+
+        try:
+            logger.info(f"Preparing to send email to {recipient_email}")
+            subject = f"Interested Party Published: {interested_party.name}"
+
+            # Get all needs objects for this interested party 
+            all_needs = interested_party.needs.all()
+ 
+            context = {
+                'recipient_name': recipient.first_name,
+                'name': interested_party.name,
+                'category': interested_party.category,
+                'needs': [need.needs for need in all_needs if need.needs],
+                'expectations': [need.expectation for need in all_needs if need.expectation],
+                'special_requirements': interested_party.special_requirements,
+                'legal_requirements': interested_party.legal_requirements,
+                'custom_legal_requirements': interested_party.custom_legal_requirements,
+                'user_first_name': interested_party.user.first_name if interested_party.user else '',
+                'user_last_name': interested_party.user.last_name if interested_party.user else '',
+            }
+
+            html_message = render_to_string('qms/interested_party/intereste_party_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+ 
+            if interested_party.file:
+                try:
+                    file_name = interested_party.file.name.split('/')[-1]
+                    file_content = interested_party.file.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached Interested Party document: {file_name}")
+                except Exception as e:
+                    logger.error(f"Error attaching Interested Party document: {str(e)}")
+                    print(f"Error attaching Interested Party document: {str(e)}")
+                    
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Notification email sent to {recipient_email}")
+            print(f"Notification email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
+            print(f"Failed to send notification email to {recipient_email}: {str(e)}")

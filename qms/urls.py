@@ -87,6 +87,7 @@ urlpatterns = [
     path('interst-draft/<int:user_id>/', InterstDraftAllList.as_view(), name='manual-list'),
     path('interested-parties/<int:pk>/edit/', EditInterestedParty.as_view(), name='edit-interested-party'),
     path('interst/drafts-count/<int:user_id>/', DrafInterstAPIView.as_view(), name='draft-manuals'),
+    path('interst/create/<draft_id>/', InterestedPartyEditDraftView.as_view(), name='process-draft-edit'),
    
     # Processes
     path('processes/<int:company_id>/', ProcessList.as_view(), name='manual-list'),
@@ -97,6 +98,7 @@ urlpatterns = [
     path('processes/<int:pk>/edit/', EditProcess.as_view(), name='edit-interested-party'),
     path('process-draft/<int:user_id>/', ProcessesDraftAllList.as_view(), name='manual-list'),
     path('processes/drafts-count/<int:user_id>/', ProcessAPIView.as_view(), name='draft-manuals'),
+    path('processes/create/<int:pk>/', ProcessDraftEditView.as_view(), name='process-draft-edit'),
     
     # Legal And other Requirements
     path('legal/<int:company_id>/', LegalList.as_view(), name='manual-list'),

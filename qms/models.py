@@ -341,17 +341,13 @@ class InterestedParty(models.Model):
  
 class Needs(models.Model):
     interested_party = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, related_name='needs', null=True, blank=True) 
-    title = models.TextField(blank=True, null=True)
+    needs = models.TextField(blank=True, null=True)
+    expectation = models.TextField(blank=True, null=True)
     
     def __str__(self):
-        return self.title
+        return self.needs
     
-class Expectations(models.Model):
-    interested_party = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, related_name='expectation', null=True, blank=True) 
-    title = models.TextField(blank=True, null=True)
-    
-    def __str__(self):
-        return self.title
+
     
     
 

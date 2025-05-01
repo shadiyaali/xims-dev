@@ -313,10 +313,7 @@ class NeedsSerializer(serializers.ModelSerializer):
         model = Needs
         fields = '__all__'        
 
-class ExpectationsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Expectations
-        fields = '__all__'        
+        
         
 class InterestedPartySerializer(serializers.ModelSerializer):
     class Meta:
@@ -325,7 +322,7 @@ class InterestedPartySerializer(serializers.ModelSerializer):
         
 class InterestedPartyGetSerializer(serializers.ModelSerializer):
     needs = NeedsSerializer(many=True, read_only=True)
-    expectation = ExpectationsSerializer(many=True, read_only=True)   
+ 
 
     class Meta:
         model = InterestedParty

@@ -16,7 +16,7 @@ admin.site.register(CorrectionRecord)
 admin.site.register(Compliances)
 admin.site.register(InterestedParty)
 admin.site.register(Needs)
-admin.site.register(Expectations)
+ 
 admin.site.register(NotificationInterest)
 admin.site.register(Processes)
 admin.site.register(NotificationProcess)
