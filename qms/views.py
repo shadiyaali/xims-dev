@@ -9997,85 +9997,76 @@ class AddSCustomerSurveyAnswerToQuestionAPIView(APIView):
     def patch(self, request, question_id, *args, **kwargs):
         try:
             question = CustomerQuestions.objects.get(id=question_id)
-            answer = request.data.get('answer')
-            user_id = request.data.get('user_id')
-
-            if not answer:
-                return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            if not user_id:
-                return Response({"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            question.answer = answer
-            question.user_id = user_id  
-            question.save()
-
-            return Response({"message": "Answer and user updated successfully."}, status=status.HTTP_200_OK)
-
         except CustomerQuestions.DoesNotExist:
-            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND) 
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        answer = request.data.get('answer')
+        customer_id = request.data.get('customer_id')
+
+        if not answer:
+            return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not customer_id:
+            return Response({"error": "Customer ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        question.answer = answer
+        question.customer_qsn = customer  # Use correct field
+        question.save()
+
+        return Response({"message": "Answer and customer updated successfully."}, status=status.HTTP_200_OK)
+
+
+
 
 class CustomerCustomerSurveyAnswersView(APIView):
     def get(self, request, company_id, customer_id):
         try:
-            # Retrieve the company object
-            try:
-                company = Company.objects.get(id=company_id)
-            except Company.DoesNotExist:
-                return Response(
-                    {"error": "Company not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # Retrieve the customer satisfaction survey
-            try:
-                survey = CustomerSatisfaction.objects.get(id=customer_id, company=company)
-            except CustomerSatisfaction.DoesNotExist:
-                return Response(
-                    {"error": "Customer satisfaction not found or does not belong to the specified company."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        try:
+            survey = CustomerSatisfaction.objects.get(id=customer_id, company=company)
+        except CustomerSatisfaction.DoesNotExist:
+            return Response({"error": "Customer satisfaction not found or does not belong to the specified company."},
+                            status=status.HTTP_404_NOT_FOUND)
 
-            # Get all customers associated with the company
-            company_customers = Customer.objects.filter(company=company)
+        company_customers = Customer.objects.filter(company=company)
 
-            # Get a list of customer IDs who have submitted survey answers
-            submitted_customer_ids = CustomerQuestions.objects.filter(
-                customer=survey,
-                user__isnull=False
-            ).values_list('customer_id', flat=True).distinct()
+        # Get customer_qsn IDs that have submitted answers for the given survey
+        submitted_customer_ids = CustomerQuestions.objects.filter(
+            customer=survey,
+            customer_qsn__isnull=False
+        ).values_list('customer_qsn_id', flat=True).distinct()
 
-            # Filter out the customers who have already submitted answers
-            not_submitted_customers = company_customers.exclude(id__in=submitted_customer_ids)
+        not_submitted_customers = company_customers.exclude(id__in=submitted_customer_ids)
 
-            # Format the customer data to return
-            customer_data = [
-                {
-                    "id": customer.id,
-                    "name": customer.name,
-                    "address": customer.address,
-                    "city": customer.city,
-                    "state": customer.state,
-                    "zipcode": customer.zipcode,
-                    "country": customer.country,
-                    "email": customer.email,
-                    "contact_person": customer.contact_person,
-                    "phone": customer.phone,
-                    "alternate_phone": customer.alternate_phone,
-                    "fax": customer.fax,
-                    "notes": customer.notes,
-                    "is_draft": customer.is_draft
-                }
-                for customer in not_submitted_customers
-            ]
+        customer_data = [
+            {
+                "id": customer.id,
+                "name": customer.name,
+                "address": customer.address,
+                "city": customer.city,
+                "state": customer.state,
+                "zipcode": customer.zipcode,
+                "country": customer.country,
+                "email": customer.email,
+                "contact_person": customer.contact_person,
+                "phone": customer.phone,
+                "alternate_phone": customer.alternate_phone,
+                "fax": customer.fax,
+                "notes": customer.notes,
+                "is_draft": customer.is_draft
+            }
+            for customer in not_submitted_customers
+        ]
 
-            return Response(customer_data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response(
-                {"error": "An unexpected error occurred.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response(customer_data, status=status.HTTP_200_OK)
 
             
             

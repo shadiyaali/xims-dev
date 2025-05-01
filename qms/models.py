@@ -1157,7 +1157,7 @@ class CustomerSatisfaction(models.Model):
 
 class CustomerQuestions(models.Model):
     customer = models.ForeignKey(CustomerSatisfaction, on_delete=models.CASCADE, related_name="supp_evlua",blank=True, null=True)
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="us_user", blank=True, null=True)
+    customer_qsn= models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="us_user", blank=True, null=True)
     question_text = models.TextField(blank=True, null=True)
     answer= models.CharField(blank=True, null=True)
     
