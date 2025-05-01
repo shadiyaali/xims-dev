@@ -798,6 +798,7 @@ class ComplaintGetSerializer(serializers.ModelSerializer):
     executor = UserSerializer()
     customer = CustomerSerializer()  
     category = CategorySerializer(many=True)
+    user = UserSerializer()
     
     class Meta:
         model = Complaints
