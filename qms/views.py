@@ -3120,12 +3120,12 @@ class InterestedPartyCreateView(APIView):
     and optionally send notifications.
     """
     def post(self, request):
-        print("Received Data:", request.data)  # Print all incoming data for debugging
+        print("Received Data:", request.data)   
         try:
             # Extract data from the request
             company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', False)  # Default to False if not provided
-            needs_data = request.data.get('needs', [])  # Will contain both needs and expectations
+            send_notification = request.data.get('send_notification', False)   
+            needs_data = request.data.get('needs', [])   
 
             # Debugging print statements
             print(f"Company ID: {company_id}")
@@ -4518,17 +4518,16 @@ class ComplianceCreateAPIView(APIView):
             )
 
     def _send_email_async(self, compliance, recipient):
-        """
-        Sends email in a separate thread to avoid blocking file upload response.
-        """
-        threading.Thread(target=self._send_notification_email, args=(compliance, recipient)).start()
+            """
+            Sends email in a separate thread to avoid blocking file upload response.
+            """
+            threading.Thread(target=self._send_notification_email, args=(compliance, recipient)).start()
 
     def _send_notification_email(self, compliance, recipient):
-        """
-        Send HTML-formatted email notification about a new compliance.
-        """
         subject = f"New Compliance Created: {compliance.compliance_name}"
         recipient_email = recipient.email
+
+        print(f"Preparing to send email to: {recipient_email}")
 
         context = {
             'compliance_name': compliance.compliance_name,
@@ -4542,18 +4541,47 @@ class ComplianceCreateAPIView(APIView):
             'created_by': compliance.user,
         }
 
-        html_message = render_to_string('qms/compliance/compliance_add_template.html', context)
-        plain_message = strip_tags(html_message)
+        try:
+            html_message = render_to_string('qms/compliance/compliance_add_template.html', context)
+            plain_message = strip_tags(html_message)
 
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
-        )
-        logger.info(f"Email sent to {recipient_email}")
+            # Create email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach compliance document if available
+            if compliance.attach_document:
+                try:
+                    file_name = compliance.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = compliance.attach_document.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached compliance document: {file_name}")
+                except Exception as attachment_error:
+                    print(f"Error attaching compliance file: {str(attachment_error)}")
+
+            # Use custom secure backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
+
 
 
 
@@ -4588,31 +4616,29 @@ class ComplianceDraftAPIView(APIView):
     
  
 
- 
+import mimetypes
+import traceback
 class EditsCompliance(APIView):
     def put(self, request, pk):
-        print("requestfdcxgvdxgds",request.data)
+        print("Received data:", request.data)
         compliance = get_object_or_404(Compliances, pk=pk)
         mutable_data = request.data.copy()
 
-        
+        # Handle document attachment
         if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):
             print("Removing attach_document from request because it's not a file")
             mutable_data.pop('attach_document')
         
-        serializer = ComplianceSerializer(compliance, data=request.data, partial=True)
-        
+        serializer = ComplianceSerializer(compliance, data=mutable_data, partial=True)
+
         if serializer.is_valid():
             instance = serializer.save(is_draft=False)
 
-       
             if instance.send_notification:
                 company = instance.company
-
-         
                 company_users = Users.objects.filter(company=company)
 
-             
+                # Create notifications
                 notifications = [
                     ComplianceNotification(
                         compliance=instance,
@@ -4621,12 +4647,12 @@ class EditsCompliance(APIView):
                     )
                     for user in company_users
                 ]
-
+                
                 if notifications:
                     ComplianceNotification.objects.bulk_create(notifications)
                     logger.info(f"Created {len(notifications)} notifications for compliance {instance.id}")
 
-          
+                # Send email notifications
                 for user in company_users:
                     if user.email:
                         try:
@@ -4640,29 +4666,73 @@ class EditsCompliance(APIView):
 
     def _send_notification_email(self, compliance, recipient):
         subject = f"Compliance Updated: {compliance.compliance_name}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"The compliance '{compliance.compliance_name}' has been updated.\n\n"
-            f"Details:\n"
-            f"- Category: {compliance.compliance_type}\n"
-            f"- Remarks: {compliance.compliance_remarks}\n"
-            f"- Rivision: {compliance.rivision}\n"
-            f"- Date: {compliance.date}\n"
-            f"- Related Document: {compliance.relate_document}\n"
-            f"- Special Requirements: {compliance.special_requirements if hasattr(compliance, 'special_requirements') else ''}\n"
-            f"- Legal Requirements: {compliance.legal_requirements if hasattr(compliance, 'legal_requirements') else ''}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
+        recipient_email = recipient.email
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+        print(f"Preparing to send email to: {recipient_email}")
+
+        context = {
+            'compliance_name': compliance.compliance_name,
+            'compliance_type': compliance.compliance_type,
+            'compliance_no': compliance.compliance_no,
+            'compliance_remarks': compliance.compliance_remarks,
+            'rivision': compliance.rivision,
+            'date': compliance.date,
+            'relate_business_process': compliance.relate_business_process,
+            'relate_document': compliance.relate_document,
+            'created_by': compliance.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/compliance/compliance_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+         
+            if compliance.attach_document:
+                try:
+           
+                    compliance.attach_document.seek(0)
+                    
+           
+                    file_name = compliance.attach_document.name.rsplit('/', 1)[-1]
+                    
+                 
+                    file_content = compliance.attach_document.read()
+                    
+                
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    
+        
+                    email.attach(file_name, file_content, content_type)
+                    
+                    print(f"Attached compliance document: {file_name} with content type {content_type}")
+                except Exception as attachment_error:
+                    print(f"Error attaching compliance file: {str(attachment_error)}")
+                    traceback.print_exc()   
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            traceback.print_exc() 
 
 
 class ComplianceDraftAllList(APIView):
@@ -4698,21 +4768,21 @@ class LegalDetailView(RetrieveDestroyAPIView):
     serializer_class = LegalSerializer
     
     
+ 
+
 class LegalCreateAPIView(APIView):
     """
     Endpoint to handle creation of Legal and optionally send notifications.
     """
+
     def post(self, request):
-        print("Received Data:", request.data) 
+        print("Received Data:", request.data)
         try:
             company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', 'false') == 'true'   
+            send_notification = request.data.get('send_notification', 'false') == 'true'
 
             if not company_id:
-                return Response(
-                    {"error": "Company ID is required"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
             company = Company.objects.get(id=company_id)
             serializer = LegalSerializer(data=request.data)
@@ -4722,84 +4792,98 @@ class LegalCreateAPIView(APIView):
                     legal = serializer.save()
                     logger.info(f"Legal created: {legal.legal_name}")
 
-                    # Update and save send_notification flag
                     legal.send_notification = send_notification
                     legal.save()
 
-                    # Send notifications only if requested
                     if send_notification:
                         company_users = Users.objects.filter(company=company)
+
                         notifications = [
                             NotificationLegal(
                                 legal=legal,
-                                title=f"New legal : {legal.legal_name}",
-                                message=f"A new legal'{legal.legal_name}' has been added."
+                                title=f"New Legal: {legal.legal_name}",
+                                message=f"A new legal requirement '{legal.legal_name}' has been added."
                             )
-                            for user in company_users  # Still iterating for sending emails below
+                            for user in company_users
                         ]
 
-                        # Bulk create notifications
                         if notifications:
                             NotificationLegal.objects.bulk_create(notifications)
-                            logger.info(f"Created {len(notifications)} notifications for compllaince party {legal.id}")
+                            logger.info(f"Created {len(notifications)} notifications for legal {legal.id}")
 
-                        # Send email to each user
                         for user in company_users:
                             if user.email:
-                                try:
-                                    self._send_notification_email(legal, user)
-                                except Exception as e:
-                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                self._send_email_async(legal, user)
 
-                return Response(
-                    {
-                        "message": "legal Party created successfully",
-                        "notification_sent": send_notification
-                    },
-                    status=status.HTTP_201_CREATED
-                )
+                return Response({
+                    "message": "Legal requirement created successfully",
+                    "notification_sent": send_notification
+                }, status=status.HTTP_201_CREATED)
+
             else:
                 logger.warning(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+
         except Exception as e:
-            logger.error(f"Error creating compllaince Party: {str(e)}")
-            return Response(
-                {"error": "Internal Server Error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error(f"Error creating legal requirement: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, legal, recipient):
+        threading.Thread(target=self._send_notification_email, args=(legal, recipient)).start()
 
     def _send_notification_email(self, legal, recipient):
-        """
-        Helper method to send email notifications about a new Interested Party.
-        """
-        subject = f"New Legal Requirement Created: {legal.legal_name}"
-        message = (
-                f"Dear {recipient.first_name},\n\n"
-                f"A new legal requirement '{legal.legal_name}' has been Updated.\n\n"
-                f"Details:\n"
-                f"- Document Type: {legal.document_type}\n"
-                f"- Rivision: {legal.rivision}\n"
-                f"- Date: {legal.date}\n"
-                f"- Related Record Format: {legal.related_record_format}\n\n"
-                f"Please log in to view more details.\n\n"
-                f"Best regards,\nYour Company Team"
+        subject = f"New Legal Requirement: {legal.legal_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'legal_name': legal.legal_name,
+            'legal_no': legal.legal_no,
+            'document_type': legal.document_type,
+            'rivision': legal.rivision,
+            'date': legal.date,
+            'related_record_format': legal.related_record_format,
+            'created_by': legal.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/legal/legal_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if legal.attach_document:
+                try:
+                    file_name = legal.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = legal.attach_document.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached legal document: {file_name}")
+                except Exception as e:
+                    print(f"Error attaching document: {e}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
             )
 
-        
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
 
 
 class LegalDraftAPIView(APIView):
@@ -4833,31 +4917,25 @@ class LegalDraftAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 class EditsLegal(APIView):
     def put(self, request, pk):
         legal = get_object_or_404(LegalRequirement, pk=pk)
-        
         mutable_data = request.data.copy()
 
-        
         if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):
             print("Removing attach_document from request because it's not a file")
             mutable_data.pop('attach_document')
+
         serializer = LegalSerializer(legal, data=mutable_data, partial=True)
 
-
-        
         if serializer.is_valid():
             instance = serializer.save(is_draft=False)
 
-       
             if instance.send_notification:
                 company = instance.company
-
-         
                 company_users = Users.objects.filter(company=company)
 
-             
                 notifications = [
                     NotificationLegal(
                         legal=instance,
@@ -4871,7 +4949,6 @@ class EditsLegal(APIView):
                     NotificationLegal.objects.bulk_create(notifications)
                     logger.info(f"Created {len(notifications)} notifications for legal {instance.id}")
 
-          
                 for user in company_users:
                     if user.email:
                         try:
@@ -4884,27 +4961,59 @@ class EditsLegal(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_notification_email(self, legal, recipient):
-        subject = f"legal Updated: {legal.legal_name}"
-        message = (
-                f"Dear {recipient.first_name},\n\n"
-                f"A new legal requirement '{legal.legal_name}' has been updated.\n\n"
-                f"Details:\n"
-                f"- Document Type: {legal.document_type}\n"
-                f"- Rivision: {legal.rivision}\n"
-                f"- Date: {legal.date}\n"
-                f"- Related Record Format: {legal.related_record_format}\n\n"
-                f"Please log in to view more details.\n\n"
-                f"Best regards,\nYour Company Team"
+        subject = f"Legal Updated: {legal.legal_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'legal_name': legal.legal_name,
+            'document_type': legal.document_type,
+            'legal_no': legal.legal_no,
+            'rivision': legal.rivision,
+            'date': legal.date,
+            'related_record_format': legal.related_record_format,
+            'created_by': legal.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/legal/legal_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if legal.attach_document:
+                try:
+                    legal.attach_document.seek(0)
+                    file_name = legal.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = legal.attach_document.read()
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    email.attach(file_name, file_content, content_type)
+                    print(f"Attached legal document: {file_name}")
+                except Exception as attachment_error:
+                    print(f"Error attaching legal file: {str(attachment_error)}")
+                    traceback.print_exc()
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
             )
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            traceback.print_exc()
+
         
 class LegalDraftAllList(APIView):
     def get(self, request, user_id):
@@ -9427,8 +9536,8 @@ class ManualDraftEditView(APIView):
                         except Exception as attachment_error:
                             logger.error(f"Error attaching manual file: {str(attachment_error)}")
 
-                    # Use custom backend
-                    from your_app.email_backends import CertifiEmailBackend  # Adjust the import path as needed
+                     
+                   
                     connection = CertifiEmailBackend(
                         host=config('EMAIL_HOST'),
                         port=config('EMAIL_PORT'),
@@ -10931,3 +11040,249 @@ class InterestedPartyEditDraftView(APIView):
         except Exception as e:
             logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
             print(f"Failed to send notification email to {recipient_email}: {str(e)}")
+            
+            
+# Add these imports at the top of your file if not already there
+import mimetypes
+import traceback
+
+class EditsDraftCompliance(APIView):
+    def put(self, request, pk):
+        print("Received data:", request.data)
+        
+        # Get the existing compliance record
+        compliance = get_object_or_404(Compliances, pk=pk)
+        
+        mutable_data = request.data.copy()
+        
+        if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):
+            print("Removing attach_document from request because it's not a file")
+            mutable_data.pop('attach_document')
+      
+        # Set is_draft to False
+        mutable_data['is_draft'] = False
+        
+        # Update the existing instance instead of creating a new one
+        serializer = ComplianceSerializer(compliance, data=mutable_data, partial=True)
+
+        if serializer.is_valid():
+            compliance_instance = serializer.save()
+
+       
+            file_obj = request.FILES.get('attach_document')
+            if file_obj:
+                compliance_instance.attach_document = file_obj
+                compliance_instance.save()
+
+            if compliance_instance.send_notification:
+                company = compliance_instance.company
+                company_users = Users.objects.filter(company=company)
+
+                notifications = [
+                    ComplianceNotification(
+                        compliance=compliance_instance,
+                        title=f"Add Compliance: {compliance_instance.compliance_name}",
+                        message=f"The compliance '{compliance_instance.compliance_name}' has been created."
+                    )
+                    for user in company_users
+                ]
+                
+                if notifications:
+                    ComplianceNotification.objects.bulk_create(notifications)
+                    logger.info(f"Created {len(notifications)} notifications for compliance {compliance_instance.id}")
+
+                for user in company_users:
+                    if user.email:
+                        try:
+                            self._send_notification_email(compliance_instance, user)
+                        except Exception as e:
+                            logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(ComplianceSerializer(compliance_instance).data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, compliance, recipient):
+        subject = f"Compliance Updated: {compliance.compliance_name}"
+        recipient_email = recipient.email
+
+        print(f"Preparing to send email to: {recipient_email}")
+
+        context = {
+            'compliance_name': compliance.compliance_name,
+            'compliance_type': compliance.compliance_type,
+            'compliance_no': compliance.compliance_no,
+            'compliance_remarks': compliance.compliance_remarks,
+            'rivision': compliance.rivision,
+            'date': compliance.date,
+            'relate_business_process': compliance.relate_business_process,
+            'relate_document': compliance.relate_document,
+            'created_by': compliance.user,
+        }
+
+        try:
+            # Prepare HTML message
+            html_message = render_to_string('qms/compliance/compliance_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach compliance document if available
+            if compliance.attach_document:
+                try:
+                    # Reset file pointer to the beginning
+                    compliance.attach_document.seek(0)
+                    
+                    # Get file name
+                    file_name = compliance.attach_document.name.rsplit('/', 1)[-1]
+                    
+                    # Read content
+                    file_content = compliance.attach_document.read()
+                    
+                    # Determine MIME type
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    
+                    # Attach with proper content type
+                    email.attach(file_name, file_content, content_type)
+                    
+                    print(f"Attached compliance document: {file_name} with content type {content_type}")
+                except Exception as attachment_error:
+                    print(f"Error attaching compliance file: {str(attachment_error)}")
+                    traceback.print_exc()  # Print full traceback for debugging
+
+            # Send email via custom email backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            traceback.print_exc()   
+            
+            
+ 
+
+class EditDraftLegalAPIView(APIView):
+    def put(self, request, pk):
+        print("Received legal draft update:", request.data)
+        
+        legal = get_object_or_404(Legal, pk=pk)
+
+        mutable_data = request.data.copy()
+
+        # Remove upload_attachment if not a new file
+        if 'upload_attachment' in mutable_data and not request.FILES.get('upload_attachment'):
+            print("Removing upload_attachment because it's not a new file")
+            mutable_data.pop('upload_attachment')
+
+        # Mark as finalized
+        mutable_data['is_draft'] = False
+
+        serializer = LegalSerializer(legal, data=mutable_data, partial=True)
+
+        if serializer.is_valid():
+            legal_instance = serializer.save()
+
+            # Handle file upload
+            file_obj = request.FILES.get('upload_attachment')
+            if file_obj:
+                legal_instance.upload_attachment = file_obj
+                legal_instance.save()
+
+            # Example: sending notifications to company users
+            if legal_instance.send_notification:  # Add this flag in model if needed
+                company = legal_instance.company
+                company_users = Users.objects.filter(company=company)
+
+                notifications = [
+                    LegalNotification(
+                        legal=legal_instance,
+                        title=f"Legal Requirement Finalized: {legal_instance.legal_name}",
+                        message=f"The legal requirement '{legal_instance.legal_name}' has been finalized."
+                    )
+                    for user in company_users
+                ]
+
+                if notifications:
+                    LegalNotification.objects.bulk_create(notifications)
+                    logger.info(f"Created {len(notifications)} notifications for legal {legal_instance.id}")
+
+                # Send emails
+                for user in company_users:
+                    if user.email:
+                        try:
+                            self._send_notification_email(legal_instance, user)
+                        except Exception as e:
+                            logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(LegalSerializer(legal_instance).data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, legal, recipient):
+        subject = f"Legal Requirement Finalized: {legal.legal_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'legal_name': legal.legal_name,
+            'legal_type': legal.legal_type,
+            'legal_no': legal.legal_no,
+            'legal_remarks': legal.legal_remarks,
+            'revision': legal.revision,
+            'date': legal.date,
+            'related_process': legal.related_process,
+            'related_document': legal.related_document,
+            'created_by': legal.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/legal/legal_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach document if present
+            if legal.upload_attachment:
+                legal.upload_attachment.seek(0)
+                file_name = legal.upload_attachment.name.split("/")[-1]
+                file_content = legal.upload_attachment.read()
+                content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                email.attach(file_name, file_content, content_type)
+
+            # Use custom email backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            traceback.print_exc()

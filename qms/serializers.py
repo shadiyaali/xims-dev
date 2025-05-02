@@ -32,7 +32,9 @@ class ManualSerializer(serializers.ModelSerializer):
     class Meta:
         model = Manual
         fields = '__all__'
-        
+    extra_kwargs = {
+            'approved_by': {'required': False, 'allow_null': True},
+        }   
     def validate_upload_attachment(self, value):
         if value and value.size > settings.MAX_UPLOAD_SIZE:
             raise serializers.ValidationError("File size should not exceed 10 MB.")

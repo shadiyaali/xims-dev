@@ -68,7 +68,7 @@ class Procedure(models.Model):
         Users, on_delete=models.SET_NULL, null=True, related_name="written_procedure"
     )
     approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_procedure"
+        Users, on_delete=models.SET_NULL, blank=True, null=True, related_name="approved_procedure"
     )
     checked_by = models.ForeignKey(
         Users, on_delete=models.SET_NULL, null=True, related_name="checked_procedure"
@@ -124,7 +124,7 @@ class Manual(models.Model):
         Users, on_delete=models.SET_NULL, null=True, related_name="written_manual"
     )
     approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_manual"
+        Users, on_delete=models.SET_NULL, blank=True, null=True, related_name="approved_manual"
     )
     checked_by = models.ForeignKey(
         Users, on_delete=models.SET_NULL, null=True, related_name="checked_manual"
@@ -180,7 +180,7 @@ class RecordFormat(models.Model):
         Users, on_delete=models.SET_NULL, null=True, related_name="record_written_by"
     )
     approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="record_approved_by"
+        Users, on_delete=models.SET_NULL, blank=True, null=True, related_name="record_approved_by"
     )
     checked_by = models.ForeignKey(
         Users, on_delete=models.SET_NULL, null=True, related_name="record_checked_by"
@@ -465,7 +465,7 @@ class Evaluation(models.Model):
         Users, on_delete=models.SET_NULL, null=True, related_name="written_evaluation"
     )
     approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_evaluation"
+        Users, on_delete=models.SET_NULL, blank=True, null=True, related_name="approved_evaluation"
     )
     checked_by = models.ForeignKey(
         Users, on_delete=models.SET_NULL, null=True, related_name="checked_evaluation"
@@ -590,7 +590,7 @@ class Sustainabilities(models.Model):
         Users, on_delete=models.SET_NULL, null=True, related_name="written_sustain"
     )
     approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_sustain"
+        Users, on_delete=models.SET_NULL, blank=True, null=True, related_name="approved_sustain"
     )
     checked_by = models.ForeignKey(
         Users, on_delete=models.SET_NULL, null=True, related_name="checked_sustain"

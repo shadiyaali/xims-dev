@@ -152,8 +152,8 @@
 
         <div class="title">
             <h1>Quality Management System</h1>
-            <h2>Compliance {{ compliance_name }}</h2>
-            <p>{{ created_by.first_name }}{{ created_by.last_name }}  has published compliance {{ compliance_name }}.</p>
+            <h2>Legal and Other Requirements {{ legal_name }}</h2>
+            <p>{{ created_by.first_name }}{{ created_by.last_name }}  has published Legal and Other Requirements {{ legal_name }}.</p>
             
         </div>
   
@@ -161,19 +161,19 @@
             <div class="metadata-border">
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Compliance No</div>
-                        <div class="metadata-value">{{ compliance_no }}</div>
+                        <div class="metadata-label">Legal / Law Number</div>
+                        <div class="metadata-value">{{ legal_no }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Compliance Type</div>
-                        <div class="metadata-value">{{ compliance_type }}</div>
+                        <div class="metadata-label">Document Type</div>
+                        <div class="metadata-value">{{document_type }}</div>
                     </div>
                 </div>
 
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Compliance Name</div>
-                        <div class="metadata-value">{{ compliance_name }}</div>
+                        <div class="metadata-label">Legal / Law Name / Title</div>
+                        <div class="metadata-value">{{ legal_name }}</div>
                     </div>
                     <div class="metadata-col">
                         <div class="metadata-label">Date</div>
@@ -183,25 +183,16 @@
 
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Related Business Process</div>
-                        <div class="metadata-value">{{ relate_business_process }}</div>
+                        <div class="metadata-label">Rivision</div>
+                        <div class="metadata-value">{{ rivision }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Revision</div>
-                        <div class="metadata-value">{{ rivision }}</div>
+                        <div class="metadata-label">Related Record Format</div>
+                        <div class="metadata-value">{{ related_record_format }}</div>
                     </div>
                 </div>
 
-                <div class="metadata-row">
-                    <div class="metadata-col">
-                        <div class="metadata-label">Compliance Remarks</div>
-                        <div class="metadata-value">{{ compliance_remarks }}</div>
-                    </div>
-                    <div class="metadata-col">
-                        <div class="metadata-label">Related Document</div>
-                        <div class="metadata-value">{{ relate_document }}</div>
-                    </div>
-                </div>
+                 
 
                
             </div>

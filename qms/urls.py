@@ -77,6 +77,7 @@ urlpatterns = [
     path('compliances/<int:pk>/edit/', EditsCompliance.as_view(), name='edit-interested-party'),
     path('compliance-draft/<int:user_id>/', ComplianceDraftAllList.as_view(), name='manual-list'),
     path('compliance/drafts-count/<int:user_id>/',  ComplainceView.as_view(), name='draft-manuals'),
+    path('compliances-draft/edit/<int:pk>/', EditsDraftCompliance.as_view(), name='compliance_edit'),
     
    
     # Interested Parties
