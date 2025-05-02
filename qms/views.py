@@ -849,7 +849,7 @@ class ManualUpdateView(APIView):
 
                     from django.template.loader import render_to_string
                     from django.utils.html import strip_tags
-                    from django.core.mail import EmailMultiAlternatives
+                 
 
                     context = {
                         'recipient_name': recipient.first_name,
@@ -3509,31 +3509,32 @@ class InterestedPartyDetailView(APIView):
 
 class InterestDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        data = {key: request.data[key] for key in request.data if key != 'upload_attachment'}
+        data = {key: request.data[key] for key in request.data if key != 'file'}
         data['is_draft'] = True
 
-        file_obj = request.FILES.get('upload_attachment')
+        file_obj = request.FILES.get('file')
 
         serializer = InterestedPartySerializer(data=data)
         if serializer.is_valid():
             interest = serializer.save()
- 
+
             if file_obj:
-                interest.upload_attachment = file_obj
+                interest.file = file_obj  # Corrected field name
                 interest.save()
 
-      
             needs_data = request.data.get('needs', [])
-            for need in needs_data:
-                Needs.objects.create(interested_party=interest, title=need.get('title'))
+            for item in needs_data:
+                Needs.objects.create(
+                    interested_party=interest,
+                    needs=item.get('needs'),
+                    expectation=item.get('expectation')
+                )
 
-            expectations_data = request.data.get('expectations', [])
-            for expectation in expectations_data:
-                Expectations.objects.create(interested_party=interest, title=expectation.get('title'))
+            return Response({"message": "Interest saved as draft", "data": serializer.data},
+                            status=status.HTTP_201_CREATED)
 
-            return Response({"message": "Interest saved as draft", "data": serializer.data}, 
-                             status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     
     
@@ -5742,11 +5743,7 @@ class EvaluationPublishNotificationView(APIView):
             return Response({"error": f"Failed to publish evaluation: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _send_publish_email(self, evaluation, recipient):
-        from decouple import config
-        from django.core.mail import EmailMultiAlternatives
-        from django.template.loader import render_to_string
-        from django.utils.html import strip_tags
-
+     
         publisher_name = "N/A"
         if evaluation.published_user:
             publisher_name = f"{evaluation.published_user.first_name} {evaluation.published_user.last_name}"
@@ -5935,6 +5932,21 @@ class ChangesDetailView(RetrieveDestroyAPIView):
     serializer_class = ChangesSerializer
     
     
+import threading
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import transaction
+from decouple import config
+import logging
+
+from .models import ManagementChanges, NotificationChanges, Company, Users
+
+logger = logging.getLogger(__name__)
+
 class ChangesCreateAPIView(APIView):
     """
     Endpoint to handle creation of ManagementChanges and optionally send notifications.
@@ -5972,19 +5984,17 @@ class ChangesCreateAPIView(APIView):
                                 title=f"New Change: {changes.moc_title}",
                                 message=f"A new management change '{changes.moc_title}' has been added."
                             )
-                            for user in company_users  # used for email below
+                            for user in company_users
                         ]
 
                         if notifications:
                             NotificationChanges.objects.bulk_create(notifications)
                             logger.info(f"Created {len(notifications)} notifications for change ID {changes.id}")
 
+                        # Send email asynchronously to each user
                         for user in company_users:
                             if user.email:
-                                try:
-                                    self._send_notification_email(changes, user)
-                                except Exception as e:
-                                    logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                                self._send_email_async(changes, user)
 
                 return Response(
                     {
@@ -6008,35 +6018,80 @@ class ChangesCreateAPIView(APIView):
                 {"error": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+    
+    def _send_email_async(self, changes, recipient):
+        """
+        Sends email in a separate thread to avoid blocking the response.
+        """
+        threading.Thread(target=self._send_notification_email, args=(changes, recipient)).start()
 
     def _send_notification_email(self, changes, recipient):
         """
-        Helper method to send email notifications about a new Management Change.
+        Helper method to send email notifications about a new Management Change using HTML template.
         """
         subject = f"New Management Change: {changes.moc_title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new management change '{changes.moc_title}' has been created.\n\n"
-            f"Details:\n"
-            f"- MOC No: {changes.moc_no}\n"
-            f"- Type: {changes.moc_type}\n"
-            f"- Date: {changes.date}\n"
-            f"- Rivision: {changes.rivision}\n"
-            f"- Related Record Format: {changes.related_record_format}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
+        recipient_email = recipient.email
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+        print(f"Preparing to send email to: {recipient_email}")
 
+        context = {
+            'recipient_name': recipient.first_name,
+            'moc_title': changes.moc_title,
+            'moc_type': changes.moc_type,
+            'moc_no': changes.moc_no,
+            'rivision': changes.rivision,
+            'date': changes.date,
+            'related_record_format': changes.related_record_format,
+            'resources_required': changes.resources_required,
+            'impact_on_process': changes.impact_on_process,
+            'purpose_of_chnage': changes.purpose_of_chnage,
+            'potential_cosequences': changes.potential_cosequences,
+            'moc_remarks': changes.moc_remarks,
+            'created_by': changes.user,
+        }
+      
 
+        try:
+            html_message = render_to_string('qms/changes/changes_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            # Create email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach document if available
+            if hasattr(changes, 'attach_document') and changes.attach_document:
+                try:
+                    file_name = changes.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = changes.attach_document.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached changes document: {file_name}")
+                except Exception as attachment_error:
+                    print(f"Error attaching changes file: {str(attachment_error)}")
+
+            # Use custom secure backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+            logger.info(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
 
 
 class ChangesDraftAPIView(APIView):
@@ -6070,13 +6125,24 @@ class ChangesDraftAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
+import mimetypes
+import traceback
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.core.mail import EmailMultiAlternatives
+from decouple import config
+
 class EditsChanges(APIView):
     def put(self, request, pk):
-        change_instance = get_object_or_404(ManagementChanges, pk=pk)
+        print("Received data:", request.data)
 
+        change_instance = get_object_or_404(ManagementChanges, pk=pk)
         mutable_data = request.data.copy()
 
-        # If attach_document is in the data but no file uploaded, remove it
         if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):
             print("Removing attach_document from request because it's not a file")
             mutable_data.pop('attach_document')
@@ -6086,7 +6152,11 @@ class EditsChanges(APIView):
         if serializer.is_valid():
             instance = serializer.save(is_draft=False)
 
-            # If send_notification is True, trigger notifications
+            file_obj = request.FILES.get('attach_document')
+            if file_obj:
+                instance.attach_document = file_obj
+                instance.save()
+
             if instance.send_notification and instance.company:
                 company_users = Users.objects.filter(company=instance.company)
 
@@ -6095,10 +6165,8 @@ class EditsChanges(APIView):
                         changes=instance,
                         title=f"Updated MOC: {instance.moc_title}",
                         message=f"The MOC '{instance.moc_title}' has been updated."
-                    )
-                    for user in company_users
+                    ) for user in company_users
                 ]
-
                 if notifications:
                     NotificationChanges.objects.bulk_create(notifications)
                     logger.info(f"Created {len(notifications)} notifications for MOC {instance.id}")
@@ -6109,6 +6177,7 @@ class EditsChanges(APIView):
                             self._send_notification_email(instance, user)
                         except Exception as e:
                             logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                            traceback.print_exc()
 
             return Response(ChangesSerializer(instance).data, status=status.HTTP_200_OK)
 
@@ -6116,26 +6185,64 @@ class EditsChanges(APIView):
 
     def _send_notification_email(self, changes, recipient):
         subject = f"MOC Updated: {changes.moc_title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A management of change (MOC) titled '{changes.moc_title}' has been updated.\n\n"
-            f"Details:\n"
-            f"- MOC Type: {changes.moc_type}\n"
-            f"- Rivision: {changes.rivision}\n"
-            f"- Date: {changes.date}\n"
-            f"- Related Record Format: {changes.related_record_format}\n\n"
-            f"Please log in to view more details.\n\n"
-            f"Best regards,\nYour Company Team"
-        )
+        context = {
+            'moc_title': changes.moc_title,
+            'moc_type': changes.moc_type,
+            'moc_no': changes.moc_no,
+            'rivision': changes.rivision,
+            'date': changes.date,
+            'related_record_format': changes.related_record_format,
+            'resources_required': changes.resources_required,
+            'impact_on_process': changes.impact_on_process,
+            'purpose_of_chnage': changes.purpose_of_chnage,
+            'potential_cosequences': changes.potential_cosequences,
+            'moc_remarks': changes.moc_remarks,
+            'created_by': changes.user,
+            'recipient': recipient,
+        }
 
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
-        )
-        logger.info(f"Email sent to {recipient.email}")
+        try:
+            html_message = render_to_string('qms/changes/changes_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient.email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if available
+            if changes.attach_document:
+                try:
+                    changes.attach_document.seek(0)
+                    file_name = changes.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = changes.attach_document.read()
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    email.attach(file_name, file_content, content_type)
+                    print(f"Attached MOC document: {file_name} with content type {content_type}")
+                except Exception as e:
+                    print(f"Error attaching MOC file: {str(e)}")
+                    traceback.print_exc()
+
+            # Send using custom backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email successfully sent to {recipient.email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient.email}: {e}")
+            traceback.print_exc()
+
+
 
 
 class ChangesDraftAllList(APIView):
@@ -6253,41 +6360,6 @@ class SustainabilityCreateView(APIView):
         logger.error(f"Sustainability creation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # def send_email_notification(self, sustainability, recipient, action_type):
-    #     recipient_email = recipient.email if recipient else None
-
-    #     if recipient_email:
-    #         try:
-    #             if action_type == "review":
-    #                 subject = f"Sustainability Document Ready for Review: {sustainability.title}"
-    #                 message = (
-    #                     f"Dear {recipient.first_name},\n\n"
-    #                     f"A sustainability document titled '{sustainability.title}' requires your review.\n\n"
-    #                     f"Document Number: {sustainability.no or 'N/A'}\n"
-    #                     f"Review Frequency: {sustainability.review_frequency_year or 0} year(s), "
-    #                     f"{sustainability.review_frequency_month or 0} month(s)\n"
-    #                     f"Document Type: {sustainability.document_type}\n\n"
-    #                     f"Please login to the system to review.\n\n"
-    #                     f"Best regards,\nDocumentation Team"
-    #                 )
-    #             else:
-    #                 logger.warning("Unknown action type provided for email.")
-    #                 return
-
-    #             send_mail(
-    #                 subject=subject,
-    #                 message=message,
-    #                 from_email=config("EMAIL_HOST_USER"),
-    #                 recipient_list=[recipient_email],
-    #                 fail_silently=False,
-    #             )
-    #             logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
-
-    #         except Exception as e:
-    #             logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-    #     else:
-    #         logger.warning("Recipient email is None. Skipping email send.")
-
     def send_email_notification(self, sustainability, recipient, action_type):
         recipient_email = recipient.email if recipient else None
 
@@ -6295,9 +6367,6 @@ class SustainabilityCreateView(APIView):
             try:
                 if action_type == "review":
                     subject = f"Sustainability Document Ready for Review: {sustainability.title}"
-
-                    from django.template.loader import render_to_string
-                    from django.utils.html import strip_tags
 
                     context = {
                         'recipient_name': recipient.first_name,
@@ -6308,32 +6377,54 @@ class SustainabilityCreateView(APIView):
                         'document_type': sustainability.document_type,
                         'section_number': sustainability.no,
                         'rivision': sustainability.rivision,
-                         "written_by": sustainability.written_by,
-                         "checked_by": sustainability.checked_by,
-                         "approved_by": sustainability.approved_by,
+                        'written_by': sustainability.written_by,
+                        'checked_by': sustainability.checked_by,
+                        'approved_by': sustainability.approved_by,
                         'date': sustainability.date,
                     }
 
-                
-                    html_message = render_to_string('qms/sustainability/template.html', context)
+                    html_message = render_to_string('qms/sustainability/sustainability_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    # Compose email
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
+                        body=plain_message,
                         from_email=config("DEFAULT_FROM_EMAIL"),
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+                 
+                    if sustainability.upload_attachment:
+                        try:
+                            file_name = sustainability.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = sustainability.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached sustainability document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching sustainability file: {str(attachment_error)}")
+
+                    # Use custom email backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
-                    return
             except Exception as e:
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
 
             
             
@@ -6389,111 +6480,116 @@ class SustainabilityDetailView(APIView):
 
 class SustainabilityUpdateView(APIView):
     def put(self, request, pk):
+        print("=== STARTING SUSTAINABILITY UPDATE ===")
+        print("Request data:", request.data)
         try:
             with transaction.atomic():
                 sustainability = Sustainabilities.objects.get(pk=pk)
-
                 serializer = SustainabilityUpdateSerializer(sustainability, data=request.data, partial=True)
 
                 if serializer.is_valid():
-                    updated_instance = serializer.save()
+                    updated_sustainability = serializer.save()
+                    
+                    # Set standard fields (identical to Manual)
+                    updated_sustainability.written_at = now()
+                    updated_sustainability.is_draft = False
+                    updated_sustainability.status = 'Pending for Review/Checking'
 
-                    updated_instance.written_at = now()
-                    updated_instance.is_draft = False
-                    updated_instance.status = 'Pending for Review/Checking'
+                    # EXACT SAME LOGIC AS MANUAL VIEW
+                    updated_sustainability.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by', False)
+                    )
+                    updated_sustainability.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by', False)
+                    )
+                    
+                    updated_sustainability.save()
 
-                    updated_instance.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
-                    updated_instance.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
-                    updated_instance.send_notification_to_approved_by = parse_bool(request.data.get('send_system_approved'))
-                    updated_instance.send_email_to_approved_by = parse_bool(request.data.get('send_email_approved'))
-
-                    updated_instance.save()
-
-                    # Notifications and emails to checked_by
-                    if updated_instance.checked_by:
-                        if updated_instance.send_notification_to_checked_by:
+                    # IDENTICAL NOTIFICATION/EMAIL HANDLING AS MANUAL
+                    if updated_sustainability.checked_by:
+                        if updated_sustainability.send_notification_to_checked_by:
                             try:
                                 NotificationSustainability.objects.create(
-                                    user=updated_instance.checked_by,
-                                    sustainability=updated_instance,
+                                    user=updated_sustainability.checked_by,
+                                    sustainability=updated_sustainability,
                                     title="Sustainability Updated - Review Required",
-                                    message=f"Sustainability '{updated_instance.title}' has been updated and requires your review."
+                                    message=f"Sustainability '{updated_sustainability.title}' requires review"
                                 )
+                                print("Created notification for checked_by")
                             except Exception as e:
-                                logger.error(f"Notification error for checked_by: {str(e)}")
+                                logger.error(f"Notification error: {str(e)}")
 
-                        if updated_instance.send_email_to_checked_by and updated_instance.checked_by.email:
-                            self.send_email_notification(updated_instance, updated_instance.checked_by, "review")
+                        if updated_sustainability.send_email_to_checked_by:
+                            self.send_email_notification(
+                                updated_sustainability, 
+                                updated_sustainability.checked_by, 
+                                "review"
+                            )
+                            print("Sent email to checked_by")
 
-                    # Notifications and emails to approved_by
-                    if updated_instance.approved_by:
-                        if updated_instance.send_notification_to_approved_by:
-                            try:
-                                NotificationSustainability.objects.create(
-                                    user=updated_instance.approved_by,
-                                    sustainability=updated_instance,
-                                    title="Sustainability Updated - Approval Required",
-                                    message=f"Sustainability '{updated_instance.title}' has been updated and is ready for your approval."
-                                )
-                            except Exception as e:
-                                logger.error(f"Notification error for approved_by: {str(e)}")
-
-                        if updated_instance.send_email_to_approved_by and updated_instance.approved_by.email:
-                            self.send_email_notification(updated_instance, updated_instance.approved_by, "approval")
-
-                    return Response(serializer.data, status=status.HTTP_200_OK)
-
+                    return Response({"message": "Updated successfully"}, status=status.HTTP_200_OK)
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Sustainabilities.DoesNotExist:
-            return Response({"error": "Sustainability record not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error in update: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, instance, recipient, action_type):
+    def send_email_notification(self, sustainability, recipient, action_type):
+        """IDENTICAL TO MANUAL VIEW'S EMAIL FUNCTION"""
         recipient_email = recipient.email if recipient else None
+        
+        if not recipient_email:
+            print("No recipient email available")
+            return
 
-        if recipient_email:
-            try:
-                if action_type == "review":
-                    subject = f"Sustainability Ready for Review: {instance.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The sustainability entry '{instance.title}' has been updated and requires your review.\n\n"
-                        f"Document Number: {instance.no or 'N/A'}\n"
-                        f"Review Frequency: {instance.review_frequency_year or 0} year(s), "
-                        f"{instance.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {instance.document_type}\n\n"
-                        f"Please login to the system to review.\n\n"
-                        f"Best regards,\nDocumentation Team"
+        try:
+            subject = f"Sustainability Update: {sustainability.title}"
+            context = {
+                        'recipient_name': recipient.first_name,
+                        'title': sustainability.title,
+                        'document_number': sustainability.no or 'N/A',
+                        'review_frequency_year': sustainability.review_frequency_year or 0,
+                        'review_frequency_month': sustainability.review_frequency_month or 0,
+                        'document_type': sustainability.document_type,
+                        'section_number': sustainability.no,
+                        'rivision': getattr(sustainability, 'rivision', ''),
+                        'written_by': sustainability.written_by,
+                        'checked_by': sustainability.checked_by,
+                        'approved_by': sustainability.approved_by,
+                        'date': sustainability.date,
+                    }
+
+            html_message = render_to_string(
+                'sustainability/sustainability_update_to_checked_by.html',   
+                context
+            )
+            
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=strip_tags(html_message),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            
+            # Attach file if exists (same as Manual)
+            if sustainability.upload_attachment:
+                try:
+                    email.attach(
+                        sustainability.upload_attachment.name.split('/')[-1],
+                        sustainability.upload_attachment.read()
                     )
-                elif action_type == "approval":
-                    subject = f"Sustainability Pending Approval: {instance.title}"
-                    message = (
-                        f"Dear {recipient.first_name},\n\n"
-                        f"The sustainability entry '{instance.title}' has been updated and is ready for your approval.\n\n"
-                        f"Document Number: {instance.no or 'N/A'}\n"
-                        f"Review Frequency: {instance.review_frequency_year or 0} year(s), "
-                        f"{instance.review_frequency_month or 0} month(s)\n"
-                        f"Document Type: {instance.document_type}\n\n"
-                        f"Please login to the system to approve.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    )
-                else:
-                    logger.warning("Unknown action type for email notification.")
-                    return
+                except Exception as e:
+                    logger.error(f"Attachment error: {str(e)}")
 
-                send_mail(
-                    subject=subject,
-                    message=message,
-                     from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient_email} for action: {action_type}")
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
 
-            except Exception as e:
-                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-        else:
-            logger.warning("Recipient email is missing, skipping email.")
+        except Exception as e:
+            logger.error(f"Email failed: {str(e)}")
+            print(f"!!! EMAIL ERROR: {str(e)}")
 
 
 
@@ -6501,24 +6597,28 @@ class SustainabilityUpdateView(APIView):
 class SubmitCorrectionSustainabilityView(APIView):
     def post(self, request):
         try:
+            # Extract data from request
             sustainability_id = request.data.get('sustainability_id')
             correction_text = request.data.get('correction')
             from_user_id = request.data.get('from_user')
 
+            # Check if all required fields are provided
             if not all([sustainability_id, correction_text, from_user_id]):
                 return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Get sustainability object
             try:
                 sustainability = Sustainabilities.objects.get(id=sustainability_id)
             except Sustainabilities.DoesNotExist:
-                return Response({'error': 'Sustainability record not found'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Sustainability document not found'}, status=status.HTTP_404_NOT_FOUND)
 
+            # Get user object
             try:
                 from_user = Users.objects.get(id=from_user_id)
             except Users.DoesNotExist:
                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Determine to_user based on from_user
+            # Validate user role and determine the recipient of the correction
             if from_user == sustainability.checked_by:
                 to_user = sustainability.written_by
             elif from_user == sustainability.approved_by:
@@ -6526,10 +6626,13 @@ class SubmitCorrectionSustainabilityView(APIView):
             else:
                 return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Delete old correction for same sustainability and from_user (optional)
-            CorrectionSustainability.objects.filter(sustainability=sustainability, from_user=from_user).delete()
+            # Delete any existing corrections from this user for the same document
+            CorrectionSustainability.objects.filter(
+                sustainability=sustainability,
+                from_user=from_user
+            ).delete()
 
-            # Create new correction
+            # Create correction
             correction = CorrectionSustainability.objects.create(
                 sustainability=sustainability,
                 to_user=to_user,
@@ -6537,14 +6640,15 @@ class SubmitCorrectionSustainabilityView(APIView):
                 correction=correction_text
             )
 
-            # Update status
+            # Update sustainability status
             sustainability.status = 'Correction Requested'
             sustainability.save()
 
-            # Send notification and email
+            # Create notification and send email
             self.create_correction_notification(correction)
             self.send_correction_email_notification(correction)
 
+            # Serialize and return response
             serializer = CorrectionSustainabilitySerializer(correction)
             return Response(
                 {'message': 'Correction submitted successfully', 'correction': serializer.data},
@@ -6552,6 +6656,7 @@ class SubmitCorrectionSustainabilityView(APIView):
             )
 
         except Exception as e:
+            print(f"Error occurred in submit correction: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create_correction_notification(self, correction):
@@ -6560,6 +6665,7 @@ class SubmitCorrectionSustainabilityView(APIView):
             to_user = correction.to_user
             from_user = correction.from_user
 
+            # Determine if notification should be sent based on user roles
             if from_user == sustainability.approved_by and to_user == sustainability.checked_by:
                 should_send = sustainability.send_notification_to_checked_by
             elif from_user == sustainability.checked_by and to_user == sustainability.written_by:
@@ -6570,7 +6676,7 @@ class SubmitCorrectionSustainabilityView(APIView):
             if should_send:
                 message = (
                     f"Correction Request from {from_user.first_name} "
-                    f"to {to_user.first_name} for document: {sustainability.title}"
+                    f"to {to_user.first_name} for Sustainability: {sustainability.title}"
                 )
                 notification = NotificationSustainability.objects.create(
                     user=to_user,
@@ -6587,37 +6693,82 @@ class SubmitCorrectionSustainabilityView(APIView):
     def send_correction_email_notification(self, correction):
         try:
             sustainability = correction.sustainability
-            to_user = correction.to_user
             from_user = correction.from_user
+            to_user = correction.to_user
             recipient_email = to_user.email if to_user else None
 
-            if from_user == sustainability.approved_by and to_user == sustainability.checked_by:
-                should_send = sustainability.send_email_to_checked_by
-            elif from_user == sustainability.checked_by and to_user == sustainability.written_by:
+            # Define template and subject based on user roles
+            if from_user == sustainability.checked_by and to_user == sustainability.written_by:
+                template_name = 'sustainability/sustainability_correction_to_writer.html'
+                subject = f"Correction Requested on '{sustainability.title}'"
                 should_send = True
+            elif from_user == sustainability.approved_by and to_user == sustainability.checked_by:
+                template_name = 'sustainability/sustainability_correction_to_checker.html'
+                subject = f"Correction Requested on '{sustainability.title}'"
+                should_send = sustainability.send_email_to_checked_by
             else:
-                should_send = False
+                return  # Not a valid correction flow
 
-            if recipient_email and should_send:
-                send_mail(
-                    subject=f"Correction Request: {sustainability.title}",
-                    message=(
-                        f"Dear {to_user.first_name},\n\n"
-                        f"A correction has been requested by {from_user.first_name} for the document '{sustainability.title}'.\n\n"
-                        f"Correction details:\n"
-                        f"{correction.correction}\n\n"
-                        f"Please review and take necessary actions.\n\n"
-                        f"Best regards,\nDocumentation Team"
-                    ),
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient_email],
-                    fail_silently=False,
-                )
-                print(f"Correction email successfully sent to {recipient_email}")
-            else:
-                print("Email not sent due to permission flags, invalid roles, or missing email.")
+            # Check if email sending is enabled and recipient is valid
+            if not recipient_email or not should_send:
+                return
+
+            # Prepare email context
+            context = {
+                'recipient_name': to_user.first_name,
+                'title': sustainability.title,
+                'document_number': sustainability.no or 'N/A',
+                'review_frequency_year': sustainability.review_frequency_year or 0,
+                'review_frequency_month': sustainability.review_frequency_month or 0,
+                'document_type': sustainability.document_type,
+                'section_number': sustainability.no,
+                'rivision': getattr(sustainability, 'rivision', ''),
+                'written_by': sustainability.written_by,
+                'checked_by': sustainability.checked_by,
+                'approved_by': sustainability.approved_by,
+                'date': sustainability.date,
+                'correction_text': correction.correction,
+                'from_user_name': from_user.first_name
+            }
+
+            # Render email message
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            # Send email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach sustainability file if exists
+            if sustainability.upload_attachment:
+                try:
+                    file_name = sustainability.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = sustainability.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached file {file_name} to correction email.")
+                except Exception as attachment_error:
+                    print(f"Failed to attach file: {str(attachment_error)}")
+
+            # Use custom email backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Correction email successfully sent to {recipient_email}")
+
         except Exception as e:
-            print(f"Failed to send correction email: {str(e)}")
+            print(f"Error sending correction email: {str(e)}")
 
 
 class CorrectionSustainabilityList(generics.ListAPIView):
@@ -6632,7 +6783,6 @@ class CorrectionSustainabilityList(generics.ListAPIView):
  
 
 class SustainabilityReviewView(APIView):
-    
     def post(self, request):
         logger.info("Received request for Sustainability review process.")
         
@@ -6653,14 +6803,16 @@ class SustainabilityReviewView(APIView):
                 # Written by - First Submission
                 if current_user == sustainability.written_by and not sustainability.written_at:
                     sustainability.written_at = now()
+                    sustainability.save()
 
-                # Review process
-                if sustainability.status == 'Pending for Review/Checking' and current_user == sustainability.checked_by:
+                current_status = sustainability.status
+
+                # Case 1: Checked_by reviews
+                if current_status == 'Pending for Review/Checking' and current_user == sustainability.checked_by:
                     sustainability.status = 'Reviewed,Pending for Approval'
                     sustainability.checked_at = now()
                     sustainability.save()
 
-                    # Notification to approved_by (only if flag is True)
                     if sustainability.send_notification_to_approved_by:
                         NotificationSustainability.objects.create(
                             user=sustainability.approved_by,
@@ -6668,27 +6820,43 @@ class SustainabilityReviewView(APIView):
                             message=f"Sustainability document '{sustainability.title}' is ready for approval."
                         )
 
-                    # Email to approved_by (only if flag is True)
                     if sustainability.send_email_to_approved_by:
                         self.send_email_notification(
-                            recipient=sustainability.approved_by,
-                            subject=f"Sustainability {sustainability.title} - Pending Approval",
-                            message=f"The sustainability document '{sustainability.title}' has been reviewed and is pending your approval."
+                            sustainability=sustainability,
+                            recipients=[sustainability.approved_by],
+                            action_type="review"
                         )
 
-                # Approval process
-                elif sustainability.status == 'Reviewed,Pending for Approval' and current_user == sustainability.approved_by:
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == sustainability.approved_by:
                     sustainability.status = 'Pending for Publish'
                     sustainability.approved_at = now()
                     sustainability.save()
- 
-                elif current_user == sustainability.written_by and sustainability.status == 'Correction Requested':
+
+                    # Send notifications to all parties (like manual version)
+                    for user in [sustainability.written_by, sustainability.checked_by, sustainability.approved_by]:
+                        if user:
+                            NotificationSustainability.objects.create(
+                                user=user,
+                                sustainability=sustainability,
+                                message=f"Sustainability document '{sustainability.title}' has been approved and is pending for publish."
+                            )
+
+                    # Send emails to all parties (like manual version)
+                    self.send_email_notification(
+                        sustainability=sustainability,
+                        recipients=[u for u in [sustainability.written_by, sustainability.checked_by, sustainability.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                # Correction Requested Case
+                elif current_status == 'Correction Requested' and current_user == sustainability.written_by:
                     sustainability.status = 'Pending for Review/Checking'
                     sustainability.save()
 
                 else:
                     return Response({
-                        'message': 'No action taken. User not authorized for this Procedure.'
+                        'message': 'No action taken. User not authorized for current sustainability status.'
                     }, status=status.HTTP_200_OK)
 
             return Response({
@@ -6698,25 +6866,100 @@ class SustainabilityReviewView(APIView):
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Error in procedure review process: {str(e)}")
+            logger.error(f"Error in sustainability review process: {str(e)}")
             return Response({
                 'error': 'An unexpected error occurred',
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def send_email_notification(self, recipient, subject, message):
-        if recipient and recipient.email:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=config("DEFAULT_FROM_EMAIL"),
-                    recipient_list=[recipient.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Email sent to {recipient.email}")
-            except Exception as e:
-                logger.error(f"Failed to send email: {str(e)}")
+    def send_email_notification(self, sustainability, recipients, action_type):
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Sustainability Submitted for Approval: {sustainability.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': sustainability.title,
+                            'document_number': sustainability.no or 'N/A',
+                            'review_frequency_year': sustainability.review_frequency_year or 0,
+                            'review_frequency_month': sustainability.review_frequency_month or 0,
+                            'document_type': sustainability.document_type,
+                            'section_number': sustainability.no,
+                            'rivision': getattr(sustainability, 'rivision', ''),
+                            'written_by': sustainability.written_by,
+                            'checked_by': sustainability.checked_by,
+                            'approved_by': sustainability.approved_by,
+                            'date': sustainability.date,
+                            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
+                            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+                        }
+                        html_message = render_to_string('sustainability/sustainability_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Sustainability Approved: {sustainability.title}"
+                        context = {
+                            'recipient_name': recipient.first_name,
+                            'title': sustainability.title,
+                            'document_number': sustainability.no or 'N/A',
+                            'review_frequency_year': sustainability.review_frequency_year or 0,
+                            'review_frequency_month': sustainability.review_frequency_month or 0,
+                            'document_type': sustainability.document_type,
+                            'section_number': sustainability.no,
+                            'rivision': getattr(sustainability, 'rivision', ''),
+                            'written_by': sustainability.written_by,
+                            'checked_by': sustainability.checked_by,
+                            'approved_by': sustainability.approved_by,
+                            'date': sustainability.date,
+                            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
+                            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+                        }
+                        html_message = render_to_string('sustainability/sustainability_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    # Create email
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the sustainability document if it exists
+                    if sustainability.upload_attachment:
+                        try:
+                            file_name = sustainability.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = sustainability.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached sustainability file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    # Use custom backend (optional)
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
 
 
 
@@ -7082,6 +7325,7 @@ class AwarenessView(APIView):
 
 
  
+ 
 
 class TrainingCreateAPIView(APIView):
     """
@@ -7107,12 +7351,11 @@ class TrainingCreateAPIView(APIView):
                     training = serializer.save()
                     logger.info(f"Training created: {training.training_title}")
 
-                
+                    # Send notifications if required
                     if send_notification:
                         attendees = training.training_attendees.all()
                         users_to_notify = [training.evaluation_by, training.requested_by] + list(attendees)
                         
-                     
                         notifications = [
                             TrainingNotification(
                                 training=training,
@@ -7125,7 +7368,8 @@ class TrainingCreateAPIView(APIView):
                         if notifications:
                             TrainingNotification.objects.bulk_create(notifications)
                             logger.info(f"Created {len(notifications)} notifications for training {training.id}")
- 
+
+                        # Send emails asynchronously
                         for user in users_to_notify:
                             if user and user.email:
                                 self._send_email_async(training, user)
@@ -7161,7 +7405,8 @@ class TrainingCreateAPIView(APIView):
 
     def _send_notification_email(self, training, recipient):
         """
-        Send HTML-formatted email notification about the new training.
+        Send HTML-formatted email notification about the new training, 
+        with optional document attachment.
         """
         subject = f"New Training Scheduled: {training.training_title}"
         recipient_email = recipient.email
@@ -7181,20 +7426,43 @@ class TrainingCreateAPIView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
+             'created_by': training.user
         }
 
         html_message = render_to_string('qms/training/training_add.html', context)
         plain_message = strip_tags(html_message)
 
-        send_mail(
+        # Prepare email with attachment if document exists
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
+            to=[recipient_email]
         )
-        logger.info(f"Email sent to {recipient_email}")
+        email.attach_alternative(html_message, "text/html")
+
+        # Attach training document if available
+        if training.attachment:
+            try:
+                file_name = training.attachment.name.rsplit('/', 1)[-1]
+                file_content = training.attachment.read()
+                email.attach(file_name, file_content)
+                print(f"Attached training document: {file_name}")
+            except Exception as attachment_error:
+                print(f"Error attaching training file: {str(attachment_error)}")
+
+        # Use custom email backend
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+
+        print(f"Email successfully sent to {recipient_email}")
 
 
 
@@ -7217,29 +7485,31 @@ class TrainingDetailView(RetrieveDestroyAPIView):
     serializer_class = TrainingGetSerializer
     
     
+ 
+ 
+
 class TrainingUpdateAPIView(APIView):
     """
     Endpoint to update an existing training and optionally send notifications.
     """
 
     def put(self, request, pk):
-        print("request.vfdsgvsd",request.data)
         try:
-            training = Training.objects.get(pk=pk)
+            training = get_object_or_404(Training, pk=pk)
             send_notification = request.data.get('send_notification', 'false') == 'true'
 
             serializer = TrainingSerializer(training, data=request.data, partial=True)
-
             if serializer.is_valid():
                 with transaction.atomic():
                     training = serializer.save()
+
                     logger.info(f"Training updated: {training.training_title}")
 
                     if send_notification:
                         attendees = training.training_attendees.all()
                         users_to_notify = [training.evaluation_by, training.requested_by] + list(attendees)
 
-                        # Save notifications
+                        # Create notifications
                         notifications = [
                             TrainingNotification(
                                 training=training,
@@ -7255,7 +7525,10 @@ class TrainingUpdateAPIView(APIView):
                         # Send emails
                         for user in users_to_notify:
                             if user and user.email:
-                                self._send_email_async(training, user)
+                                try:
+                                    self._send_email_async(training, user)
+                                except Exception as e:
+                                    logger.error(f"Failed to send email to {user.email}: {e}")
 
                 return Response(
                     {
@@ -7295,21 +7568,51 @@ class TrainingUpdateAPIView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
+             'created_by': training.user
         }
 
-        html_message = render_to_string('qms/training/training_update.html', context)
-        plain_message = strip_tags(html_message)
+        try:
+            html_message = render_to_string('qms/training/training_update.html', context)
+            plain_message = strip_tags(html_message)
 
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
-        )
-        logger.info(f"Email sent to {recipient_email}")
-        
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if exists
+            if training.attachment:
+                try:
+                    training.attachment.seek(0)
+                    file_name = training.attachment.name.rsplit('/', 1)[-1]
+                    file_content = training.attachment.read()
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    email.attach(file_name, file_content, content_type)
+                    logger.info(f"Attached training document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching file: {attachment_error}")
+                    traceback.print_exc()
+
+            # Custom Email Backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending training email to {recipient_email}: {e}")
+            traceback.print_exc()
+
 
  
 
@@ -7318,23 +7621,16 @@ class TrainingCompleteAndNotifyView(APIView):
         try:
             training = Training.objects.get(id=training_id)
             company = training.company
-            send_notification = training.send_notification
-
-            # Set send_notification to True if it's False
-            if not send_notification:
-                training.send_notification = True
-                training.save(update_fields=['send_notification'])
-                print(f"send_notification updated to True for training {training_id}")
-            
-            print(f"Training: {training}")
-            print(f"Company: {company}")
-            print(f"Send Notification: {training.send_notification}")
 
             if not company:
                 return Response(
                     {"error": "Associated company not found for this training."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            if not training.send_notification:
+                training.send_notification = True
+                training.save(update_fields=['send_notification'])
 
             with transaction.atomic():
                 training.status = 'Completed'
@@ -7344,8 +7640,8 @@ class TrainingCompleteAndNotifyView(APIView):
 
                 if training.send_notification:
                     company_users = Users.objects.filter(company=company)
-                    print(f"Company Users: {company_users}")
 
+                    # Create notifications
                     notifications = [
                         TrainingNotification(
                             user=user,
@@ -7355,18 +7651,14 @@ class TrainingCompleteAndNotifyView(APIView):
                         )
                         for user in company_users
                     ]
-
                     if notifications:
                         TrainingNotification.objects.bulk_create(notifications)
                         logger.info(f"{len(notifications)} notifications created for training {training_id}")
 
+                    # Send emails asynchronously
                     for user in company_users:
-                        if user.email:
-                            print(f"Sending email to {user.email}")
-                            try:
-                                self._send_email(training, user)
-                            except Exception as e:
-                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                        if user and user.email:
+                            self._send_email_async(training, user)
 
             return Response(
                 {"message": "Training marked as completed successfully."},
@@ -7374,26 +7666,24 @@ class TrainingCompleteAndNotifyView(APIView):
             )
 
         except Training.DoesNotExist:
-            return Response(
-                {"error": "Training not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Training not found."}, status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
             logger.error(f"Error in TrainingCompleteAndNotifyView: {str(e)}")
-            return Response(
-                {"error": "Internal server error."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def _send_email_async(self, training, recipient):
+        threading.Thread(target=self._send_email, args=(training, recipient)).start()
 
     def _send_email(self, training, recipient):
         subject = f"Training Completed: {training.training_title}"
+        recipient_email = recipient.email
+
         context = {
             'training_title': training.training_title,
             'expected_results': training.expected_results,
-            'type_of_training': training.type_of_training,
             'actual_results': training.actual_results,
+            'type_of_training': training.type_of_training,
             'status': training.status,
             'training_evaluation': training.training_evaluation,
             'training_attendees': training.training_attendees.all(),
@@ -7404,29 +7694,45 @@ class TrainingCompleteAndNotifyView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
+             'created_by': training.user
         }
-
-        print(f"Email Context: {context}")
-        logger.info(f"Email Context: {context}")
 
         try:
             html_message = render_to_string('qms/training/training_completed.html', context)
         except Exception as e:
-            logger.warning(f"Template render failed: {str(e)}")
+            logger.warning(f"Template rendering failed: {str(e)}")
             html_message = f"<p>Training {training.training_title} completed.</p>"
 
         plain_message = strip_tags(html_message)
 
-        send_mail(
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            html_message=html_message,
-            fail_silently=False
+            to=[recipient_email]
         )
-        logger.info(f"Email sent to {recipient.email}")
-        print(f"Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        if training.attachment:
+            try:
+                file_name = training.attachment.name.rsplit('/', 1)[-1]
+                file_content = training.attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached document: {file_name}")
+            except Exception as e:
+                logger.error(f"Attachment error: {str(e)}")
+
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+        logger.info(f"Email sent to {recipient_email}")
+
 
 
 class TrainingDraftAPIView(APIView):
@@ -8121,18 +8427,15 @@ class MeetingDetailView(APIView):
 
 class MeetingCreateView(APIView):
     def post(self, request):
-        print("✅ Received Data:", request.data)
+        print("Received Data:", request.data)
         try:
             company_id = request.data.get('company')
-            # Convert the boolean value properly - this is likely the issue
             send_notification = request.data.get('send_notification', False)
-            
-            # If send_notification comes as a string (like 'true' or 'false'), convert it
+
             if isinstance(send_notification, str):
                 send_notification = send_notification.lower() == 'true'
-                
-            print("🔔 Send Notification Flag:", send_notification)  # Debug the value
-            
+            print(" Send Notification Flag:", send_notification)
+
             if not company_id:
                 return Response(
                     {"error": "Company ID is required"},
@@ -8140,87 +8443,65 @@ class MeetingCreateView(APIView):
                 )
 
             company = Company.objects.get(id=company_id)
-            
-            # Your existing serializer validation code
             serializer = MeetingSerializer(data=request.data)
-            
+
             if serializer.is_valid():
                 with transaction.atomic():
                     meeting = serializer.save()
-                    print(f"📅 Meeting created: {meeting.title}")
-                    
-                    # Ensure the send_notification flag is properly set
+                    print(f" Meeting created: {meeting.title}")
                     meeting.send_notification = send_notification
                     meeting.save()
-                    
-                    # Process attendees if they're sent separately
+
                     attendees_ids = request.data.get('attendees', [])
-                    if attendees_ids:
-                        for attendee_id in attendees_ids:
-                            try:
-                                attendee = Users.objects.get(id=attendee_id)
-                                meeting.attendees.add(attendee)
-                            except Users.DoesNotExist:
-                                pass
-                    
-                    # Process agenda items if they're sent separately
+                    for attendee_id in attendees_ids:
+                        try:
+                            attendee = Users.objects.get(id=attendee_id)
+                            meeting.attendees.add(attendee)
+                        except Users.DoesNotExist:
+                            pass
+
                     agenda_ids = request.data.get('agenda', [])
-                    if agenda_ids:
-                        for agenda_id in agenda_ids:
-                            try:
-                                agenda = Agenda.objects.get(id=agenda_id)
-                                meeting.agenda.add(agenda)
-                            except Agenda.DoesNotExist:
-                                pass
-                    
-                    # Send notifications only if requested
+                    for agenda_id in agenda_ids:
+                        try:
+                            agenda = Agenda.objects.get(id=agenda_id)
+                            meeting.agenda.add(agenda)
+                        except Agenda.DoesNotExist:
+                            pass
+
                     if send_notification:
-                        # Create notifications for attendees
                         notifications = []
                         for attendee in meeting.attendees.all():
-                            notification = MeetingNotification(
+                            notifications.append(MeetingNotification(
                                 user=attendee,
                                 meeting=meeting,
                                 title=f"Meeting Invitation: {meeting.title}",
                                 message=f"You have been invited to a meeting on {meeting.date} at {meeting.start_time}."
-                            )
-                            notifications.append(notification)
-                        
-                        # Bulk create notifications
+                            ))
+
                         if notifications:
                             MeetingNotification.objects.bulk_create(notifications)
-                            print(f"Created {len(notifications)} notifications for meeting {meeting.id}")
-                        
-                        # Send email to each attendee
+                            print(f" Created {len(notifications)} notifications for meeting {meeting.id}")
+
                         for attendee in meeting.attendees.all():
                             if attendee.email:
-                                try:
-                                    self._send_notification_email(meeting, attendee)
-                                except Exception as e:
-                                    print(f"Failed to send email to {attendee.email}: {str(e)}")
-                
-                return Response(
-                    {
-                        "message": "Meeting created successfully",
-                        "notification_sent": send_notification
-                    },
-                    status=status.HTTP_201_CREATED
-                )
+                                self._send_email_async(meeting, attendee)
+
+                return Response({
+                    "message": "Meeting created successfully",
+                    "notification_sent": send_notification
+                }, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
+
         except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f"Error creating meeting: {str(e)}")
-            return Response(
-                {"error": "Internal Server Error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
+            print(f" Error creating meeting: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, meeting, recipient):
+        threading.Thread(target=self._send_notification_email, args=(meeting, recipient)).start()
+
     def _send_notification_email(self, meeting, recipient):
         subject = f"Meeting Invitation: {meeting.title}"
         recipient_email = recipient.email
@@ -8236,20 +8517,42 @@ class MeetingCreateView(APIView):
             'agenda_item': meeting.agenda.all(),
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
+            'created_by': meeting.user
         }
 
         html_message = render_to_string('qms/meeting/meeting_add.html', context)
         plain_message = strip_tags(html_message)
 
-        send_mail(
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=plain_message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
+            to=[recipient_email]
         )
-        print(f"📧 Email sent to {recipient_email}")
+        email.attach_alternative(html_message, "text/html")
+
+        # Attach meeting file if exists
+        if meeting.file:
+            try:
+                file_name = meeting.file.name.rsplit('/', 1)[-1]
+                file_content = meeting.file.read()
+                email.attach(file_name, file_content)
+                print(f"📎 Attached meeting file: {file_name}")
+            except Exception as attachment_error:
+                print(f"Error attaching meeting file: {str(attachment_error)}")
+
+        # Custom email backend
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+
+        print(f"📧 Email successfully sent to {recipient_email}")
 
 
 
@@ -8276,7 +8579,6 @@ class MeetingDetailView(RetrieveDestroyAPIView):
     
     
  
-logger = logging.getLogger(__name__)
 
 
 class MeetingUpdateAPIView(APIView):
@@ -8301,7 +8603,7 @@ class MeetingUpdateAPIView(APIView):
                         attendees = meeting.attendees.all()
                         users_to_notify = [meeting.called_by] + list(attendees)
 
-                        # Save notifications
+                        # Create notifications
                         notifications = [
                             MeetingNotification(
                                 user=user,
@@ -8318,7 +8620,10 @@ class MeetingUpdateAPIView(APIView):
                         # Send emails
                         for user in users_to_notify:
                             if user and user.email:
-                                self._send_email_async(meeting, user)
+                                try:
+                                    self._send_email_async(meeting, user)
+                                except Exception as e:
+                                    logger.error(f"Failed to send email to {user.email}: {e}")
 
                 return Response(
                     {
@@ -8337,7 +8642,6 @@ class MeetingUpdateAPIView(APIView):
             return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _send_email_async(self, meeting, recipient):
-   
         threading.Thread(target=self._send_notification_email, args=(meeting, recipient)).start()
 
     def _send_notification_email(self, meeting, recipient):
@@ -8355,23 +8659,51 @@ class MeetingUpdateAPIView(APIView):
             'agenda_item': meeting.agenda.all(),
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
+            'created_by':meeting.user
         }
 
         try:
             html_message = render_to_string('qms/meeting/meeting_update.html', context)
             plain_message = strip_tags(html_message)
 
-            send_mail(
+            email = EmailMultiAlternatives(
                 subject=subject,
-                message=plain_message,
+                body=plain_message,
                 from_email=config("DEFAULT_FROM_EMAIL"),
-                recipient_list=[recipient_email],
-                fail_silently=False,
-                html_message=html_message,
+                to=[recipient_email]
             )
-            logger.info(f"Email sent to {recipient_email}")
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if exists
+            if meeting.file:
+                try:
+                    meeting.file.seek(0)
+                    file_name = meeting.file.name.rsplit('/', 1)[-1]
+                    file_content = meeting.file.read()
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    email.attach(file_name, file_content, content_type)
+                    logger.info(f"Attached meeting document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching file: {attachment_error}")
+                    traceback.print_exc()
+
+            # Custom Email Backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email successfully sent to {recipient_email}")
+
         except Exception as e:
-            logger.error(f"Failed to send email to {recipient_email}: {str(e)}", exc_info=True)
+            logger.error(f"Error sending meeting email to {recipient_email}: {e}")
+            traceback.print_exc()
+
 
         
 class MeetingDraftAPIView(APIView):
@@ -9015,12 +9347,12 @@ class CarNumberCreateAPIView(APIView):
                     car_number = serializer.save()
                     logger.info(f"Corrective Action created: {car_number.title}")
 
-                    # If send_notification is true and executor exists
+                
                     if send_notification and executor_id:
                         try:
                             executor = Users.objects.get(id=executor_id)
                             
-                            # Create notification for the executor
+                        
                             notification = CarNotification(
                                 user=executor,
                                 carnumber=car_number,
@@ -9083,20 +9415,38 @@ class CarNumberCreateAPIView(APIView):
             'action_or_corrections': car_number.action_or_corrections,
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
+            'created_by':car_number.user
         }
 
-        html_message = render_to_string('qms/car/car_add_template.html', context)
-        plain_message = strip_tags(html_message)
+        try:
+            html_message = render_to_string('qms/car/car_add_template.html', context)
+            plain_message = strip_tags(html_message)
 
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient_email],
-            fail_silently=False,
-            html_message=html_message,
-        )
-        logger.info(f"Email sent to {recipient_email}")
+         
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+      
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending CAR email to {recipient_email}: {e}")
+
 
 
 class CarNumberDetailView(APIView):
@@ -9133,18 +9483,17 @@ class CarNumberDetailView(APIView):
     
 class CarDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Don't copy the entire request.data, just extract what we need
+ 
         data = {}
         
-        # Copy over simple data fields 
+     
         for key in request.data:
             if key != 'upload_attachment':
                 data[key] = request.data[key]
-        
-        # Set is_draft flag
+   
         data['is_draft'] = True
         
-        # Handle file separately
+      
         file_obj = request.FILES.get('upload_attachment')
         
         serializer = CarNumberSerializer(data=data)
@@ -10421,8 +10770,8 @@ class EvaluationDraftEditView(APIView):
                 logger.error(f"Error creating notification for checked_by: {str(e)}")
 
     def send_email_notification(self, procedure, recipient, action_type):
-        # Same email logic as in the creation view
         recipient_email = recipient.email if recipient else None
+        
         if recipient_email:
             try:
                 if action_type == "review":
@@ -10447,15 +10796,38 @@ class EvaluationDraftEditView(APIView):
                     html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    
+                    email = EmailMultiAlternatives(
                         subject=subject,
-                        message=plain_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[recipient_email],
-                        fail_silently=False,
-                        html_message=html_message,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
                     )
-                    logger.info(f"HTML Email successfully sent to {recipient_email} for action: {action_type}")
+                    email.attach_alternative(html_message, "text/html")
+
+              
+                    if procedure.upload_attachment:
+                        try:
+                            file_name = procedure.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = procedure.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached evaluation document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching evaluation file: {str(attachment_error)}")
+
+                    # Use the custom email backend
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
                 else:
                     logger.warning("Unknown action type provided for email.")
                     return
@@ -11177,81 +11549,88 @@ class EditsDraftCompliance(APIView):
             
  
 
-class EditDraftLegalAPIView(APIView):
+class EditsDraftManagementChanges(APIView):
     def put(self, request, pk):
-        print("Received legal draft update:", request.data)
-        
-        legal = get_object_or_404(Legal, pk=pk)
+        print("Received data:", request.data)
+
+        # Get the existing ManagementChanges record
+        change = get_object_or_404(ManagementChanges, pk=pk)
 
         mutable_data = request.data.copy()
 
-        # Remove upload_attachment if not a new file
-        if 'upload_attachment' in mutable_data and not request.FILES.get('upload_attachment'):
-            print("Removing upload_attachment because it's not a new file")
-            mutable_data.pop('upload_attachment')
+        # Remove non-file 'attach_document' if it's not being re-uploaded
+        if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):
+            print("Removing attach_document from request because it's not a file")
+            mutable_data.pop('attach_document')
 
-        # Mark as finalized
+        # Set is_draft to False
         mutable_data['is_draft'] = False
 
-        serializer = LegalSerializer(legal, data=mutable_data, partial=True)
+        # Update the instance
+        serializer = ChangesSerializer(change, data=mutable_data, partial=True)
 
         if serializer.is_valid():
-            legal_instance = serializer.save()
+            with transaction.atomic():
+                change_instance = serializer.save()
 
-            # Handle file upload
-            file_obj = request.FILES.get('upload_attachment')
-            if file_obj:
-                legal_instance.upload_attachment = file_obj
-                legal_instance.save()
+                # Save file if re-uploaded
+                file_obj = request.FILES.get('attach_document')
+                if file_obj:
+                    change_instance.attach_document = file_obj
+                    change_instance.save()
 
-            # Example: sending notifications to company users
-            if legal_instance.send_notification:  # Add this flag in model if needed
-                company = legal_instance.company
-                company_users = Users.objects.filter(company=company)
+                if change_instance.send_notification:
+                    company = change_instance.company
+                    company_users = Users.objects.filter(company=company)
 
-                notifications = [
-                    LegalNotification(
-                        legal=legal_instance,
-                        title=f"Legal Requirement Finalized: {legal_instance.legal_name}",
-                        message=f"The legal requirement '{legal_instance.legal_name}' has been finalized."
-                    )
-                    for user in company_users
-                ]
+                    notifications = [
+                        NotificationChanges(
+                            changes=change_instance,
+                            title=f"Updated Change: {change_instance.moc_title}",
+                            message=f"The management change '{change_instance.moc_title}' has been updated."
+                        )
+                        for user in company_users
+                    ]
 
-                if notifications:
-                    LegalNotification.objects.bulk_create(notifications)
-                    logger.info(f"Created {len(notifications)} notifications for legal {legal_instance.id}")
+                    if notifications:
+                        NotificationChanges.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for change ID {change_instance.id}")
 
-                # Send emails
-                for user in company_users:
-                    if user.email:
-                        try:
-                            self._send_notification_email(legal_instance, user)
-                        except Exception as e:
-                            logger.error(f"Failed to send email to {user.email}: {str(e)}")
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_notification_email(change_instance, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
 
-            return Response(LegalSerializer(legal_instance).data, status=status.HTTP_200_OK)
+            return Response(ChangesSerializer(change_instance).data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _send_notification_email(self, legal, recipient):
-        subject = f"Legal Requirement Finalized: {legal.legal_name}"
+    def _send_notification_email(self, change, recipient):
+        subject = f"Updated Management Change: {change.moc_title}"
         recipient_email = recipient.email
 
+        print(f"Preparing to send email to: {recipient_email}")
+
         context = {
-            'legal_name': legal.legal_name,
-            'legal_type': legal.legal_type,
-            'legal_no': legal.legal_no,
-            'legal_remarks': legal.legal_remarks,
-            'revision': legal.revision,
-            'date': legal.date,
-            'related_process': legal.related_process,
-            'related_document': legal.related_document,
-            'created_by': legal.user,
+            'recipient_name': recipient.first_name,
+            'moc_title': change.moc_title,
+            'moc_type': change.moc_type,
+            'moc_no': change.moc_no,
+            'rivision': change.rivision,
+            'date': change.date,
+            'related_record_format': change.related_record_format,
+            'resources_required': change.resources_required,
+            'impact_on_process': change.impact_on_process,
+            'purpose_of_chnage': change.purpose_of_chnage,
+            'potential_cosequences': change.potential_cosequences,
+            'moc_remarks': change.moc_remarks,
+            'created_by': change.user,
         }
 
         try:
-            html_message = render_to_string('qms/legal/legal_add_template.html', context)
+            html_message = render_to_string('qms/changes/changes_add_template.html', context)
             plain_message = strip_tags(html_message)
 
             email = EmailMultiAlternatives(
@@ -11262,15 +11641,20 @@ class EditDraftLegalAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Attach document if present
-            if legal.upload_attachment:
-                legal.upload_attachment.seek(0)
-                file_name = legal.upload_attachment.name.split("/")[-1]
-                file_content = legal.upload_attachment.read()
-                content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
-                email.attach(file_name, file_content, content_type)
+            # Attach document if exists
+            if change.attach_document:
+                try:
+                    change.attach_document.seek(0)
+                    file_name = change.attach_document.name.rsplit('/', 1)[-1]
+                    file_content = change.attach_document.read()
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    email.attach(file_name, file_content, content_type)
+                    print(f"Attached document: {file_name} with type {content_type}")
+                except Exception as attachment_error:
+                    print(f"Attachment error: {attachment_error}")
+                    traceback.print_exc()
 
-            # Use custom email backend
+            # Send using secure backend
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -11284,5 +11668,274 @@ class EditDraftLegalAPIView(APIView):
             print(f"Email sent to {recipient_email}")
 
         except Exception as e:
-            print(f"Error sending email to {recipient_email}: {e}")
+            print(f"Error sending email: {e}")
             traceback.print_exc()
+
+
+class EditDraftTrainingAPIView(APIView):
+    """
+    Edit an existing draft training. On save, is_draft becomes False and 
+    it behaves like training creation (including notifications and emails).
+    """
+    def put(self, request, pk):
+        print("Received Data:", request.data)
+
+        training = get_object_or_404(Training, pk=pk)
+
+        mutable_data = request.data.copy()
+
+        # Automatically mark as not draft
+        mutable_data['is_draft'] = False
+
+        send_notification = mutable_data.get('send_notification', 'false') == 'true'
+
+        # Remove attachment if not actually uploaded
+        if 'attachment' in mutable_data and not request.FILES.get('attachment'):
+            print("Removing 'attachment' field because no file was uploaded.")
+            mutable_data.pop('attachment')
+
+        serializer = TrainingSerializer(training, data=mutable_data, partial=True)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    training_instance = serializer.save()
+
+                    # Handle file attachment if present
+                    file_obj = request.FILES.get('attachment')
+                    if file_obj:
+                        training_instance.attachment = file_obj
+                        training_instance.save()
+
+                    logger.info(f"Draft Training Added: {training_instance.training_title}")
+
+                    # Notifications
+                    if send_notification:
+                        attendees = training_instance.training_attendees.all()
+                        users_to_notify = [
+                            training_instance.evaluation_by,
+                            training_instance.requested_by,
+                            *attendees
+                        ]
+
+                        notifications = [
+                            TrainingNotification(
+                                training=training_instance,
+                                title=f"Training Finalized: {training_instance.training_title}",
+                                message=f"The training '{training_instance.training_title}' has been finalized."
+                            )
+                            for user in users_to_notify if user
+                        ]
+
+                        if notifications:
+                            TrainingNotification.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for training {training_instance.id}")
+
+                        # Email users asynchronously
+                        for user in users_to_notify:
+                            if user and user.email:
+                                self._send_email_async(training_instance, user)
+
+                return Response(
+                    {
+                        "message": "Draft training Added successfully and finalized.",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            except Exception as e:
+                logger.error(f"Error finalizing draft training: {str(e)}")
+                return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.warning(f"Validation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_email_async(self, training, recipient):
+        threading.Thread(target=self._send_notification_email, args=(training, recipient)).start()
+
+    def _send_notification_email(self, training, recipient):
+        subject = f"Finalized Training: {training.training_title}"
+        recipient_email = recipient.email
+
+        context = {
+            'training_title': training.training_title,
+            'expected_results': training.expected_results,
+            'type_of_training': training.type_of_training,
+            'actual_results': training.actual_results,
+            'status': training.status,
+            'training_evaluation': training.training_evaluation,
+            'training_attendees': training.training_attendees.all(),
+            'date_planned': training.date_planned,
+            'date_conducted': training.date_conducted,
+            'start_time': training.start_time,
+            'end_time': training.end_time,
+            'venue': training.venue,
+            'requested_by': training.requested_by,
+            'evaluation_by': training.evaluation_by,
+            'created_by': training.user
+        }
+
+        html_message = render_to_string('qms/training/training_add.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient_email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        if training.attachment:
+            try:
+                file_name = training.attachment.name.rsplit('/', 1)[-1]
+                training.attachment.seek(0)
+                file_content = training.attachment.read()
+                email.attach(file_name, file_content)
+            except Exception as e:
+                print(f"Attachment error: {e}")
+
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)
+        print(f"Email sent to {recipient_email}")
+
+
+
+class MeetingUpdateDraftView(APIView):
+    def put(self, request, pk):
+        print("Received data:", request.data)
+
+        # Get the existing meeting record
+        meeting = get_object_or_404(Meeting, pk=pk)
+
+        # Copy the request data to make modifications (e.g., removing the file if not provided)
+        mutable_data = request.data.copy()
+
+        # If the meeting is currently in draft, set is_draft to False to make it a finalized meeting
+        mutable_data['is_draft'] = False
+
+        # Check if the meeting is being updated with a document
+        if 'file' in mutable_data and not request.FILES.get('file'):
+            print("Removing file from request because it's not a file")
+            mutable_data.pop('file')
+
+        # Use the serializer to validate and update the meeting
+        serializer = MeetingSerializer(meeting, data=mutable_data, partial=True)
+
+        if serializer.is_valid():
+            # Save the updated meeting data
+            meeting_instance = serializer.save()
+
+            # Handle file attachment if provided
+            file_obj = request.FILES.get('file')
+            if file_obj:
+                meeting_instance.file = file_obj
+                meeting_instance.save()
+
+            # If notifications are enabled, send notifications and emails to attendees
+            if meeting_instance.send_notification:
+                attendees = meeting_instance.attendees.all()
+                notifications = [
+                    MeetingNotification(
+                        user=attendee,
+                        meeting=meeting_instance,
+                        title=f"Meeting Updated: {meeting_instance.title}",
+                        message=f"The meeting '{meeting_instance.title}' has been updated."
+                    )
+                    for attendee in attendees
+                ]
+
+                if notifications:
+                    MeetingNotification.objects.bulk_create(notifications)
+                    print(f"Created {len(notifications)} notifications for meeting {meeting_instance.id}")
+
+                for attendee in attendees:
+                    if attendee.email:
+                        try:
+                            self._send_notification_email(meeting_instance, attendee)
+                        except Exception as e:
+                            print(f"Failed to send email to {attendee.email}: {str(e)}")
+
+            return Response(MeetingSerializer(meeting_instance).data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, meeting, recipient):
+        subject = f"Meeting Updated: {meeting.title}"
+        recipient_email = recipient.email
+
+        print(f"Preparing to send email to: {recipient_email}")
+
+        context = {
+            'title': meeting.title,
+            'date': meeting.date,
+            'start_time': meeting.start_time,
+            'end_time': meeting.end_time,
+            'venue': meeting.venue or 'Not specified',
+            'meeting_type': meeting.meeting_type,
+            'called_by': f"{meeting.called_by.first_name} {meeting.called_by.last_name}" if meeting.called_by else "Unknown",
+            'agenda_item': meeting.agenda.all(),
+            'attendees': meeting.attendees.all(),
+            'recipient_name': recipient.first_name,
+            'created_by':meeting.user
+        }
+
+        try:
+            # Prepare HTML message
+            html_message = render_to_string('qms/meeting/meeting_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach meeting document if available
+            if meeting.file:
+                try:
+                    # Reset file pointer to the beginning
+                    meeting.file.seek(0)
+                    
+                    # Get file name
+                    file_name = meeting.file.name.rsplit('/', 1)[-1]
+                    
+                    # Read content
+                    file_content = meeting.file.read()
+                    
+                    # Determine MIME type
+                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                    
+                    # Attach with proper content type
+                    email.attach(file_name, file_content, content_type)
+                    
+                    print(f"Attached meeting document: {file_name} with content type {content_type}")
+                except Exception as attachment_error:
+                    print(f"Error attaching meeting file: {str(attachment_error)}")
+
+            # Send email via custom email backend
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")

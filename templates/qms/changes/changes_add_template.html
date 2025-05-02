@@ -152,72 +152,79 @@
 
         <div class="title">
             <h1>Quality Management System</h1>
-            <h2>Training {{ training_title }}</h2>
-            <p>{{ created_by.first_name }}{{ created_by.last_name }}has edited the record of the training {{ training_title }}.</p>
-             
+            <h2>Management of Change {{ moc_title }}</h2>
+            <p>{{ created_by.first_name }}{{ created_by.last_name }}  has published management of change {{ moc_title }}.</p>
+            
         </div>
   
         <div class="metadata">
             <div class="metadata-border">
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Training Type</div>
-                        <div class="metadata-value">{{ type_of_training }}</div>
+                        <div class="metadata-label">MOC Number</div>
+                        <div class="metadata-value">{{ moc_no }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Training Status</div>
-                        <div class="metadata-value">{{ status }}</div>
+                        <div class="metadata-label">MOC Type</div>
+                        <div class="metadata-value">{{ moc_type }}</div>
                     </div>
                 </div>
 
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Date Planned</div>
-                        <div class="metadata-value">{{ date_planned }}</div>
+                        <div class="metadata-label">MOC Name / Title</div>
+                        <div class="metadata-value">{{ moc_title }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Date Conducted</div>
-                        <div class="metadata-value">{{ date_conducted }}</div>
+                        <div class="metadata-label">Date</div>
+                        <div class="metadata-value">{{ date }}</div>
                     </div>
                 </div>
 
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Start Time</div>
-                        <div class="metadata-value">{{ start_time }}</div>
+                        <div class="metadata-label">Relate Record Format</div>
+                        <div class="metadata-value">{{ related_record_format }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">End Time</div>
-                        <div class="metadata-value">{{ end_time }}</div>
+                        <div class="metadata-label">Purpose of Change</div>
+                        <div class="metadata-value">{{ purpose_of_chnage }}</div>
                     </div>
                 </div>
 
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Requested By</div>
-                        <div class="metadata-value">{{ requested_by }}</div>
+                        <div class="metadata-label">Resources Required</div>
+                        <div class="metadata-value">{{ resources_required }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Evaluation By</div>
-                        <div class="metadata-value">{{ evaluation_by }}</div>
+                        <div class="metadata-label">Potential Consequences of Change</div>
+                        <div class="metadata-value">{{ potential_cosequences }}</div>
                     </div>
                 </div>
-
                 <div class="metadata-row">
                     <div class="metadata-col">
-                        <div class="metadata-label">Venue</div>
-                        <div class="metadata-value">{{ venue }}</div>
+                        <div class="metadata-label">Impact on Processes/Activity</div>
+                        <div class="metadata-value">{{ impact_on_process }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Training Evaluation</div>
-                        <div class="metadata-value">{{ training_evaluation }}</div>
+                        <div class="metadata-label">MOC Remarks</div>
+                        <div class="metadata-value">{{ moc_remarks }}</div>
                     </div>
                 </div>
+                <div class="metadata-row">
+                    <div class="metadata-col">
+                        <div class="metadata-label">Revision</div>
+                        <div class="metadata-value">{{ rivision }}</div>
+                    </div>
+                     
+                </div>
+               
             </div>
         </div>
 
         <div class="action">
-            <a href="https://main.d65yzw6flmizu.amplifyapp.com/company"  class="button">View In Dashboard</a>
+            <a href="https://main.d65yzw6flmizu.amplifyapp.com/company" class="button">View In Dashboard</a>
         </div>
 
         <div class="footer">

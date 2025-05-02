@@ -137,6 +137,7 @@ urlpatterns = [
     path('changes/<int:pk>/edit/', EditsChanges.as_view(), name='edit-interested-party'),
     path('changes-draft/<int:user_id>/', ChangesDraftAllList.as_view(), name='manual-list'),
     path('changes/drafts-count/<int:user_id>/',  ChangesView.as_view(), name='draft-manuals'),
+    path('changes/create/<int:id>/',  EditsDraftManagementChanges.as_view(), name='manual-update'),
  
     # Sustainability
     path('sustainability-create/', SustainabilityCreateView.as_view(), name='manual-list-create'),
@@ -175,6 +176,7 @@ urlpatterns = [
     path('training/<int:training_id>/complete/', TrainingCompleteAndNotifyView.as_view(), name='training-complete-notify'),
     path('training/by-attendee/<int:user_id>/', TrainingsByAttendeeAPIView.as_view(), name='training-by-attendee'),
     path('training/evaluated-by/<int:user_id>/', TrainingsEvaluatedByUserAPIView.as_view(), name='trainings-evaluated-by-user'),
+    path('training/create/<int:id>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
     
     # Performance Evaluation
     path('performance/create/', PerformanceCreateView.as_view(), name='documentation-list'),  
@@ -223,6 +225,7 @@ urlpatterns = [
     path('meeting/<int:pk>/edit/', MeetingUpdateAPIView.as_view(), name='edit-interested-party'),
     path('meeting/draft-create/', MeetingDraftAPIView.as_view(), name='manual-create'), 
     path('meeting-draft/<int:user_id>/', MeetingDraftAllList.as_view(), name='manual-list'),
+    path('meeting-draft/edit/<int:pk>/', MeetingUpdateDraftView.as_view(), name='compliance_edit'),
     
     # Audit
     path('audit/create/', AuditCreateAPIView.as_view(), name='audit-list-create'),

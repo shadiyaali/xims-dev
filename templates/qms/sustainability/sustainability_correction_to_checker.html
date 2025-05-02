@@ -122,12 +122,10 @@
         </div>
 
         <div class="title">
-            <h1>QMS - Add Sustainability Notification {{ title }}</h1>
+            <h1>QMS - Request for Manual Correction  {{ title }}</h1>
            
-            <p>{{ written_by.first_name }} {{ written_by.last_name }} has created a Sustainability {{ title }} that is pending review by {{ checked_by.first_name }} {{ checked_by.last_name }}.</p>
-
-
-            
+            <p> {{ approved_by.first_name }} {{ approved_by.last_name }} has requested a correction to the manual {{ title }}, which needs to be reviewed by  {{ checked_by.first_name }} {{ checked_by.last_name }}. </p>
+      
         </div>
 
         <div class="metadata">
@@ -138,7 +136,7 @@
                         <div>{{ title }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Sustainability Number</div>
+                        <div class="metadata-label">Manual Number</div>
                         <div>{{ section_number }}</div>
                     </div>
                     
@@ -182,7 +180,8 @@
                         <div>{{ written_by.first_name }} {{ written_by.last_name }}</div>
                     </div>
                 </div>
-               
+                
+                  
             </div>
         </div>
 

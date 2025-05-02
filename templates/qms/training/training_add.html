@@ -150,10 +150,13 @@
             </div>
         </div>
 
+
+
         <div class="title">
             <h1>Quality Management System</h1>
-            <h2>Training Notification</h2>
-            <p>A new Training "{{ training_title }}" has been created by {{ requested_by }}</p>
+            <h2>Training {{ training_title }}</h2>
+            <p>{{ created_by.first_name }}{{ created_by.last_name }} has published a Training "{{ training_title }}. </p>
+          
         </div>
   
         <div class="metadata">

@@ -50,10 +50,10 @@
 <body>
     <div class="container">
         <div class="header">
-            <h2>Corrective Action Assignment</h2>
+            <h2>Corrective Action {{ title }}</h2>
         </div>
         <div class="content">
-            <p>You have been assigned as the executor for a new Corrective Action.</p>
+            <p>{{created_by.first_name}} {{created_by.last_name}} has published a Corrective Action  {{ title }}.</p>
             
             <table>
                 <tr>

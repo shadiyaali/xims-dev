@@ -117,18 +117,14 @@ class ManualUpdateSerializer(serializers.ModelSerializer):
         model = Manual
         fields = '__all__'
         extra_kwargs = {
-            'approved_by': {'required': False, 'allow_null': True},
+          
             'written_at': {'read_only': True},
             'checked_at': {'read_only': True},
             'approved_at': {'read_only': True},
             'updated_at': {'read_only': True}
         }
     
-    def to_internal_value(self, data):
-    
-        if data.get("approved_by") == "":
-            data["approved_by"] = None
-        return super().to_internal_value(data)   
+
     def update(self, instance, validated_data):
       
         validated_data['status'] = 'Pending for Review/Checking'       
@@ -330,8 +326,6 @@ class InterestedPartySerializer(serializers.ModelSerializer):
         
 class InterestedPartyGetSerializer(serializers.ModelSerializer):
     needs = NeedsSerializer(many=True, read_only=True)
- 
-
     class Meta:
         model = InterestedParty
         fields = '__all__'
