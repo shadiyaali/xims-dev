@@ -799,9 +799,7 @@ class ManualUpdateView(APIView):
         try:
             with transaction.atomic():
                 manual = Manual.objects.get(pk=pk)
-                data = request.data.copy() if hasattr(request.data, 'copy') else request.data
-                if 'approved_by' not in data or data['approved_by'] == "" or data['approved_by'] == "null":
-                    data['approved_by'] = None
+              
                 serializer = ManualUpdateSerializer(manual, data=request.data, partial=True)
 
                 if serializer.is_valid():

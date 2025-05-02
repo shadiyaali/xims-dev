@@ -113,12 +113,11 @@ class CorrectionGetQMSSerializer(serializers.ModelSerializer):
         ]
         
 class ManualUpdateSerializer(serializers.ModelSerializer):
-    approved_by = serializers.PrimaryKeyRelatedField(queryset=Users.objects.all(), required=False, allow_null=True)
-    
     class Meta:
         model = Manual
         fields = '__all__'
         extra_kwargs = {
+            'approved_by': {'required': False, 'allow_null': True},
             'written_at': {'read_only': True},
             'checked_at': {'read_only': True},
             'approved_at': {'read_only': True},
@@ -126,16 +125,15 @@ class ManualUpdateSerializer(serializers.ModelSerializer):
         }
     
     def to_internal_value(self, data):
- 
-        if 'approved_by' in data:
-            if data['approved_by'] == "" or data['approved_by'] == "null" or data['approved_by'] is None:
-                data['approved_by'] = None
-        
-        return super().to_internal_value(data)
-        
+    
+        if data.get("approved_by") == "":
+            data["approved_by"] = None
+        return super().to_internal_value(data)   
     def update(self, instance, validated_data):
+      
         validated_data['status'] = 'Pending for Review/Checking'       
         return super().update(instance, validated_data)
+
 
 
 class ProcedureSerializer(serializers.ModelSerializer):
