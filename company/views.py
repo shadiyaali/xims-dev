@@ -1859,4 +1859,20 @@ class UserPermissionsAPIView(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         
         
-        
+
+class ChangeUserPasswordView(APIView):
+ 
+
+    def post(self, request, user_id):
+        serializer = ChangeUserPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                user = Users.objects.get(id=user_id)
+            except Users.DoesNotExist:
+                return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            new_password = serializer.validated_data['new_password']
+            user.set_password(new_password)
+            return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

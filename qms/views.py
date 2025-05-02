@@ -1102,7 +1102,7 @@ class ManualPublishNotificationView(APIView):
     def _send_publish_email(self, manual, recipient):
         """Helper method to send email notifications with template and attach manual document"""
         from decouple import config
-        from django.core.mail import EmailMultiAlternatives
+      
         from django.utils.html import strip_tags
         from django.template.loader import render_to_string
 
@@ -6986,25 +6986,28 @@ class SustainabilityPublishNotificationView(APIView):
             company = Company.objects.get(id=company_id)
 
             with transaction.atomic():
-                # Update sustainability status and published_at timestamp
+                # Update sustainability status and published information
                 sustainability.status = 'Published'
                 sustainability.published_at = now()
-
-                # Set the publishing user if provided
+                
+                # Set the published_user if the ID was provided
                 if published_by:
                     try:
                         publishing_user = Users.objects.get(id=published_by)
                         sustainability.published_user = publishing_user
                     except Users.DoesNotExist:
                         logger.warning(f"Publisher user ID {published_by} not found")
-
+                
+                # Only send notifications if requested
                 sustainability.send_notification = send_notification
                 sustainability.save()
 
-                # If notification should be sent, create notifications and send emails
+                # Only proceed with notifications if send_notification is True
                 if send_notification:
+                    # Get all users in the company
                     company_users = Users.objects.filter(company=company)
 
+                    # Create notifications for each user
                     notifications = [
                         NotificationSustainability(
                             user=user,
@@ -7020,7 +7023,7 @@ class SustainabilityPublishNotificationView(APIView):
                         NotificationSustainability.objects.bulk_create(notifications)
                         logger.info(f"Created {len(notifications)} notifications for sustainability {sustainability_id}")
 
-                    # Send emails to company users
+                    # Send emails
                     for user in company_users:
                         if user.email:
                             try:
@@ -7055,34 +7058,69 @@ class SustainabilityPublishNotificationView(APIView):
             )
 
     def _send_publish_email(self, sustainability, recipient):
-        """Helper method to send email notifications"""
-        # Get publisher name
+        """Helper method to send email notifications with template and attach document"""
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
+
         publisher_name = "N/A"
         if sustainability.published_user:
             publisher_name = f"{sustainability.published_user.first_name} {sustainability.published_user.last_name}"
         elif sustainability.approved_by:
             publisher_name = f"{sustainability.approved_by.first_name} {sustainability.approved_by.last_name}"
-            
-        subject = f"New Sustainability Document Published: {sustainability.title}"
-        message = (
-            f"Dear {recipient.first_name},\n\n"
-            f"A new sustainability document titled '{sustainability.title}' has been published.\n\n"
-            f"Sustainability Document Details:\n"
-            f"- Document Number: {sustainability.no or 'N/A'}\n"
-            f"- Document Type: {sustainability.document_type}\n"
-            f"- Published By: {publisher_name}\n\n"
-            f"Please login to view this document.\n\n"
-            f"Best regards,\nSustainability Team"
-        )
 
-        send_mail(
+        subject = f"New Sustainability Document Published: {sustainability.title}"
+
+        context = {
+            'recipient_name': recipient.first_name,
+            'title': sustainability.title,
+            'document_number': sustainability.no or 'N/A',
+            'review_frequency_year': sustainability.review_frequency_year or 0,
+            'review_frequency_month': sustainability.review_frequency_month or 0,
+            'document_type': sustainability.document_type,
+            'section_number': sustainability.no,
+            'rivision': getattr(sustainability, 'rivision', ''),
+            "written_by": sustainability.written_by,
+            "checked_by": sustainability.checked_by,
+            "approved_by": sustainability.approved_by,
+            'date': sustainability.date,
+            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
+            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+        }
+
+        html_message = render_to_string('sustainability/sustainability_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
             subject=subject,
-            message=message,
+            body=plain_message,
             from_email=config("DEFAULT_FROM_EMAIL"),
-            recipient_list=[recipient.email],
-            fail_silently=False,
+            to=[recipient.email]
         )
-        logger.info(f"Email sent to {recipient.email}")
+        email.attach_alternative(html_message, "text/html")
+
+        if sustainability.upload_attachment:
+            try:
+                file_name = sustainability.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = sustainability.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached sustainability file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        # Use custom backend if needed
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
 
 
 class SustainabilityDraftAPIView(APIView):
@@ -11939,3 +11977,136 @@ class MeetingUpdateDraftView(APIView):
 
         except Exception as e:
             print(f"Error sending email to {recipient_email}: {e}")
+
+
+
+
+class SustainabilityDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received sustainability edit request.")
+
+        try:
+            # Try to get the sustainability document by ID
+            sustainability = Sustainabilities.objects.get(id=id)
+            
+            # Create a serializer instance for updating the document
+            serializer = SustainabilitySerializer(sustainability, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Save the changes to the sustainability document
+                        sustainability = serializer.save()
+
+                        # Set `is_draft` to False when edited
+                        sustainability.is_draft = False
+
+                        # Apply the changes
+                        sustainability.save()
+
+                        logger.info(f"Sustainability document updated successfully with ID: {sustainability.id}")
+
+                        # Send notifications and emails like in creation
+                        if sustainability.checked_by:
+                            if sustainability.send_notification_to_checked_by:
+                                self._send_notifications(sustainability)
+
+                            if sustainability.send_email_to_checked_by and sustainability.checked_by.email:
+                                self.send_email_notification(sustainability, sustainability.checked_by, "review")
+
+                        return Response(
+                            {"message": "Sustainability document updated successfully", "id": sustainability.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during sustainability update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Sustainabilities.DoesNotExist:
+            return Response({"error": "Sustainability document not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, sustainability):
+       
+        if sustainability.checked_by:
+            try:
+                NotificationSustainability.objects.create(
+                    user=sustainability.checked_by,
+                    sustainability=sustainability,
+                    title="Notification for Checking/Review",
+                    message="A sustainability document has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {sustainability.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, sustainability, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Sustainability Document Ready for Review: {sustainability.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': sustainability.title,
+                        'document_number': sustainability.no or 'N/A',
+                        'review_frequency_year': sustainability.review_frequency_year or 0,
+                        'review_frequency_month': sustainability.review_frequency_month or 0,
+                        'document_type': sustainability.document_type,
+                        'section_number': sustainability.no,
+                        'rivision': getattr(sustainability, 'rivision', ''),
+                        "written_by": sustainability.written_by,
+                        "checked_by": sustainability.checked_by,
+                        "approved_by": sustainability.approved_by,
+                        'date': sustainability.date,
+                        'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
+                        'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+                    }
+
+                    html_message = render_to_string('sustainability/sustainability_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if sustainability.upload_attachment:
+                        try:
+                            file_name = sustainability.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = sustainability.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached sustainability document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching sustainability file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")

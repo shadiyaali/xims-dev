@@ -18,6 +18,7 @@ urlpatterns = [
     path('validate-username-edit/', ValidateUsernameEditView.as_view(), name='validate_email_userid'),
     path('user/<int:id>/change-status/', ChangeUserStatusView.as_view(), name='change-company-status'),
     path('permissions/<int:user_id>/', UserPermissionsAPIView.as_view(), name='company-detail'), 
+    path('user/change-password/<int:user_id>/', ChangeUserPasswordView.as_view(), name='change-password'),
  
 
  

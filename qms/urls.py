@@ -155,6 +155,7 @@ urlpatterns = [
     path("sustainability-notification/<int:user_id>/", NotificationsLastSustainability.as_view(), name="notifications_by_user"),
     path('sustainability/count-notifications/<int:user_id>/', UnreadSustainabilityNotificationsAPIView.as_view(), name='unread-notifications'),
     path('notifications-sustainability/<int:notification_id>/read/', MarkSustainabilityNotificationReadAPIView.as_view(), name='mark-notification-read'),
+    path('sustainability/create/<int:id>/', SustainabilityDraftEditView.as_view(), name='manual-update'),
     
     # Awareness Training
     path('awareness/create/', AwarenessTrainingCreateView.as_view(), name='documentation-list'),  
