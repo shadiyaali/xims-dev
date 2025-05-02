@@ -181,6 +181,7 @@ urlpatterns = [
     path('training/evaluated-by/<int:user_id>/', TrainingsEvaluatedByUserAPIView.as_view(), name='trainings-evaluated-by-user'),
     path('training/create/<int:id>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
     
+    
     # Performance Evaluation
     path('performance/create/', PerformanceCreateView.as_view(), name='documentation-list'),  
     path('performance/<int:company_id>/', PerformanceAllList.as_view(), name='documentation-list'),
@@ -194,6 +195,10 @@ urlpatterns = [
     path('performance/question/<int:question_id>/delete/', DeletePerformanceQuestionAPIView.as_view(), name='delete-performance-question'),
     path('performance/question/answer/<int:question_id>/', AddAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
     path('performance/<int:company_id>/evaluation/<int:evaluation_id>/',UsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),  
+    
+    
+    
+    
     
     # Employee Satisfaction Survey    
     path('survey/create/', SurveyCreateView.as_view(), name='documentation-list'),  

@@ -6967,11 +6967,7 @@ class SustainabilityPublishNotificationView(APIView):
             published_by = request.data.get('published_by')  
             send_notification = request.data.get('send_notification', False)
             
-            if not company_id:
-                return Response(
-                    {"error": "Company ID is required"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            
             
             company = Company.objects.get(id=company_id)
 
