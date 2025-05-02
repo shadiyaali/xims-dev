@@ -6967,7 +6967,11 @@ class SustainabilityPublishNotificationView(APIView):
             published_by = request.data.get('published_by')  
             send_notification = request.data.get('send_notification', False)
             
-            
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             company = Company.objects.get(id=company_id)
 
@@ -7031,7 +7035,11 @@ class SustainabilityPublishNotificationView(APIView):
                 {"error": "Sustainability document not found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             logger.error(f"Error in publish notification: {str(e)}")
             return Response(
