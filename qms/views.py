@@ -7031,11 +7031,7 @@ class SustainabilityPublishNotificationView(APIView):
                 {"error": "Sustainability document not found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+        
         except Exception as e:
             logger.error(f"Error in publish notification: {str(e)}")
             return Response(
