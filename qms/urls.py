@@ -109,6 +109,8 @@ urlpatterns = [
     path('legal/<int:pk>/edit/', EditsLegal.as_view(), name='edit-interested-party'),
     path('legal-draft/<int:user_id>/', LegalDraftAllList.as_view(), name='manual-list'),
     path('legal/drafts-count/<int:user_id>/',  LegalView.as_view(), name='draft-manuals'),
+    path('legal/create/<int:pk>/', EditDraftLegalAPIView.as_view(), name='process-draft-edit'),
+    
      
     
     # Evaluation of compliance
