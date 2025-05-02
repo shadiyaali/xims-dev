@@ -123,7 +123,12 @@ class ManualUpdateSerializer(serializers.ModelSerializer):
             'approved_at': {'read_only': True},
             'updated_at': {'read_only': True}
         }
-        
+    
+    def to_internal_value(self, data):
+        # Convert empty string to None for ForeignKey fields
+        if data.get("approved_by") == "":
+            data["approved_by"] = None
+        return super().to_internal_value(data)   
     def update(self, instance, validated_data):
       
         validated_data['status'] = 'Pending for Review/Checking'       
