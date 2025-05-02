@@ -1169,8 +1169,8 @@ class CustomerQuestions(models.Model):
     
     
 class EmployeeTrainingEvaluation(models.Model):
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="performance", blank=True, null=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='performance', null=True, blank=True) 
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="aaaa", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='bbbbb', null=True, blank=True) 
     evaluation_title = models.CharField(max_length=100,blank=True, null=True)
     valid_till = models.DateField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
@@ -1180,8 +1180,8 @@ class EmployeeTrainingEvaluation(models.Model):
         return self.evaluation_title
     
 class EmployeeTrainingEvaluationQuestions(models.Model):
-    emp_training_eval = models.ForeignKey(EmployeeTrainingEvaluation, on_delete=models.CASCADE, related_name="questions",blank=True, null=True)
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="question", blank=True, null=True)
+    emp_training_eval = models.ForeignKey(EmployeeTrainingEvaluation, on_delete=models.CASCADE, related_name="ddd",blank=True, null=True)
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="ccc", blank=True, null=True)
     question_text = models.TextField(blank=True, null=True)
     answer= models.CharField(blank=True, null=True)
     
