@@ -117,12 +117,13 @@ class ManualUpdateSerializer(serializers.ModelSerializer):
         model = Manual
         fields = '__all__'
         extra_kwargs = {
+            'approved_by': {'required': False, 'allow_null': True},
             'written_at': {'read_only': True},
             'checked_at': {'read_only': True},
             'approved_at': {'read_only': True},
             'updated_at': {'read_only': True}
         }
-
+        
     def update(self, instance, validated_data):
       
         validated_data['status'] = 'Pending for Review/Checking'       
