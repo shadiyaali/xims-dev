@@ -60,3 +60,7 @@ admin.site.register(Category)
 admin.site.register(CustomerQuestions)
 admin.site.register(CustomerSatisfaction)
 
+admin.site.register(EmployeeTrainingEvaluation)
+admin.site.register(EmployeeTrainingEvaluationQuestions)
+
+
