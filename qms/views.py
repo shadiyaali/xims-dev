@@ -12325,8 +12325,8 @@ class AddTrainingEvaluationQuestionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class TrainingEvaluationQuestionsByEvaluationAPIView(APIView):
-    def get(self, request, emp_training_eval, *args, **kwargs):
-        questions = EmployeeTrainingEvaluationQuestions.objects.filter(emp_training_eval=emp_training_eval)
+    def get(self, request, emp_training_eval_id, *args, **kwargs):
+        questions = EmployeeTrainingEvaluationQuestions.objects.filter(emp_training_eval_id=emp_training_eval_id)
         serializer = TrainingEvaluationQuestionSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)   
 
