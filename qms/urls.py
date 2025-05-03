@@ -291,9 +291,7 @@ urlpatterns = [
     path('supplier-problems/draft-create/', SupplierproblemDraftAPIView.as_view(), name='manual-create'),
     path('supplier-problems-draft/<int:user_id>/', SupplierproblemDraftAllList.as_view(), name='manual-list'),
    
-    
-    # System message
-    path('messages/create/', MessageCreateAPIView.as_view(), name='message-create'),
+ 
     
     # supplier evaluation  
     path('supplier/evaluation/create/', SuppEvaluationCreateView.as_view(), name='documentation-list'),  
@@ -345,6 +343,7 @@ urlpatterns = [
     path('customer/survey/<int:company_id>/evaluation/<int:customer_id>/',CustomerCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
     
     
+    # traing evaluation
     path('training-evaluation/create/', TrainingEvaluationCreateView.as_view(), name='documentation-list'),  
     path('training-evaluation/<int:company_id>/', TrainingEvaluationAllList.as_view(), name='documentation-list'),
     path('training-evaluation/<int:pk>/update/', TrainingEvaluationUpdateView.as_view(), name='documentation-update'),  
@@ -356,7 +355,14 @@ urlpatterns = [
     path('training-evaluation/<int:performance_id>/questions/', TrainingEvaluationQuestionsByEvaluationAPIView.as_view(), name='performance-questions'),
     path('training-evaluation/question/<int:question_id>/delete/', DeleteTrainingEvaluationQuestionAPIView.as_view(), name='delete-performance-question'),
     path('training-evaluation/question/answer/<int:question_id>/', TrainingAddAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
-    path('training-evaluation/<int:company_id>/evaluation/<int:evaluation_id>/',TrainingUsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),  
+    path('training-evaluation/<int:company_id>/evaluation/<int:evaluation_id>/',TrainingUsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),
+    
+    
+       
+    # System message
+    path('messages/create/', MessageCreateAPIView.as_view(), name='message-create'), 
+    path('messages/inbox/<int:user_id>/', UserInboxMessageListView.as_view(), name='user-inbox'), 
+    path('messages/<int:id>/', MessageDetailView.as_view(), name='message-detail'),
 ]
 
 

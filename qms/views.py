@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.generics import RetrieveDestroyAPIView
 from django.core.mail import EmailMultiAlternatives
-
+from rest_framework.exceptions import NotFound
 from ximspro.utils.email_backend import CertifiEmailBackend
 
 
@@ -8791,10 +8791,6 @@ class MessageCreateAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
-    
- 
 
  
 
@@ -12329,8 +12325,8 @@ class AddTrainingEvaluationQuestionAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class TrainingEvaluationQuestionsByEvaluationAPIView(APIView):
-    def get(self, request, performance_id, *args, **kwargs):
-        questions = EmployeeTrainingEvaluationQuestions.objects.filter(performance_id=performance_id)
+    def get(self, request, emp_training_eval, *args, **kwargs):
+        questions = EmployeeTrainingEvaluationQuestions.objects.filter(emp_training_eval=emp_training_eval)
         serializer = TrainingEvaluationQuestionSerializer(questions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)   
 
@@ -12413,3 +12409,30 @@ class TrainingUsersNotSubmittedAnswersView(APIView):
                 {"error": "An unexpected error occurred.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
+            
+class UserInboxMessageListView(generics.ListAPIView):
+    serializer_class = MessageSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(to_user=user).order_by('-created_at')
+    
+    
+class MessageDetailView(generics.RetrieveAPIView):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+ 
+    lookup_field = 'id'
+
+    def get_object(self):
+        try:
+            return Message.objects.get(id=self.kwargs['id'])
+        except Message.DoesNotExist:
+            raise NotFound("Message not found.")
