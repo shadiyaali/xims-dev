@@ -1187,6 +1187,6 @@ class EmployeeTrainingEvaluationQuestions(models.Model):
     
    
     def __str__(self):
-        if self.performance and self.performance.evaluation_title:
-            return f"{self.performance.evaluation_title} - {self.question_text or 'Unnamed Question'}"
+        if self.emp_training_eval and self.emp_training_eval.evaluation_title:
+            return f"{self.emp_training_eval.evaluation_title} - {self.question_text or 'Unnamed Question'}"
         return self.question_text or "Unnamed Question"
