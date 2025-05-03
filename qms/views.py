@@ -12375,7 +12375,7 @@ class TrainingUsersNotSubmittedAnswersView(APIView):
                 )
           
             try:
-                performance = EmployeeTrainingEvaluation.objects.get(id=evaluation_id, company=company)
+                emp_training_eval = EmployeeTrainingEvaluation.objects.get(id=evaluation_id, company=company)
             except EmployeeTrainingEvaluation.DoesNotExist:
                 return Response(
                     {"error": "Evaluation not found or does not belong to the specified company."},
@@ -12385,7 +12385,7 @@ class TrainingUsersNotSubmittedAnswersView(APIView):
             company_users = Users.objects.filter(company=company, is_trash=False)
            
             submitted_user_ids = EmployeeTrainingEvaluationQuestions.objects.filter(
-                performance=performance,
+                emp_training_eval=emp_training_eval,
                 user__isnull=False
             ).values_list('user_id', flat=True).distinct()
             
