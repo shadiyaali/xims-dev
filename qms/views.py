@@ -12203,3 +12203,213 @@ class EditDraftLegalAPIView(APIView):
         except Exception as e:
             print(f"Error sending email to {recipient_email}: {e}")
             traceback.print_exc()
+            
+            
+class TrainingEvaluationCreateView(APIView):
+    def post(self, request):
+        serializer = TrainingEvaluationSerializer(data=request.data)
+        if serializer.is_valid():
+       
+            serializer.save()   
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TrainingEvaluationAllList(APIView):
+    def get(self, request, company_id):
+        try:
+        
+            if not Company.objects.filter(id=company_id).exists():
+                return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+           
+            company_policies = EmployeeTrainingEvaluation.objects.filter(company_id=company_id ,is_draft=False)
+
+           
+            serializer = TrainingEvaluationSerializer(company_policies, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class  TrainingEvaluationUpdateView(APIView):
+    def put(self, request, pk):
+        try:
+            documentation = EmployeeTrainingEvaluation.objects.get(pk=pk)
+        except TrainingEvaluationSerializer.DoesNotExist:
+            return Response({"error": "Employee Training Evaluation not found"}, status=status.HTTP_404_NOT_FOUND) 
+        data = request.data.copy()      
+        data['is_draft'] = False
+        serializer = TrainingEvaluationSerializer(documentation, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            documentation = EmployeeTrainingEvaluation.objects.get(pk=pk)
+        except EmployeeTrainingEvaluation.DoesNotExist:
+            return Response({"error": "Employee Training Evaluation not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        documentation.delete()   
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class TrainingEvaluationDetailView(APIView):
+    def get(self, request, id):
+        policy = get_object_or_404(EmployeeTrainingEvaluation, id=id)
+        serializer = TrainingEvaluationSerializer(policy)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class TrainingEvaluationDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        
+        data = {}
+
+        
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        
+        data['is_draft'] = True
+        
+       
+        file_obj = request.FILES.get('upload_attachment')
+
+        
+        serializer = TrainingEvaluationSerializer(data=data)
+        if serializer.is_valid():
+            evaluation = serializer.save()
+            
+            
+            if file_obj:
+                evaluation.upload_attachment = file_obj
+                evaluation.save()
+
+            return Response({
+                "message": "Employee Evaluation saved as draft",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class TrainingEvaluationDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = EmployeeTrainingEvaluation.objects.filter(user=user, is_draft=True)
+        serializer =TrainingEvaluationSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class TrainingEvaluationView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = EmployeeTrainingEvaluation.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = TrainingEvaluationSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class AddTrainingEvaluationQuestionAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = TrainingEvaluationQuestionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class TrainingEvaluationQuestionsByEvaluationAPIView(APIView):
+    def get(self, request, performance_id, *args, **kwargs):
+        questions = EmployeeTrainingEvaluationQuestions.objects.filter(performance_id=performance_id)
+        serializer = TrainingEvaluationQuestionSerializer(questions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)   
+
+class DeleteTrainingEvaluationQuestionAPIView(APIView):
+    def delete(self, request, question_id, *args, **kwargs):
+        try:
+            question = EmployeeTrainingEvaluationQuestions.objects.get(id=question_id)
+            question.delete()
+            return Response({"message": "Question deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except EmployeeTrainingEvaluationQuestions.DoesNotExist:
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        
+class TrainingAddAnswerToQuestionAPIView(APIView):
+    def patch(self, request, question_id, *args, **kwargs):
+        try:
+            question = EmployeeTrainingEvaluationQuestions.objects.get(id=question_id)
+            answer = request.data.get('answer')
+            user_id = request.data.get('user_id')
+
+            if not answer:
+                return Response({"error": "Answer is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not user_id:
+                return Response({"error": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            question.answer = answer
+            question.user_id = user_id  
+            question.save()
+
+            return Response({"message": "Answer and user updated successfully."}, status=status.HTTP_200_OK)
+
+        except EmployeeTrainingEvaluationQuestions.DoesNotExist:
+            return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+class TrainingUsersNotSubmittedAnswersView(APIView):
+    def get(self, request, company_id, evaluation_id):
+        try:
+  
+            try:
+                company = Company.objects.get(id=company_id)
+            except Company.DoesNotExist:
+                return Response(
+                    {"error": "Company not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+          
+            try:
+                performance = EmployeeTrainingEvaluation.objects.get(id=evaluation_id, company=company)
+            except EmployeeTrainingEvaluation.DoesNotExist:
+                return Response(
+                    {"error": "Evaluation not found or does not belong to the specified company."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+           
+            company_users = Users.objects.filter(company=company, is_trash=False)
+           
+            submitted_user_ids = EmployeeTrainingEvaluationQuestions.objects.filter(
+                performance=performance,
+                user__isnull=False
+            ).values_list('user_id', flat=True).distinct()
+            
+            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
+      
+            user_data = [
+                {
+                    "id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "status": user.status
+                }
+                for user in not_submitted_users
+            ]
+
+            return Response(user_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "An unexpected error occurred.", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

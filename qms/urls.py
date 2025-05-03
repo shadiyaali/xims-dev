@@ -198,8 +198,6 @@ urlpatterns = [
     
     
     
-    
-    
     # Employee Satisfaction Survey    
     path('survey/create/', SurveyCreateView.as_view(), name='documentation-list'),  
     path('survey/<int:company_id>/', SurveyAllList.as_view(), name='documentation-list'),
@@ -346,6 +344,19 @@ urlpatterns = [
     path('customer/survey/question/answer/<int:question_id>/', AddSCustomerSurveyAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
     path('customer/survey/<int:company_id>/evaluation/<int:customer_id>/',CustomerCustomerSurveyAnswersView.as_view(),name='unsubmitted-users'),  
     
+    
+    path('training-evaluation/create/', TrainingEvaluationCreateView.as_view(), name='documentation-list'),  
+    path('training-evaluation/<int:company_id>/', TrainingEvaluationAllList.as_view(), name='documentation-list'),
+    path('training-evaluation/<int:pk>/update/', TrainingEvaluationUpdateView.as_view(), name='documentation-update'),  
+    path('training-evaluation-get/<int:id>/', TrainingEvaluationDetailView.as_view(), name='policy-detail'),
+    path('training-evaluation/draft-create/', TrainingEvaluationDraftAPIView.as_view(), name='manual-create'),  
+    path('training-evaluation-draft/<int:user_id>/', TrainingEvaluationDraftAllList.as_view(), name='manual-list'),
+    path('training-evaluation/drafts-count/<int:user_id>/',  TrainingEvaluationView.as_view(), name='draft-manuals'),
+    path('training-evaluation/question-add/', AddTrainingEvaluationQuestionAPIView.as_view(), name='add-performance-question'),
+    path('training-evaluation/<int:performance_id>/questions/', TrainingEvaluationQuestionsByEvaluationAPIView.as_view(), name='performance-questions'),
+    path('training-evaluation/question/<int:question_id>/delete/', DeleteTrainingEvaluationQuestionAPIView.as_view(), name='delete-performance-question'),
+    path('training-evaluation/question/answer/<int:question_id>/', TrainingAddAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
+    path('training-evaluation/<int:company_id>/evaluation/<int:evaluation_id>/',TrainingUsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),  
 ]
 
 

@@ -546,6 +546,7 @@ class EmployeeEvaluationSerializer(serializers.ModelSerializer):
         model = EmployeePerformance
         fields = '__all__'
         
+        
 class PerformanceQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PerformanceQuestions
@@ -828,3 +829,13 @@ class CustomerSatisfactionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+        
+class TrainingEvaluationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeTrainingEvaluation
+        fields = '__all__'
+        
+class TrainingEvaluationQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeTrainingEvaluationQuestions
+        fields = ['id', 'emp_training_eval', 'question_text', 'answer']
