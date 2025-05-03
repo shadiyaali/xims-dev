@@ -841,18 +841,7 @@ class MeetingNotification(models.Model):
     
 
     
-class Message(models.Model):   
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message', null=True, blank=True)
-    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_user', null=True, blank=True) 
-    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='to_user', null=True, blank=True) 
-    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
-    message = models.TextField(blank=True, null=True)
-    subject = models.CharField(max_length=255,blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    
-    def __str__(self):
-        return self.subject
+
     
 class Audit(models.Model):
     TITLE_CHOICES = [
@@ -1190,3 +1179,32 @@ class EmployeeTrainingEvaluationQuestions(models.Model):
         if self.emp_training_eval and self.emp_training_eval.evaluation_title:
             return f"{self.emp_training_eval.evaluation_title} - {self.question_text or 'Unnamed Question'}"
         return self.question_text or "Unnamed Question"
+    
+    
+    
+class Message(models.Model):   
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message', null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_user', null=True, blank=True) 
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='to_user', null=True, blank=True) 
+    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
+    message = models.TextField(blank=True, null=True)
+    subject = models.CharField(max_length=255,blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    
+    def __str__(self):
+        return self.subject
+    
+    
+class ReplayMessage(models.Model):   
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message_com', null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_users', null=True, blank=True) 
+    to_users = models.ManyToManyField(Users, related_name='received_replay_messages', blank=True) 
+    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
+    message = models.TextField(blank=True, null=True)
+    subject = models.CharField(max_length=255,blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    
+    def __str__(self):
+        return self.subject

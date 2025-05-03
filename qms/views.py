@@ -8006,53 +8006,47 @@ class AddAnswerToQuestionAPIView(APIView):
         
  
 
+ 
+
 class UsersNotSubmittedAnswersView(APIView):
     def get(self, request, company_id, evaluation_id):
         try:
-  
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
-                return Response(
-                    {"error": "Company not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-          
+                return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
+
             try:
                 performance = EmployeePerformance.objects.get(id=evaluation_id, company=company)
             except EmployeePerformance.DoesNotExist:
-                return Response(
-                    {"error": "Evaluation not found or does not belong to the specified company."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-           
-            company_users = Users.objects.filter(company=company, is_trash=False)
-           
-            submitted_user_ids = PerformanceQuestions.objects.filter(
-                performance=performance,
-                user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
-            
-            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
-      
-            user_data = [
-                {
+                return Response({"error": "Evaluation not found or does not belong to this company."}, status=status.HTTP_404_NOT_FOUND)
+
+            users = Users.objects.filter(company=company, is_trash=False)
+
+            response_data = []
+            for user in users:
+                user_questions = PerformanceQuestions.objects.filter(performance=performance, user=user)
+                questions_data = [
+                    {
+                        "question_text": q.question_text,
+                        "answer": q.answer
+                    } for q in user_questions
+                ]
+
+                response_data.append({
                     "id": user.id,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "email": user.email,
-                    "status": user.status
-                }
-                for user in not_submitted_users
-            ]
+                    "status": user.status,
+                    "questions": questions_data
+                })
 
-            return Response(user_data, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response(
-                {"error": "An unexpected error occurred.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Unexpected error occurred.", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             
 class SurveyCreateView(APIView):
     def post(self, request):
@@ -8195,54 +8189,95 @@ class AddSurveyAnswerToQuestionAPIView(APIView):
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
+# class UserSurveysAnswersView(APIView):
+#     def get(self, request, company_id, survey_id):
+#         try:
+  
+#             try:
+#                 company = Company.objects.get(id=company_id)
+#             except Company.DoesNotExist:
+#                 return Response(
+#                     {"error": "Company not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+          
+#             try:
+#                 survey = EmployeeSurvey.objects.get(id=survey_id, company=company)
+#             except EmployeeSurvey.DoesNotExist:
+#                 return Response(
+#                     {"error": "Survey not found or does not belong to the specified company."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+           
+#             company_users = Users.objects.filter(company=company, is_trash=False)
+           
+#             submitted_user_ids = SurveyQuestions.objects.filter(
+#                 survey=survey,
+#                 user__isnull=False
+#             ).values_list('user_id', flat=True).distinct()
+            
+#             not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
+      
+#             user_data = [
+#                 {
+#                     "id": user.id,
+#                     "first_name": user.first_name,
+#                     "last_name": user.last_name,
+#                     "email": user.email,
+#                     "status": user.status
+#                 }
+#                 for user in not_submitted_users
+#             ]
+
+#             return Response(user_data, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response(
+#                 {"error": "An unexpected error occurred.", "details": str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
 class UserSurveysAnswersView(APIView):
     def get(self, request, company_id, survey_id):
         try:
-  
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
-                return Response(
-                    {"error": "Company not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-          
+                return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
+
             try:
-                survey = EmployeeSurvey.objects.get(id=survey_id, company=company)
+                 survey = EmployeeSurvey.objects.get(id=survey_id, company=company)
             except EmployeeSurvey.DoesNotExist:
-                return Response(
-                    {"error": "Survey not found or does not belong to the specified company."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-           
-            company_users = Users.objects.filter(company=company, is_trash=False)
-           
-            submitted_user_ids = SurveyQuestions.objects.filter(
-                survey=survey,
-                user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
-            
-            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
-      
-            user_data = [
-                {
+                return Response({"error": "Evaluation not found or does not belong to this company."}, status=status.HTTP_404_NOT_FOUND)
+
+            users = Users.objects.filter(company=company, is_trash=False)
+
+            response_data = []
+            for user in users:
+                user_questions = SurveyQuestions.objects.filter(survey=survey, user=user)
+                questions_data = [
+                    {
+                        "question_text": q.question_text,
+                        "answer": q.answer
+                    } for q in user_questions
+                ]
+
+                response_data.append({
                     "id": user.id,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "email": user.email,
-                    "status": user.status
-                }
-                for user in not_submitted_users
-            ]
+                    "status": user.status,
+                    "questions": questions_data
+                })
 
-            return Response(user_data, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response(
-                {"error": "An unexpected error occurred.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Unexpected error occurred.", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
+
+           
 class ScopeCreateView(APIView):
     def post(self, request):
         serializer = ScopeSerializer(data=request.data)
@@ -12362,53 +12397,93 @@ class TrainingAddAnswerToQuestionAPIView(APIView):
         except EmployeeTrainingEvaluationQuestions.DoesNotExist:
             return Response({"error": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
         
+# class TrainingUsersNotSubmittedAnswersView(APIView):
+#     def get(self, request, company_id, evaluation_id):
+#         try:
+  
+#             try:
+#                 company = Company.objects.get(id=company_id)
+#             except Company.DoesNotExist:
+#                 return Response(
+#                     {"error": "Company not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+          
+#             try:
+#                 emp_training_eval = EmployeeTrainingEvaluation.objects.get(id=evaluation_id, company=company)
+#             except EmployeeTrainingEvaluation.DoesNotExist:
+#                 return Response(
+#                     {"error": "Evaluation not found or does not belong to the specified company."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+           
+#             company_users = Users.objects.filter(company=company, is_trash=False)
+           
+#             submitted_user_ids = EmployeeTrainingEvaluationQuestions.objects.filter(
+#                 emp_training_eval=emp_training_eval,
+#                 user__isnull=False
+#             ).values_list('user_id', flat=True).distinct()
+            
+#             not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
+      
+#             user_data = [
+#                 {
+#                     "id": user.id,
+#                     "first_name": user.first_name,
+#                     "last_name": user.last_name,
+#                     "email": user.email,
+#                     "status": user.status
+#                 }
+#                 for user in not_submitted_users
+#             ]
+
+#             return Response(user_data, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response(
+#                 {"error": "An unexpected error occurred.", "details": str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+
 class TrainingUsersNotSubmittedAnswersView(APIView):
     def get(self, request, company_id, evaluation_id):
         try:
-  
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
-                return Response(
-                    {"error": "Company not found."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-          
+                return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
+
             try:
                 emp_training_eval = EmployeeTrainingEvaluation.objects.get(id=evaluation_id, company=company)
             except EmployeeTrainingEvaluation.DoesNotExist:
-                return Response(
-                    {"error": "Evaluation not found or does not belong to the specified company."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-           
-            company_users = Users.objects.filter(company=company, is_trash=False)
-           
-            submitted_user_ids = EmployeeTrainingEvaluationQuestions.objects.filter(
-                emp_training_eval=emp_training_eval,
-                user__isnull=False
-            ).values_list('user_id', flat=True).distinct()
-            
-            not_submitted_users = company_users.exclude(id__in=submitted_user_ids)
-      
-            user_data = [
-                {
+                return Response({"error": "Evaluation not found or does not belong to this company."}, status=status.HTTP_404_NOT_FOUND)
+
+            users = Users.objects.filter(company=company, is_trash=False)
+
+            response_data = []
+            for user in users:
+                user_questions = EmployeeTrainingEvaluationQuestions.objects.filter( emp_training_eval=emp_training_eval, user=user)
+                questions_data = [
+                    {
+                        "question_text": q.question_text,
+                        "answer": q.answer
+                    } for q in user_questions
+                ]
+
+                response_data.append({
                     "id": user.id,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "email": user.email,
-                    "status": user.status
-                }
-                for user in not_submitted_users
-            ]
+                    "status": user.status,
+                    "questions": questions_data
+                })
 
-            return Response(user_data, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response(
-                {"error": "An unexpected error occurred.", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Unexpected error occurred.", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             
 class UserInboxMessageListView(generics.ListAPIView):

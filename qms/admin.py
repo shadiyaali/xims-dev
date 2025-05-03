@@ -42,7 +42,7 @@ admin.site.register(Scope)
 admin.site.register(Agenda)
 admin.site.register(Meeting)
 admin.site.register(MeetingNotification)
-admin.site.register(Message)
+
 admin.site.register(Audit)
 admin.site.register(Inspection)
 admin.site.register(Cause)
@@ -62,5 +62,7 @@ admin.site.register(CustomerSatisfaction)
 
 admin.site.register(EmployeeTrainingEvaluation)
 admin.site.register(EmployeeTrainingEvaluationQuestions)
+
+admin.site.register(Message)
 
 
