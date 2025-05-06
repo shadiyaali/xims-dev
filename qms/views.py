@@ -3499,31 +3499,44 @@ class InterestedPartyDetailView(APIView):
 
 class InterestDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
+        print("Request Data:", request.data)
+
+        # Parse and prepare the data for InterestedParty
         data = {key: request.data[key] for key in request.data if key != 'file'}
         data['is_draft'] = True
 
+        # Check if file is uploaded
         file_obj = request.FILES.get('file')
 
+        # Serialize InterestedParty data
         serializer = InterestedPartySerializer(data=data)
         if serializer.is_valid():
             interest = serializer.save()
 
+            # Attach file if present
             if file_obj:
-                interest.file = file_obj  # Corrected field name
+                interest.file = file_obj
                 interest.save()
 
+            # Retrieve and print the needs data for debugging
             needs_data = request.data.get('needs', [])
-            for item in needs_data:
-                Needs.objects.create(
-                    interested_party=interest,
-                    needs=item.get('needs'),
-                    expectation=item.get('expectation')
-                )
+            print("Needs Data:", needs_data)
+
+            # Loop through each item in the needs list and save them
+            if needs_data:
+                for item in needs_data:
+                    print(f"Creating Need for InterestedParty {interest.id}: {item}")
+                    Needs.objects.create(
+                        interested_party=interest,
+                        needs=item.get('needs'),
+                        expectation=item.get('expectation')
+                    )
 
             return Response({"message": "Interest saved as draft", "data": serializer.data},
                             status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
     
