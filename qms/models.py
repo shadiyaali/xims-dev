@@ -958,6 +958,7 @@ class Supplier(models.Model):
 
 class CarNumber(models.Model):   
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='carnumber', null=True, blank=True) 
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="car_carn", null=True, blank=True) 
     title = models.CharField(max_length=255, blank=True, null=True)
     source = models.CharField(
         max_length=255, blank=True, null=True,
