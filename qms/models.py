@@ -907,6 +907,55 @@ class RootCause(models.Model):
     def __str__(self):
         return self.title
 
+
+
+
+
+class Supplier(models.Model):
+    
+    ACTIVE_CHOICES = [
+        ('active', 'active'),
+        ('blocked', 'blocked'),        
+    ] 
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='supplier_com', null=True, blank=True)
+    company_name = models.CharField(max_length=50,blank =True,null = True)
+    email = models.EmailField(blank =True,null = True) 
+    address = models.TextField(blank=True,null=True)
+    state = models.CharField(max_length=50,blank =True,null = True)
+    country = models.CharField(max_length=50,blank =True,null = True)
+    website = models.TextField(blank=True,null=True)
+    city =  models.CharField(max_length=50,blank =True,null = True)
+    postal_code = models.CharField(max_length=50,blank =True,null = True)
+    phone = models.CharField(max_length=50,blank =True,null = True)
+    alternate_phone =models.CharField(max_length=50,blank =True,null = True)
+    fax =models.CharField(max_length=50,blank =True,null = True)
+    contact_person = models.CharField(max_length=50,blank =True,null = True)
+    qualified_to_supply = models.CharField(max_length=50,blank =True,null = True)
+    notes = models.TextField(blank=True,null=True)
+    analysis_needed = models.BooleanField(default=False)
+    resolution = models.CharField(max_length=50,blank =True,null = True)
+    active = models.CharField(max_length=20, choices=ACTIVE_CHOICES, default='active')
+    approved_by = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier_app", blank=True, null=True)
+    selection_criteria = models.CharField(max_length=50,blank =True,null = True)
+    STATUS_CHOICES = [
+        ('Approved', 'Approved'),
+        ('Provisional', 'Provisional'),
+        ('Not Approved','Not Approved')       
+    ] 
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Approved')
+    approved_date =  models.DateField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+    pre_qualification = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
+    documents = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
+    
+
+    def __str__(self):
+        return self.company_name or "Unnamed Supplier"
+
+
+
 class CarNumber(models.Model):   
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='carnumber', null=True, blank=True) 
     title = models.CharField(max_length=255, blank=True, null=True)
@@ -930,6 +979,7 @@ class CarNumber(models.Model):
         ('Deleted', 'Deleted')
     ]
     status = models.CharField(max_length=20, choices=Status_CHOICES, default='Pending')
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
     executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True)
     action_no = models.IntegerField(blank=True, null=True)
     action_or_corrections = models.TextField(blank=True, null=True)
@@ -980,51 +1030,7 @@ class InternalProblem(models.Model):
 
     def __str__(self):
         return str(self.company) if self.company else "Internal Problem"
-
-
-class Supplier(models.Model):
-    
-    ACTIVE_CHOICES = [
-        ('active', 'active'),
-        ('blocked', 'blocked'),        
-    ] 
-    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier", blank=True, null=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='supplier_com', null=True, blank=True)
-    company_name = models.CharField(max_length=50,blank =True,null = True)
-    email = models.EmailField(blank =True,null = True) 
-    address = models.TextField(blank=True,null=True)
-    state = models.CharField(max_length=50,blank =True,null = True)
-    country = models.CharField(max_length=50,blank =True,null = True)
-    website = models.TextField(blank=True,null=True)
-    city =  models.CharField(max_length=50,blank =True,null = True)
-    postal_code = models.CharField(max_length=50,blank =True,null = True)
-    phone = models.CharField(max_length=50,blank =True,null = True)
-    alternate_phone =models.CharField(max_length=50,blank =True,null = True)
-    fax =models.CharField(max_length=50,blank =True,null = True)
-    contact_person = models.CharField(max_length=50,blank =True,null = True)
-    qualified_to_supply = models.CharField(max_length=50,blank =True,null = True)
-    notes = models.TextField(blank=True,null=True)
-    analysis_needed = models.BooleanField(default=False)
-    resolution = models.CharField(max_length=50,blank =True,null = True)
-    active = models.CharField(max_length=20, choices=ACTIVE_CHOICES, default='active')
-    approved_by = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier_app", blank=True, null=True)
-    selection_criteria = models.CharField(max_length=50,blank =True,null = True)
-    STATUS_CHOICES = [
-        ('Approved', 'Approved'),
-        ('Provisional', 'Provisional'),
-        ('Not Approved','Not Approved')       
-    ] 
-    
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Approved')
-    approved_date =  models.DateField(blank=True, null=True)
-    is_draft = models.BooleanField(default=False)
-    pre_qualification = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
-    documents = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
-    
-
-    def __str__(self):
-        return self.company_name or "Unnamed Supplier"
-    
+   
 
 class SupplierProblem(models.Model):
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="supplier_problem", blank=True, null=True)

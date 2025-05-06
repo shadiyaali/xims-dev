@@ -269,6 +269,9 @@ urlpatterns = [
     path('car/draft-create/', CarDraftAPIView.as_view(), name='manual-create'),
     path('car_no/company/<int:company_id>/', CarNCompanyCauseView.as_view(), name='company-agendas'),
     path('car-number/next-action/<int:company_id>/', GetNextActionNumberView.as_view(), name='get-next-action-number'),
+    path('car-draft/update/<int:pk>/', CarDraftUpdateAPIView.as_view(), name='car-draft-update'),
+ 
+    
     
     # Internal Problems 
     path('internal-problems/create/', InternalProblemCreateView.as_view(), name='create-internal-problem'),

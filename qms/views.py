@@ -9701,6 +9701,116 @@ class GetNextActionNumberView(APIView):
             return Response({'next_action_no': next_action_no}, status=status.HTTP_200_OK)
         except Company.DoesNotExist:
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class CarDraftUpdateAPIView(APIView):
+    """
+    View to update a draft CarNumber and finalize it (set is_draft=False).
+    Sends notification email to executor if send_notification is True.
+    """
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            car_draft = get_object_or_404(CarNumber, pk=pk, is_draft=True)
+
+            data = request.data.copy()
+            data['is_draft'] = False  # Finalize the draft
+
+            file_obj = request.FILES.get('upload_attachment')
+
+            serializer = CarNumberSerializer(car_draft, data=data, partial=True)
+            if serializer.is_valid():
+                car = serializer.save()
+
+                if file_obj:
+                    car.upload_attachment = file_obj
+                    car.save()
+
+                # Send notification if requested
+                send_notification = data.get('send_notification', False)
+                executor_id = data.get('executor')
+                if send_notification and executor_id:
+                    try:
+                        executor = Users.objects.get(id=executor_id)
+                        notification = CarNotification(
+                            user=executor,
+                            carnumber=car,
+                            title=f"New Corrective Action: {car.title}",
+                            message=f"You have been assigned as executor for corrective action '{car.title}'"
+                        )
+                        notification.save()
+
+                        if executor.email:
+                            self._send_email_async(car, executor)
+                    except Users.DoesNotExist:
+                        logger.warning(f"Executor with ID {executor_id} not found")
+
+                return Response(
+                    {"message": "Draft CarNumber finalized and notification sent", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except CarNumber.DoesNotExist:
+            return Response(
+                {"error": "Draft CarNumber not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error finalizing CAR draft: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, car_number, recipient):
+        threading.Thread(target=self._send_notification_email, args=(car_number, recipient)).start()
+
+    def _send_notification_email(self, car_number, recipient):
+        subject = f"CAR Assignment: {car_number.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': car_number.title,
+            'action_no': car_number.action_no,
+            'source': car_number.source,
+            'description': car_number.description,
+            'date_raised': car_number.date_raised,
+            'date_completed': car_number.date_completed,
+            'action_or_corrections': car_number.action_or_corrections,
+            'status': car_number.status,
+            'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
+            'created_by': car_number.user
+        }
+
+        try:
+            html_message = render_to_string('qms/car/car_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending CAR email to {recipient_email}: {e}")
+
         
         
 class InternalProblemCreateView(generics.CreateAPIView):
