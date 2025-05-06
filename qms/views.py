@@ -3497,19 +3497,27 @@ class InterestedPartyDetailView(APIView):
 
 
 
+import json
+
 class InterestDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
         print("Request Data:", request.data)
 
-        # Parse and prepare the data for InterestedParty
-        data = {key: request.data[key] for key in request.data if key != 'file'}
-        data['is_draft'] = True
+        # Parse the 'data' JSON string if present
+        raw_data = request.data.get('data')
+        try:
+            parsed_data = json.loads(raw_data[0] if isinstance(raw_data, list) else raw_data)
+        except (json.JSONDecodeError, TypeError) as e:
+            print("JSON decode error:", e)
+            return Response({"message": "Invalid data format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        parsed_data['is_draft'] = True
 
         # Check if file is uploaded
         file_obj = request.FILES.get('file')
 
         # Serialize InterestedParty data
-        serializer = InterestedPartySerializer(data=data)
+        serializer = InterestedPartySerializer(data=parsed_data)
         if serializer.is_valid():
             interest = serializer.save()
 
@@ -3518,24 +3526,35 @@ class InterestDraftAPIView(APIView):
                 interest.file = file_obj
                 interest.save()
 
-            # Retrieve and print the needs data for debugging
-            needs_data = request.data.get('needs', [])
+            # Now get needs from parsed data
+            needs_data = parsed_data.get('needs', [])
             print("Needs Data:", needs_data)
 
-            # Loop through each item in the needs list and save them
-            if needs_data:
+            if isinstance(needs_data, list):
                 for item in needs_data:
-                    print(f"Creating Need for InterestedParty {interest.id}: {item}")
-                    Needs.objects.create(
-                        interested_party=interest,
-                        needs=item.get('needs'),
-                        expectation=item.get('expectation')
-                    )
+                    if not item.get('needs') or not item.get('expectation'):
+                        print("Skipping incomplete needs data:", item)
+                        continue
+                    try:
+                        Needs.objects.create(
+                            interested_party=interest,
+                            needs=item.get('needs'),
+                            expectation=item.get('expectation')
+                        )
+                    except Exception as e:
+                        print(f"Error creating Needs: {e}")
+                        return Response({"message": f"Error creating Needs: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+                print("Needs successfully saved.")
+            else:
+                print("Invalid needs_data format. Expected a list.")
 
             return Response({"message": "Interest saved as draft", "data": serializer.data},
                             status=status.HTTP_201_CREATED)
         else:
+            print("Serializer Errors:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
