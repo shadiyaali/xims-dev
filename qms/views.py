@@ -3112,11 +3112,38 @@ class InterestedPartyCreateView(APIView):
     def post(self, request):
         print("Received Data:", request.data)   
         try:
-            # Extract data from the request
-            company_id = request.data.get('company')
-            send_notification = request.data.get('send_notification', False)   
-            needs_data = request.data.get('needs', [])   
+            # First, check if there's a 'data' field containing JSON
+            json_data = {}
+            if 'data' in request.data:
+                try:
+                    import json
+                    if isinstance(request.data['data'], str):
+                        json_data = json.loads(request.data['data'])
+                        print(f"Found JSON data in 'data' field: {json_data}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"Failed to parse 'data' field: {e}")
 
+            # Extract data, prioritizing direct fields but falling back to json_data
+            company_id = request.data.get('company') or json_data.get('company')
+            send_notification = request.data.get('send_notification', json_data.get('send_notification', False))
+            
+            # Get needs data from json_data if it exists there
+            needs_data = []
+            
+            # First check for needs in regular request.data
+            if 'needs' in request.data:
+                if isinstance(request.data['needs'], str):
+                    try:
+                        needs_data = json.loads(request.data['needs'])
+                    except json.JSONDecodeError:
+                        print(f"Failed to parse needs string: {request.data['needs']}")
+                else:
+                    needs_data = request.data['needs']
+            
+            # If no needs found yet, check in the json_data
+            if not needs_data and 'needs' in json_data:
+                needs_data = json_data.get('needs', [])
+            
             # Debugging print statements
             print(f"Company ID: {company_id}")
             print(f"Send Notification: {send_notification}")
@@ -3129,6 +3156,18 @@ class InterestedPartyCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Create a merged data dictionary for the serializer
+            # This combines direct fields with those in the json_data
+            merged_data = {}
+            
+            # First add all json_data fields
+            merged_data.update(json_data)
+            
+            # Then add direct fields, which will override json_data if duplicated
+            for key, value in request.data.items():
+                if key != 'data':  # Skip the raw json data field
+                    merged_data[key] = value
+            
             # Ensure we can get the company record
             try:
                 company = Company.objects.get(id=company_id)
@@ -3140,7 +3179,7 @@ class InterestedPartyCreateView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            serializer = InterestedPartySerializer(data=request.data)
+            serializer = InterestedPartySerializer(data=merged_data)
 
             # Validate the serializer and proceed if valid
             if serializer.is_valid():
@@ -3498,33 +3537,39 @@ class InterestedPartyDetailView(APIView):
 
 
 import json
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import InterestedParty, Needs
+from .serializers import InterestedPartySerializer
 
 class InterestDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
         print("Request Data:", request.data)
 
-        # Parse the 'data' JSON string if present
+        # Determine if 'data' field exists
         raw_data = request.data.get('data')
-        try:
-            parsed_data = json.loads(raw_data[0] if isinstance(raw_data, list) else raw_data)
-        except (json.JSONDecodeError, TypeError) as e:
-            print("JSON decode error:", e)
-            return Response({"message": "Invalid data format."}, status=status.HTTP_400_BAD_REQUEST)
+        if raw_data:
+            try:
+                parsed_data = json.loads(raw_data[0] if isinstance(raw_data, list) else raw_data)
+            except (json.JSONDecodeError, TypeError) as e:
+                print("JSON decode error:", e)
+                return Response({"message": "Invalid data format."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            parsed_data = request.data
 
+        # Mark as draft
         parsed_data['is_draft'] = True
 
         # Check if file is uploaded
         file_obj = request.FILES.get('file')
+        if file_obj:
+            parsed_data['file'] = file_obj
 
         # Serialize InterestedParty data
         serializer = InterestedPartySerializer(data=parsed_data)
         if serializer.is_valid():
             interest = serializer.save()
-
-            # Attach file if present
-            if file_obj:
-                interest.file = file_obj
-                interest.save()
 
             # Now get needs from parsed data
             needs_data = parsed_data.get('needs', [])
@@ -3549,11 +3594,15 @@ class InterestDraftAPIView(APIView):
             else:
                 print("Invalid needs_data format. Expected a list.")
 
-            return Response({"message": "Interest saved as draft", "data": serializer.data},
-                            status=status.HTTP_201_CREATED)
+            return Response({
+                "message": "Interest saved as draft",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
         else:
             print("Serializer Errors:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -3576,46 +3625,88 @@ class InterstDraftAllList(APIView):
     
 class EditInterestedParty(APIView):
     def put(self, request, pk):
+        print("ssssssssss", request.data)
         interested_party = get_object_or_404(InterestedParty, pk=pk)
 
-        # ✅ FIX: Properly parse boolean input from string or actual boolean
         raw_send_notification = request.data.get('send_notification', False)
         send_notification = str(raw_send_notification).lower() == 'true'
 
-        logger.info(f"Request Data: {request.data}")
-        logger.info(f"Raw send_notification value: {raw_send_notification}")
-        logger.info(f"Evaluated send_notification: {send_notification}")
+        print(f"Request Data: {request.data}")
+        print(f"Raw send_notification value: {raw_send_notification}")
+        print(f"Evaluated send_notification: {send_notification}")
 
-        needs_data = request.data.pop('needs', [])
+        # Safely extract and parse 'needs' data
+        needs_data_raw = request.data.get('needs', [])
+        
+        # Handle both JSON string and direct data formats
+        if isinstance(needs_data_raw, str):
+            try:
+                needs_data = json.loads(needs_data_raw)
+                logger.info(f"Parsed needs_data from JSON string: {needs_data}")
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON string for 'needs'")
+                needs_data = []
+        else:
+            needs_data = needs_data_raw
+
+        # Handle nested list structure (e.g., [[{...}]])
+        if len(needs_data) == 1 and isinstance(needs_data[0], list):
+            logger.warning("Nested list detected in needs_data. Flattening...")
+            needs_data = needs_data[0]
 
         logger.info(f"Needs Data: {needs_data}")
 
-        serializer = InterestedPartySerializer(interested_party, data=request.data, partial=True)
+        # Don't create a copy of request.data, instead create a new dict with needed fields
+        # This avoids the deepcopy error with file objects
+        request_data = {}
+        for key in request.data:
+            if key != 'needs' and key != 'file':  # Skip needs and file fields
+                request_data[key] = request.data[key]
+                
+        # Handle file separately if it exists
+        if 'file' in request.data and request.data['file'] is not None:
+            request_data['file'] = request.data['file']
+
+        serializer = InterestedPartySerializer(interested_party, data=request_data, partial=True)
 
         if serializer.is_valid():
             instance = serializer.save(is_draft=False)
 
-            # Update Needs with both needs and expectations fields
             if needs_data:
-                logger.info(f"Updating Needs...")
+                logger.info("Updating Needs...")
                 instance.needs.all().delete()
                 needs_instances = []
-                for need_item in needs_data:
+
+                # Process individual need items
+                if isinstance(needs_data, list):
+                    for need_item in needs_data:
+                        if isinstance(need_item, dict):
+                            needs_instances.append(
+                                Needs(
+                                    interested_party=instance,
+                                    needs=need_item.get('needs', ''),
+                                    expectation=need_item.get('expectation', '')
+                                )
+                            )
+                        else:
+                            logger.warning(f"Ignoring invalid need item: {need_item}")
+                elif isinstance(needs_data, dict):  # Handle single item case
                     needs_instances.append(
                         Needs(
                             interested_party=instance,
-                            needs=need_item.get('needs', ''),
-                            expectation=need_item.get('expectation', '')
+                            needs=needs_data.get('needs', ''),
+                            expectation=needs_data.get('expectation', '')
                         )
                     )
-                
-                Needs.objects.bulk_create(needs_instances)
-                logger.info("Needs updated")
 
-            # Notifications & Emails
+                if needs_instances:
+                    Needs.objects.bulk_create(needs_instances)
+                    logger.info(f"Created {len(needs_instances)} needs records")
+                else:
+                    logger.warning("No valid needs data found to create")
+
             if send_notification:
                 company_users = Users.objects.filter(company=instance.company)
-                
                 notifications = [
                     NotificationInterest(
                         interest=instance,
@@ -3649,8 +3740,6 @@ class EditInterestedParty(APIView):
 
         try:
             subject = f"Interested Party Updated: {interested_party.name}"
-
-            # Get all needs objects for this interested party
             all_needs = interested_party.needs.all()
 
             context = {
@@ -3677,7 +3766,6 @@ class EditInterestedParty(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Attach file if exists
             if interested_party.file:
                 try:
                     file_name = interested_party.file.name.split('/')[-1]
@@ -3687,7 +3775,6 @@ class EditInterestedParty(APIView):
                 except Exception as e:
                     logger.error(f"Error attaching Interested Party document: {str(e)}")
 
-            # Custom email backend (if you're using one)
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -3701,7 +3788,6 @@ class EditInterestedParty(APIView):
 
         except Exception as e:
             logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
-
 
 
 class DrafInterstAPIView(APIView):
@@ -11300,7 +11386,7 @@ class InterestedPartyEditDraftView(APIView):
     Endpoint to handle editing of Draft Interested Party, making it final, and optionally sending notifications.
     """
     def put(self, request, draft_id):
-        print("Received Data for Draft Edit:", request.data)  # Print all incoming data for debugging
+        print("Received Data for Draft Edit:", request.data)   
         try:
             # Find the draft interested party
             try:
@@ -11310,8 +11396,7 @@ class InterestedPartyEditDraftView(APIView):
                     {"error": "Draft not found or already published"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-
-            # Handle the case where request.data is a list instead of a dictionary
+           
             request_data = request.data
             if isinstance(request_data, list) and len(request_data) > 0:
                 request_data = request_data[0]
@@ -11319,9 +11404,23 @@ class InterestedPartyEditDraftView(APIView):
             
             # Extract data from the request
             company_id = request_data.get('company')
-            send_notification = request_data.get('send_notification', False)  # Default to False if not provided
-            needs_data = request_data.get('needs', [])
-
+            send_notification = request_data.get('send_notification', False)  
+            
+            # Parse needs data - handle both string and direct object formats
+            needs_data = []
+            if 'needs' in request_data:
+                needs_value = request_data.get('needs')
+                if isinstance(needs_value, str):
+                    try:
+                        import json
+                        needs_data = json.loads(needs_value)
+                        print(f"Parsed needs string to JSON: {needs_data}")
+                    except json.JSONDecodeError as e:
+                        print(f"Failed to parse needs string: {e}")
+                        needs_data = []
+                else:
+                    needs_data = needs_value
+            
             # Debugging print statements
             print(f"Company ID: {company_id}")
             print(f"Send Notification: {send_notification}")
@@ -11351,38 +11450,70 @@ class InterestedPartyEditDraftView(APIView):
                     print(f"Interested Party Send Notification: {interested_party.send_notification}")
                     
                     # Handle file upload if provided
-                    file_obj = request.FILES.get('upload_attachment') if hasattr(request, 'FILES') else None
+                    file_obj = request_data.get('file') or request.FILES.get('file')
                     if file_obj:
                         interested_party.file = file_obj
                         interested_party.save()
                         logger.info(f"Uploaded attachment for Interested Party {interested_party.id}")
 
                     # Update needs with both needs and expectations fields
-                    if needs_data is not None:
+                    if needs_data:
                         # Delete existing needs
                         Needs.objects.filter(interested_party=interested_party).delete()
                         
                         # Create new needs with both needs and expectations fields
                         needs_instances = []
-                        for need_item in needs_data:
+                        
+                        # Handle both list and dictionary cases
+                        if isinstance(needs_data, list):
+                            for need_item in needs_data:
+                                # Handle each need item based on its type
+                                if isinstance(need_item, dict):
+                                    needs_instances.append(
+                                        Needs(
+                                            interested_party=interested_party,
+                                            needs=need_item.get('needs', ''),
+                                            expectation=need_item.get('expectation', '')
+                                        )
+                                    )
+                                elif isinstance(need_item, str):
+                                    # If it's a string, assume it's just the need text
+                                    needs_instances.append(
+                                        Needs(
+                                            interested_party=interested_party,
+                                            needs=need_item,
+                                            expectation=''
+                                        )
+                                    )
+                        elif isinstance(needs_data, dict):
+                            # Handle single need as dictionary
                             needs_instances.append(
                                 Needs(
                                     interested_party=interested_party,
-                                    needs=need_item.get('needs', ''),
-                                    expectation=need_item.get('expectation', '')
+                                    needs=needs_data.get('needs', ''),
+                                    expectation=needs_data.get('expectation', '')
                                 )
                             )
                         
-                        Needs.objects.bulk_create(needs_instances)
-                        logger.info(f"Updated {len(needs_instances)} Needs for Interested Party {interested_party.id}")
+                        if needs_instances:
+                            Needs.objects.bulk_create(needs_instances)
+                            logger.info(f"Updated {len(needs_instances)} Needs for Interested Party {interested_party.id}")
+                            
+                            # Debug log for created needs
+                            for i, need in enumerate(needs_instances):
+                                print(f"Need {i+1}: needs='{need.needs}', expectation='{need.expectation}'")
 
-                    # Save the send_notification flag
+                    # Save the send_notification flag - handle string representation
                     print(f"Setting Send Notification Flag to: {send_notification}")
-                    interested_party.send_notification = send_notification
+                    if isinstance(send_notification, str):
+                        interested_party.send_notification = send_notification.lower() == 'true'
+                    else:
+                        interested_party.send_notification = bool(send_notification)
                     interested_party.save()
+                    print(f"Updated send_notification to: {interested_party.send_notification}")
 
                     # If send_notification is True, send notifications and emails
-                    if send_notification:
+                    if interested_party.send_notification:
                         company_users = Users.objects.filter(company=company)
                         notifications = [
                             NotificationInterest(
@@ -11413,7 +11544,7 @@ class InterestedPartyEditDraftView(APIView):
                 return Response(
                     {
                         "message": "Interested Party published successfully from draft",
-                        "notification_sent": send_notification
+                        "notification_sent": interested_party.send_notification
                     },
                     status=status.HTTP_200_OK
                 )
@@ -11430,6 +11561,9 @@ class InterestedPartyEditDraftView(APIView):
         except Exception as e:
             logger.error(f"Error occurred: {str(e)}")
             print(f"Error occurred: {str(e)}")
+            import traceback
+            traceback_str = traceback.format_exc()
+            print(f"Traceback: {traceback_str}")
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
