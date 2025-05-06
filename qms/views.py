@@ -9688,9 +9688,17 @@ class CarDraftAPIView(APIView):
 
 class CarNCompanyCauseView(APIView):
     def get(self, request, company_id):
-        agendas = CarNumber.objects.filter(company_id=company_id)
+        agendas = CarNumber.objects.filter(company_id=company_id,is_draft=False)
         serializer = CarNumberGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class CarNDraftCompanyCauseView(APIView):
+    def get(self, request, user_id):
+        agendas = CarNumber.objects.filter(user_id=user_id,is_draft=True)
+        serializer = CarNumberGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)   
 
 class GetNextActionNumberView(APIView):
     def get(self, request, company_id):
