@@ -365,7 +365,7 @@ class Processes(models.Model):
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="Process", blank=True, null=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='Process', null=True, blank=True) 
     CATEGORY_CHOICES = (
-        ('Stratgic', 'Stratgic'),
+        ('Strategic', 'Strategic'),
         ('Core', 'Core'),
         ('Support', 'Support'),
         ('Monitoring/Measurment', 'Monitoring/Measurment'),

@@ -93,7 +93,7 @@ urlpatterns = [
     # Processes
     path('processes/<int:company_id>/', ProcessList.as_view(), name='manual-list'),
     path('processes-get/<int:pk>/', ProcessDetailView.as_view(), name='interested-party-detail'),
-    path('processes/', ProcessCreateView.as_view(), name='interested-party-list-create'),
+    path('processes/', ProcessCreateAPIView.as_view(), name='interested-party-list-create'),
     path('processes/draft-create/', ProcessDraftAPIView.as_view(), name='manual-create'),
     path('processes/<int:user_id>/', ProcessAllList.as_view(), name='manual-list'),
     path('processes/<int:pk>/edit/', EditProcess.as_view(), name='edit-interested-party'),
@@ -179,7 +179,7 @@ urlpatterns = [
     path('training/<int:training_id>/complete/', TrainingCompleteAndNotifyView.as_view(), name='training-complete-notify'),
     path('training/by-attendee/<int:user_id>/', TrainingsByAttendeeAPIView.as_view(), name='training-by-attendee'),
     path('training/evaluated-by/<int:user_id>/', TrainingsEvaluatedByUserAPIView.as_view(), name='trainings-evaluated-by-user'),
-    path('training/create/<int:id>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
+    path('training/create/<int:pk>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
     
     
     # Performance Evaluation

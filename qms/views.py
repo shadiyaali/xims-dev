@@ -3994,19 +3994,16 @@ class ProcessDetailView(APIView):
 
  
 
-class ProcessCreateView(APIView):
+class ProcessCreateAPIView(APIView):
     """
-    Endpoint to handle creation of process and optionally send notifications.
+    Endpoint to handle creation of a Process and optionally send notifications.
     """
+
     def post(self, request):
-        print("Received Data:", request.data)  # Print all the received data
+        print("Received Data:", request.data)
         try:
             company_id = request.data.get('company')
-            
-            # More flexible handling of send_notification flag
-            send_notification_value = request.data.get('send_notification', 'false')
-            send_notification = send_notification_value == 'true' or send_notification_value is True or send_notification_value == '1'
-            print(f"Send notification value: {send_notification_value}, Interpreted as: {send_notification}")
+            send_notification = request.data.get('send_notification', 'false') == 'true'
 
             if not company_id:
                 return Response(
@@ -4015,161 +4012,85 @@ class ProcessCreateView(APIView):
                 )
 
             company = Company.objects.get(id=company_id)
-            print("Company retrieved:", company)
-
-            # Extract legal_requirements IDs from request data
-            legal_requirements_ids = []
-            for key in request.data.keys():
-                if key.startswith('legal_requirements[') and key.endswith(']'):
-                    legal_requirements_ids.append(request.data.get(key))
-            print("Legal Requirements IDs:", legal_requirements_ids)
-
-            # Create a mutable copy of the data
-            data = request.data.copy()
-
-            # Remove the legal_requirements entries from the data before validation
-            for key in list(data.keys()):
-                if key.startswith('legal_requirements[') and key.endswith(']'):
-                    data.pop(key)
-
-            # Print the cleaned data that will be validated
-            print("Data after cleaning legal_requirements:", data)
-
-            serializer = ProcessSerializer(data=data)
+            serializer = ProcessSerializer(data=request.data)
 
             if serializer.is_valid():
                 with transaction.atomic():
                     process = serializer.save()
                     logger.info(f"Process created: {process.name}")
-                    print(f"Process created: {process.name} - ID: {process.id}")
 
-                    # Update and save send_notification flag
                     process.send_notification = send_notification
-
-                    # Add legal requirements relationships
-                    if legal_requirements_ids:
-                        for procedure_id in legal_requirements_ids:
-                            try:
-                                procedure = Procedure.objects.get(id=procedure_id)
-                                process.legal_requirements.add(procedure)
-                            except (Procedure.DoesNotExist, ValueError) as e:
-                                logger.warning(f"Failed to add procedure {procedure_id}: {str(e)}")
-                                print(f"Failed to add procedure {procedure_id}: {str(e)}")
-
                     process.save()
 
-                    # Always send notifications to all users in the company
-                    company_users = Users.objects.filter(company=company)
-                    users_count = company_users.count()
-                    print(f"Users to notify: {users_count}")
-                    
-                    if not company_users.exists():
-                        print("No users found for this company - no notifications will be sent")
-                    
-                    email_success_count = 0
-                    email_failure_count = 0
-                    
-                    notifications = []
-                    for user in company_users:
-                        # Create notification object
-                        notifications.append(
-                            NotificationProcess(
-                                processes=process,
-                                title=f"New process Party: {process.name}",
-                                message=f"A new process party '{process.name}' has been added."
+                    if send_notification:
+                        company_users = Users.objects.filter(company=company)
+                        notifications = [
+                            ProcessNotification(
+                                process=process,
+                                title=f"New Process: {process.name}",
+                                message=f"A new process '{process.name}' has been added."
                             )
-                        )
-                        
-                        # Try to send email to all users
-                        if user.email:
-                            try:
-                                email_sent = self._send_notification_email(process, user)
-                                if email_sent:
-                                    email_success_count += 1
-                                else:
-                                    email_failure_count += 1
-                            except Exception as e:
-                                email_failure_count += 1
-                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
-                                print(f"Failed to send email to {user.email}: {str(e)}")
-                        else:
-                            print(f"User ID {user.id} has no email address - skipping email")
-                    
-                    # Bulk create notifications
-                    if notifications:
-                        NotificationProcess.objects.bulk_create(notifications)
-                        logger.info(f"Created {len(notifications)} notifications for process party {process.id}")
-                        print(f"Created {len(notifications)} notifications for process party {process.id}")
-                    
-                    print(f"Email sending summary: {email_success_count} succeeded, {email_failure_count} failed")
+                            for user in company_users
+                        ]
+
+                        if notifications:
+                            ProcessNotification.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for process {process.id}")
+
+                        # Send email asynchronously to each user
+                        for user in company_users:
+                            if user.email:
+                                self._send_email_async(process, user)
 
                 return Response(
                     {
-                        "message": "Process Party created successfully",
-                        "notification_sent": True,
-                        "email_stats": {
-                            "success": email_success_count,
-                            "failure": email_failure_count
-                        }
+                        "message": "Process created successfully",
+                        "notification_sent": send_notification
                     },
                     status=status.HTTP_201_CREATED
                 )
             else:
                 logger.warning(f"Validation error: {serializer.errors}")
-                print(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Company.DoesNotExist:
-            print("Company not found.")
             return Response(
                 {"error": "Company not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            logger.error(f"Error creating process Party: {str(e)}")
-            print(f"Error creating process Party: {str(e)}")
+            logger.error(f"Error creating process: {str(e)}")
             return Response(
                 {"error": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def _send_email_async(self, process, recipient):
+        """
+        Sends email in a separate thread to avoid blocking the response.
+        """
+        threading.Thread(target=self._send_notification_email, args=(process, recipient)).start()
+
     def _send_notification_email(self, process, recipient):
-        """
-        Sends an HTML email with optional attachment using custom backend.
-        """
-        # Debug email configuration
-        print("Email configuration:")
-        print(f"Host: {config('EMAIL_HOST')}")
-        print(f"Port: {config('EMAIL_PORT')}")
-        print(f"User: {config('EMAIL_HOST_USER')}")
-        print(f"Password set: {'Yes' if config('EMAIL_HOST_PASSWORD') else 'No'}")
-        
+        subject = f"New Process Created: {process.name}"
         recipient_email = recipient.email
-        if not recipient_email:
-            print("Recipient email is missing.")
-            logger.warning("Recipient email is missing.")
-            return False
+
+        print(f"Preparing to send email to: {recipient_email}")
+
+        context = {
+            'process_name': process.name,
+            'process_type': process.type,
+            'process_no': process.no,
+            'process_remarks': process.custom_legal_requirements,
+            'file_url': process.file.url if process.file else None,
+            'created_by': process.user,
+        }
 
         try:
-            print(f"Preparing to send process email to {recipient_email}")
-            logger.info(f"Preparing to send process email to {recipient_email}")
-
-            subject = f"New Process Created: {process.name}"
-
-            context = {
-                'recipient_name': recipient.first_name,
-                'name': process.name,
-                'number': process.no,
-                'category': process.type,
-                'legal_requirements': [req.title for req in process.legal_requirements.all()],
-                'custom_legal_requirements': process.custom_legal_requirements,
-                'user_first_name': process.user.first_name if process.user else '',
-                'user_last_name': process.user.last_name if process.user else '',
-            }
-
-            html_message = render_to_string('qms/process/process_add.html', context)
+            html_message = render_to_string('qms/process/process_add_template.html', context)
             plain_message = strip_tags(html_message)
 
+            # Create email
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=plain_message,
@@ -4178,18 +4099,17 @@ class ProcessCreateView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
+            # Attach process document if available
             if process.file:
                 try:
-                    file_name = process.file.name.split('/')[-1]
+                    file_name = process.file.name.rsplit('/', 1)[-1]
                     file_content = process.file.read()
                     email.attach(file_name, file_content)
                     print(f"Attached process document: {file_name}")
-                    logger.info(f"Attached process document: {file_name}")
-                except Exception as e:
-                    print(f"Error attaching process document: {str(e)}")
-                    logger.error(f"Error attaching process document: {str(e)}")
+                except Exception as attachment_error:
+                    print(f"Error attaching process file: {str(attachment_error)}")
 
-            # Use custom backend
+            # Use custom secure backend
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -4197,31 +4117,14 @@ class ProcessCreateView(APIView):
                 password=config('EMAIL_HOST_PASSWORD'),
                 use_tls=True
             )
-            email.connection = connection
 
-            # Sending the email with specific error handling
-            try:
-                print("Sending the email...")
-                email.send(fail_silently=False)
-                
-                print(f"Notification email sent to {recipient_email}")
-                logger.info(f"Notification email sent to {recipient_email}")
-                return True  # Indicate success
-            except smtplib.SMTPException as smtp_e:
-                # Handle specific SMTP errors
-                print(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
-                logger.error(f"SMTP Error sending to {recipient_email}: {str(smtp_e)}")
-                return False
-            except Exception as e:
-                print(f"Failed to send email to {recipient_email}: {str(e)}")
-                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-                return False
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
 
         except Exception as e:
-            print(f"Failed to send email to {recipient_email}: {str(e)}")
-            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
-            return False
-
+            print(f"Error sending email to {recipient_email}: {e}")
 
 class ProcessAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -4273,6 +4176,7 @@ class EditProcess(APIView):
     Endpoint to handle updating of process and optionally send notifications.
     """
     def put(self, request, pk):
+        print("ssssssssssssss",request.data)
         try:
             process = get_object_or_404(Processes, pk=pk)
             
@@ -12024,6 +11928,8 @@ class EditsDraftManagementChanges(APIView):
             traceback.print_exc()
 
 
+ 
+
 class EditDraftTrainingAPIView(APIView):
     """
     Edit an existing draft training. On save, is_draft becomes False and 
@@ -12034,7 +11940,14 @@ class EditDraftTrainingAPIView(APIView):
 
         training = get_object_or_404(Training, pk=pk)
 
-        mutable_data = request.data.copy()
+        # Create a mutable copy of request data, excluding any file-like objects
+        mutable_data = {key: value for key, value in request.data.items() if key != 'attachment'}
+
+        # Convert 'training_attendees' from string to list if it is a string of comma-separated values
+        if 'training_attendees' in mutable_data:
+            attendees = mutable_data['training_attendees']
+            if isinstance(attendees, str):  # If it's a comma-separated string
+                mutable_data['training_attendees'] = [int(id) for id in attendees.split(',')]
 
         # Automatically mark as not draft
         mutable_data['is_draft'] = False
@@ -12051,6 +11964,7 @@ class EditDraftTrainingAPIView(APIView):
         if serializer.is_valid():
             try:
                 with transaction.atomic():
+                    # Save the training instance
                     training_instance = serializer.save()
 
                     # Handle file attachment if present
@@ -12102,6 +12016,7 @@ class EditDraftTrainingAPIView(APIView):
 
         logger.warning(f"Validation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     def _send_email_async(self, training, recipient):
         threading.Thread(target=self._send_notification_email, args=(training, recipient)).start()
@@ -12158,7 +12073,6 @@ class EditDraftTrainingAPIView(APIView):
         email.connection = connection
         email.send(fail_silently=False)
         print(f"Email sent to {recipient_email}")
-
 
 
 class MeetingUpdateDraftView(APIView):
