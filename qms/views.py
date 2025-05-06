@@ -9694,11 +9694,20 @@ class CarNCompanyCauseView(APIView):
 
 
 
+ 
+    
 class CarNDraftCompanyCauseView(APIView):
     def get(self, request, user_id):
-        agendas = CarNumber.objects.filter(user_id=user_id,is_draft=True)
-        serializer = CarNumberGetSerializer(agendas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)   
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = CarNumber.objects.filter(user=user, is_draft=True)
+        serializer =CarNumberGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class GetNextActionNumberView(APIView):
     def get(self, request, company_id):
