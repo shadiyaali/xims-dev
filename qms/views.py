@@ -3994,17 +3994,21 @@ class ProcessDetailView(APIView):
 
  
 
-class ProcessCreateAPIView(APIView):
-    """
-    Endpoint to handle creation of a Process and optionally send notifications.
-    """
+import threading
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.core.mail.message import EmailMultiAlternatives
+from decouple import config
+from django.db import transaction
 
+class ProcessCreateAPIView(APIView):
     def post(self, request):
         print("Received Data:", request.data)
+
         try:
             company_id = request.data.get('company')
             send_notification = request.data.get('send_notification', 'false') == 'true'
-
+            
             if not company_id:
                 return Response(
                     {"error": "Company ID is required"},
@@ -4012,81 +4016,106 @@ class ProcessCreateAPIView(APIView):
                 )
 
             company = Company.objects.get(id=company_id)
-            serializer = ProcessSerializer(data=request.data)
-
-            if serializer.is_valid():
-                with transaction.atomic():
+            
+            # Process legal_requirements from request.data
+            legal_requirements_ids = []
+            # Extract legal_requirements from format like 'legal_requirements[0]': ['26']
+            for key in request.data:
+                if key.startswith('legal_requirements['):
+                    legal_requirements_ids.append(request.data.get(key))
+            
+            # Use transaction to ensure data consistency
+            with transaction.atomic():
+                serializer = ProcessSerializer(data=request.data)
+                
+                if serializer.is_valid():
                     process = serializer.save()
                     logger.info(f"Process created: {process.name}")
-
+                    
+                    # Save legal_requirements separately
+                    if legal_requirements_ids:
+                        process.legal_requirements.set(legal_requirements_ids)
+                    
                     process.send_notification = send_notification
                     process.save()
-
+                    
                     if send_notification:
                         company_users = Users.objects.filter(company=company)
                         notifications = [
-                            ProcessNotification(
-                                process=process,
+                            NotificationProcess(
+                                processes=process,
                                 title=f"New Process: {process.name}",
                                 message=f"A new process '{process.name}' has been added."
                             )
                             for user in company_users
                         ]
-
+                        
                         if notifications:
-                            ProcessNotification.objects.bulk_create(notifications)
+                            NotificationProcess.objects.bulk_create(notifications)
                             logger.info(f"Created {len(notifications)} notifications for process {process.id}")
-
-                        # Send email asynchronously to each user
+                        
+                        # Store process ID for async email
+                        process_id = process.id
+                        
+                        # Send email notifications outside the transaction
                         for user in company_users:
                             if user.email:
-                                self._send_email_async(process, user)
-
-                return Response(
-                    {
+                                # Don't start threads within the transaction
+                                user_id = user.id
+                                # Using transaction.on_commit ensures thread starts after transaction completes
+                                transaction.on_commit(
+                                    lambda pid=process_id, uid=user_id: self._send_email_async(pid, uid)
+                                )
+                    
+                    return Response({
                         "message": "Process created successfully",
                         "notification_sent": send_notification
-                    },
-                    status=status.HTTP_201_CREATED
-                )
-            else:
-                logger.warning(f"Validation error: {serializer.errors}")
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+                    }, status=status.HTTP_201_CREATED)
+                else:
+                    logger.warning(f"Validation error: {serializer.errors}")
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
         except Company.DoesNotExist:
-            return Response(
-                {"error": "Company not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Error creating process: {str(e)}")
-            return Response(
-                {"error": "Internal Server Error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def _send_email_async(self, process, recipient):
+    def _send_email_async(self, process_id, recipient_id):
         """
         Sends email in a separate thread to avoid blocking the response.
+        Pass IDs instead of objects to avoid pickling issues.
         """
-        threading.Thread(target=self._send_notification_email, args=(process, recipient)).start()
+        threading.Thread(target=self._send_notification_email, args=(process_id, recipient_id)).start()
 
-    def _send_notification_email(self, process, recipient):
-        subject = f"New Process Created: {process.name}"
-        recipient_email = recipient.email
-
-        print(f"Preparing to send email to: {recipient_email}")
-
-        context = {
-            'process_name': process.name,
-            'process_type': process.type,
-            'process_no': process.no,
-            'process_remarks': process.custom_legal_requirements,
-            'file_url': process.file.url if process.file else None,
-            'created_by': process.user,
-        }
-
+    def _send_notification_email(self, process_id, recipient_id):
+        """
+        Fetch fresh instances of objects from the database within the thread
+        to avoid pickle errors with file objects.
+        """
         try:
+            # Get fresh instances from database
+            process = Processes.objects.get(id=process_id)
+            recipient = Users.objects.get(id=recipient_id)
+            
+            subject = f"New Process Created: {process.name}"
+            recipient_email = recipient.email
+
+            print(f"Preparing to send email to: {recipient_email}")
+            
+            # Get legal requirements as a string
+            legal_requirements = ", ".join([lr.name for lr in process.legal_requirements.all()])
+
+            context = {
+                'process_name': process.name,
+                'process_type': process.type,
+                'process_no': process.no,
+                'process_remarks': process.custom_legal_requirements,
+                'legal_requirements': legal_requirements,
+                'file_url': process.file.url if process.file else None,
+                'created_by': process.user,
+            }
+
             html_message = render_to_string('qms/process/process_add_template.html', context)
             plain_message = strip_tags(html_message)
 
@@ -4099,12 +4128,20 @@ class ProcessCreateAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Attach process document if available
+            # Attach process document if available - careful handling to avoid pickle errors
             if process.file:
                 try:
                     file_name = process.file.name.rsplit('/', 1)[-1]
-                    file_content = process.file.read()
-                    email.attach(file_name, file_content)
+                    
+                    # Re-fetch the file content inside the thread
+                    # Use Django's storage API which avoids BufferedRandom issues
+                    from django.core.files.storage import default_storage
+                    file_path = process.file.name
+                    
+                    with default_storage.open(file_path, 'rb') as f:
+                        file_content = f.read()
+                        
+                    email.attach(file_name, file_content, getattr(process.file, 'content_type', 'application/octet-stream'))
                     print(f"Attached process document: {file_name}")
                 except Exception as attachment_error:
                     print(f"Error attaching process file: {str(attachment_error)}")
@@ -4124,8 +4161,11 @@ class ProcessCreateAPIView(APIView):
             print(f"Email successfully sent to {recipient_email}")
 
         except Exception as e:
-            print(f"Error sending email to {recipient_email}: {e}")
-
+            print(f"Error sending email to recipient ID {recipient_id}: {e}")
+            
+            
+            
+            
 class ProcessAPIView(APIView):
     def post(self, request, *args, **kwargs):
         # Create a copy of request.data to modify

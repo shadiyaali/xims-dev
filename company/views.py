@@ -275,6 +275,39 @@ class CompanyLoginView(APIView):
         except Company.DoesNotExist:
             return Response({'error': 'Invalid username or password'}, status=status.HTTP_401_UNAUTHORIZED)
 
+# class UserCreate(APIView):
+
+#     def post(self, request):
+#         company_id = request.data.get("company_id")  
+
+#         if not company_id:
+#             return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             company = Company.objects.get(id=company_id)
+#         except Company.DoesNotExist:
+#             return Response({"error": "Invalid Company ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         user_data = request.data.copy()
+#         user_data["company"] = company.id  
+
+#         serializer = UserSerializer(data=user_data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+import threading
+from django.core.mail import EmailMultiAlternatives
+
+from ximspro.utils.email_backend import CertifiEmailBackend
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+ 
+
 class UserCreate(APIView):
 
     def post(self, request):
@@ -293,11 +326,74 @@ class UserCreate(APIView):
 
         serializer = UserSerializer(data=user_data)
         if serializer.is_valid():
-            serializer.save()
+            user = serializer.save()
+
+            # Send welcome email asynchronously
+            if user.email:
+                threading.Thread(target=self._send_welcome_email, args=(user, company)).start()
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def _send_welcome_email(self, user, company):
+        subject = "Welcome to Our Platform"
+        recipient_email = user.email
+        
+        context = {
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'email': user.email,
+        'username': user.username,
+        'password': user.password,
+        'gender': user.gender,
+        'date_of_birth': user.date_of_birth,
+        'address': user.address,
+        'city': user.city,
+        'zip_po_box': user.zip_po_box,
+        'province_state': user.province_state,
+        'country': user.country,
+        'department_division': user.department_division,
+        'phone': user.phone,
+        'office_phone': user.office_phone,
+        'mobile_phone': user.mobile_phone,
+        'fax': user.fax,
+        'secret_question': user.secret_question,
+        'answer': user.answer,
+         
+        'notes': user.notes,
+        'status': user.status,
+       
+        'created_at': user.created_at,
+        'company_name': company.company_name if company else '',
+    }
+
+        try:
+            html_message = render_to_string('user/user_create.html', context)
+            plain_message = strip_tags(html_message)
+
+            # Use the custom email backend with certifi SSL context
+            connection = CertifiEmailBackend(
+                host=config("EMAIL_HOST"),
+                port=config("EMAIL_PORT", cast=int),
+                username=config("EMAIL_HOST_USER"),
+                password=config("EMAIL_HOST_PASSWORD"),
+                use_tls=config("EMAIL_USE_TLS", default=True, cast=bool),
+                fail_silently=False
+            )
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email],
+                connection=connection
+            )
+            email.attach_alternative(html_message, "text/html")
+            email.send()
+            print(f"Email sent to {recipient_email}")
+        except Exception as e:
+            print(f"Failed to send email: {e}")
 
 
 class UserList(APIView):
