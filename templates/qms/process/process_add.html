@@ -149,20 +149,18 @@
         <div class="metadata-row">
           <div class="metadata-col" style="width: 100%;">
             <div class="metadata-label">Legal Requirements</div>
-            <div>
-              {% for req in legal_requirements %}
-                <div>{{ req }}</div>
-              {% endfor %}
-            </div>
+            <div>{{ legal_requirements }}</div>
           </div>
         </div>
 
+        {% if custom_legal_requirements %}
         <div class="metadata-row">
           <div class="metadata-col" style="width: 100%;">
             <div class="metadata-label">Custom Legal Requirements</div>
-            <div>{{ custom_legal_requirements }}</div>
+            <div>{{ process_remarks }}</div>
           </div>
         </div>
+        {% endif %}
       </div>
     </div>
 

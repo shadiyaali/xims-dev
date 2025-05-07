@@ -24,6 +24,7 @@ from rest_framework.generics import RetrieveDestroyAPIView
 from django.core.mail import EmailMultiAlternatives
 from rest_framework.exceptions import NotFound
 from ximspro.utils.email_backend import CertifiEmailBackend
+import smtplib
 
 
 
@@ -4104,19 +4105,25 @@ class ProcessCreateAPIView(APIView):
             print(f"Preparing to send email to: {recipient_email}")
             
             # Get legal requirements as a string
-            legal_requirements = ", ".join([lr.name for lr in process.legal_requirements.all()])
+            legal_requirements = ", ".join([lr.no for lr in process.legal_requirements.all()])
+
 
             context = {
-                'process_name': process.name,
-                'process_type': process.type,
-                'process_no': process.no,
-                'process_remarks': process.custom_legal_requirements,
-                'legal_requirements': legal_requirements,
-                'file_url': process.file.url if process.file else None,
-                'created_by': process.user,
-            }
+            'process_name': process.name,
+            'process_type': process.type,
+            'process_no': process.no,
+            'process_remarks': process.custom_legal_requirements,
+          
+            'legal_requirements': ", ".join([
+                f"{lr.document_type or 'Unknown'} - {lr.no or 'No Number'}"
+                for lr in process.legal_requirements.all()
+            ]),
+            
+            'created_by': process.user,
+}
 
-            html_message = render_to_string('qms/process/process_add_template.html', context)
+
+            html_message = render_to_string('qms/process/process_add.html', context)
             plain_message = strip_tags(html_message)
 
             # Create email
@@ -4133,8 +4140,7 @@ class ProcessCreateAPIView(APIView):
                 try:
                     file_name = process.file.name.rsplit('/', 1)[-1]
                     
-                    # Re-fetch the file content inside the thread
-                    # Use Django's storage API which avoids BufferedRandom issues
+            
                     from django.core.files.storage import default_storage
                     file_path = process.file.name
                     
@@ -4146,7 +4152,7 @@ class ProcessCreateAPIView(APIView):
                 except Exception as attachment_error:
                     print(f"Error attaching process file: {str(attachment_error)}")
 
-            # Use custom secure backend
+          
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -4369,16 +4375,18 @@ class EditProcess(APIView):
             subject = f"Process Updated: {process.name}"
 
             context = {
-                'recipient_name': recipient.first_name,
-                'name': process.name,
-                'number': process.no,
-                'category': process.type,
-                'legal_requirements': [req.title for req in process.legal_requirements.all()],
-                'custom_legal_requirements': process.custom_legal_requirements,
-                'user_first_name': process.user.first_name if process.user else '',
-                'user_last_name': process.user.last_name if process.user else '',
-                'is_update': True, 
-            }
+            'process_name': process.name,
+            'process_type': process.type,
+            'process_no': process.no,
+            'process_remarks': process.custom_legal_requirements,
+          
+            'legal_requirements': ", ".join([
+                f"{lr.document_type or 'Unknown'} - {lr.no or 'No Number'}"
+                for lr in process.legal_requirements.all()
+            ]),
+            
+            'created_by': process.user,
+}
 
             html_message = render_to_string('qms/process/process_edit.html', context)
             plain_message = strip_tags(html_message)
@@ -12734,7 +12742,7 @@ class TrainingUsersNotSubmittedAnswersView(APIView):
             
             
 class UserInboxMessageListView(generics.ListAPIView):
-    serializer_class = MessageSerializer
+    serializer_class = MessageListSerializer
   
 
     def get_queryset(self):
@@ -12744,12 +12752,12 @@ class UserInboxMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(to_user=user).order_by('-created_at')
+        return Message.objects.filter(to_user=user, is_trash=False ,is_draft =False).order_by('-created_at')
     
     
 class MessageDetailView(generics.RetrieveAPIView):
     queryset = Message.objects.all()
-    serializer_class = MessageSerializer
+    serializer_class = MessageListSerializer
  
     lookup_field = 'id'
 
@@ -12758,3 +12766,330 @@ class MessageDetailView(generics.RetrieveAPIView):
             return Message.objects.get(id=self.kwargs['id'])
         except Message.DoesNotExist:
             raise NotFound("Message not found.")
+        
+
+
+class SendReplayMessageView(APIView):
+    def post(self, request):
+        serializer = ReplayMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            replay_message = serializer.save()
+            return Response(ReplayMessageSerializer(replay_message).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class SendForwardMessageView(APIView):
+    def post(self, request):
+        serializer = ForwardMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            replay_message = serializer.save()
+            return Response(ForwardMessageSerializer(replay_message).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class UserOutboxMessageListView(generics.ListAPIView):
+    serializer_class = MessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(from_user=user,is_draft =False,is_trash=False).order_by('-created_at')
+    
+    
+    
+class MarkMessageAsTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = Message.objects.get(id=message_id)
+            message.is_trash = True
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class MarkRestoreAsTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = Message.objects.get(id=message_id)
+            message.is_trash = False
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+class UserInboxReplayListView(generics.ListAPIView):
+    serializer_class = ReplayMessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(to_user=user, is_trash=False).order_by('-created_at')
+    
+    
+class UserInboxForwardListView(generics.ListAPIView):
+    serializer_class = ForwardMessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(to_user=user, is_trash=False).order_by('-created_at')
+    
+    
+class MarkReplayMessageAsTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = ReplayMessage.objects.get(id=message_id)
+            message.is_trash = True
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except ReplayMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+
+class MarkRestoreAsReplayTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = ReplayMessage.objects.get(id=message_id)
+            message.is_trash = False
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except ReplayMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+            
+class MarkForwardMessageAsTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = ForwardMessage.objects.get(id=message_id)
+            message.is_trash = True
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except ForwardMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+
+class MarkRestoreAsForwardTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = ForwardMessage.objects.get(id=message_id)
+            message.is_trash = False
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except ForwardMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+            
+class UserOutboxReplayMessageListView(generics.ListAPIView):
+    serializer_class = ReplayMessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(from_user=user).order_by('-created_at')
+    
+    
+class UserOutboxForwardMessageListView(generics.ListAPIView):
+    serializer_class = ForwardMessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(from_user=user).order_by('-created_at')
+    
+    
+class DeleteMessageView(APIView):
+
+    def delete(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')  
+
+        try:
+            message = Message.objects.get(id=message_id)
+            message.delete()  
+
+            return Response({
+                'status': 'success',
+                'message': 'Message deleted successfully.'
+            }, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+class DeleteReplayView(APIView):
+
+    def delete(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')  
+
+        try:
+            message = ReplayMessage.objects.get(id=message_id)
+            message.delete()  
+
+            return Response({
+                'status': 'success',
+                'message': 'Message deleted successfully.'
+            }, status=status.HTTP_200_OK)
+        except ReplayMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+class DeleteForwardView(APIView):
+
+    def delete(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')  
+
+        try:
+            message = ForwardMessage.objects.get(id=message_id)
+            message.delete()  
+
+            return Response({
+                'status': 'success',
+                'message': 'Message deleted successfully.'
+            }, status=status.HTTP_200_OK)
+        except ForwardMessage.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class MessageDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+   
+        data = {}
+  
+        for key in request.data:
+            if key != 'file':
+                data[key] = request.data[key]
+        
+ 
+        data['is_draft'] = True
+    
+        file_obj = request.FILES.get('file')
+        
+        serializer =MessageSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+ 
+            if file_obj:
+                compliance.file = file_obj
+                compliance.save()
+                
+            return Response({"message": "Message saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+class DraftMessageAsTrashView(APIView):
+
+    def put(self, request, *args, **kwargs):
+        message_id = self.kwargs.get('id')
+        try:
+           
+            message = Message.objects.get(id=message_id)
+            message.is_draft = False
+            message.save()
+
+            return Response({
+                'status': 'success',
+                'message': 'Message marked as trash.'
+            }, status=status.HTTP_200_OK)
+        except Message.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Message not found or invalid request.'
+            }, status=status.HTTP_404_NOT_FOUND)

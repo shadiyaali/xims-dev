@@ -591,10 +591,22 @@ class MeetingGetSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
 class MessageSerializer(serializers.ModelSerializer):
+    to_user = serializers.PrimaryKeyRelatedField(
+        queryset=Users.objects.all(),
+        many=True
+    )
+
     class Meta:
         model = Message
         fields = '__all__'
-        
+
+    def create(self, validated_data):
+        to_user = validated_data.pop('to_user', [])
+        message = Message.objects.create(**validated_data)
+        message.to_user.set(to_user)
+        return message
+    
+    
 class AuditSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -841,3 +853,37 @@ class TrainingEvaluationQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployeeTrainingEvaluationQuestions
         fields = ['id', 'emp_training_eval', 'question_text', 'answer']
+        
+
+class MessageListSerializer(serializers.ModelSerializer):
+    from_user = UserSerializer()  
+    to_user = UserSerializer(many=True)
+    class Meta:
+        model = Message
+        fields = '__all__'
+   
+class ReplayMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReplayMessage
+        fields = '__all__'
+        
+class ReplayMessageListSerializer(serializers.ModelSerializer):
+    from_user = UserSerializer()  
+    to_user = UserSerializer(many=True)
+    class Meta:
+        model = ReplayMessage
+        fields = '__all__'
+        
+class ForwardMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ForwardMessage
+        fields = '__all__'
+        
+
+
+class ForwardMessageListSerializer(serializers.ModelSerializer):
+    from_user = UserSerializer()  
+    to_user = UserSerializer(many=True)
+    class Meta:
+        model = ForwardMessage
+        fields = '__all__'

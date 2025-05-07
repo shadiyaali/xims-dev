@@ -361,12 +361,30 @@ urlpatterns = [
     path('training-evaluation/question/answer/<int:question_id>/', TrainingAddAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
     path('training-evaluation/<int:company_id>/evaluation/<int:evaluation_id>/',TrainingUsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),
     
-    
-       
+        
     # System message
     path('messages/create/', MessageCreateAPIView.as_view(), name='message-create'), 
     path('messages/inbox/<int:user_id>/', UserInboxMessageListView.as_view(), name='user-inbox'), 
     path('messages/<int:id>/', MessageDetailView.as_view(), name='message-detail'),
+    path('replay-message/send/', SendReplayMessageView.as_view(), name='send-replay-message'),
+    path('forward-message/send/', SendForwardMessageView.as_view(), name='send-replay-message'),
+    path('messages/outbox/<int:user_id>/', UserOutboxMessageListView.as_view(), name='user-inbox'), 
+    path('messages/<int:id>/trash/', MarkMessageAsTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages/<int:id>/restore/', MarkRestoreAsTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages-replay/inbox/<int:user_id>/', UserInboxReplayListView.as_view(), name='user-inbox'), 
+    path('messages-forward/inbox/<int:user_id>/', UserInboxForwardListView.as_view(), name='user-inbox'), 
+    path('messages-replay/<int:id>/trash/', MarkReplayMessageAsTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages-replay/<int:id>/restore/', MarkRestoreAsReplayTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages-forward/<int:id>/trash/', MarkForwardMessageAsTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages-forward/<int:id>/restore/', MarkRestoreAsForwardTrashView.as_view(), name='mark_message_as_trash'),
+    path('messages-replay/outbox/<int:user_id>/', UserOutboxReplayMessageListView.as_view(), name='user-inbox'), 
+    path('messages-forward/outbox/<int:user_id>/', UserOutboxForwardMessageListView.as_view(), name='user-inbox'), 
+    path('messages/<int:id>/delete/', DeleteMessageView.as_view(), name='delete-message'),
+    path('replay/<int:id>/delete/', DeleteReplayView.as_view(), name='delete-message'),
+    path('forward/<int:id>/delete/', DeleteForwardView.as_view(), name='delete-message'),
+    path('message/draft-create/', MessageDraftAPIView.as_view(), name='manual-create'),  
+    path('message-draft/edit/<int:id>/', DraftMessageAsTrashView.as_view(), name='compliance_edit'),
+   
 ]
 
 

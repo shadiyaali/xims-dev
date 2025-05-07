@@ -64,5 +64,7 @@ admin.site.register(EmployeeTrainingEvaluation)
 admin.site.register(EmployeeTrainingEvaluationQuestions)
 
 admin.site.register(Message)
+admin.site.register(ReplayMessage)
+admin.site.register(ForwardMessage)
 
 

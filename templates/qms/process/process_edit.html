@@ -151,15 +151,7 @@
         <div class="metadata-row">
           <div class="metadata-col" style="width: 100%;">
             <div class="metadata-label">Legal Requirements</div>
-            <div>
-              {% if legal_requirements %}
-                {% for req in legal_requirements %}
-                  <div>{{ req }}</div>
-                {% endfor %}
-              {% else %}
-                <div>None specified</div>
-              {% endif %}
-            </div>
+            <div>{{ legal_requirements }}</div>
           </div>
         </div>
 
@@ -167,7 +159,7 @@
         <div class="metadata-row">
           <div class="metadata-col" style="width: 100%;">
             <div class="metadata-label">Custom Legal Requirements</div>
-            <div>{{ custom_legal_requirements }}</div>
+            <div>{{ process_remarks }}</div>
           </div>
         </div>
         {% endif %}

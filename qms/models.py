@@ -1192,18 +1192,21 @@ class EmployeeTrainingEvaluationQuestions(models.Model):
 class Message(models.Model):   
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message', null=True, blank=True)
     from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_user', null=True, blank=True) 
-    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='to_user', null=True, blank=True) 
+    to_user = models.ManyToManyField(Users, related_name='received_messages', blank=True) 
     file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
     message = models.TextField(blank=True, null=True)
     subject = models.CharField(max_length=255,blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_trash = models.BooleanField(default=False)
+    is_draft= models.BooleanField(default=False)
     
     
     def __str__(self):
         return self.subject
     
     
-class ReplayMessage(models.Model):   
+class ReplayMessage(models.Model): 
+    message_related =  models.ForeignKey(Message, on_delete=models.CASCADE, related_name='messagess_com', null=True, blank=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message_com', null=True, blank=True)
     from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_users', null=True, blank=True) 
     to_users = models.ManyToManyField(Users, related_name='received_replay_messages', blank=True) 
@@ -1211,7 +1214,23 @@ class ReplayMessage(models.Model):
     message = models.TextField(blank=True, null=True)
     subject = models.CharField(max_length=255,blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_trash = models.BooleanField(default=False)
     
+    
+    def __str__(self):
+        return self.subject
+    
+    
+class ForwardMessage(models.Model): 
+    message_related =  models.ForeignKey(Message, on_delete=models.CASCADE, related_name='messagess_for', null=True, blank=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message_for', null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_for', null=True, blank=True) 
+    to_users = models.ManyToManyField(Users, related_name='received_replay_messages_for', blank=True) 
+    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
+    message = models.TextField(blank=True, null=True)
+    subject = models.CharField(max_length=255,blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_trash = models.BooleanField(default=False)
     
     def __str__(self):
         return self.subject
