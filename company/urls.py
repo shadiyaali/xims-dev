@@ -70,14 +70,10 @@ urlpatterns = [
     path('corrective-actions/', CorrectiveActionListView.as_view(), name='corrective-action-list'),
     path('corrective-actions/<int:pk>/', CorrectiveActionDetailView.as_view(), name='corrective-action-detail'),
     
-    path('preventive-actions/', PreventiveActionListCreateView.as_view(), name='preventive-action-list-create'),
-    path('preventive-actions/<int:pk>/', PreventiveActionDetailView.as_view(), name='preventive-action-detail'),
+
+
     
-    path('objectives/', ObjectivesListCreateView.as_view(), name='objectives-list-create'),
-    path('objectives/<int:pk>/', ObjectivesDetailView.as_view(), name='objectives-detail'),
-    
-    path('targets/', TargetsPView.as_view(), name='targets-list'), 
-    path('targets/<int:pk>/', TargetsPDetailView.as_view(), name='targets-detail'), 
+ 
     
     path('conformity-causes/', ConformityCauseView.as_view(), name='conformity-cause-list'),  
     path('conformity-causes/<int:pk>/', ConformityCauseDetailView.as_view(), name='conformity-cause-detail'), 

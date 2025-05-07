@@ -389,77 +389,12 @@ class CorrectiveActionSerializer(serializers.ModelSerializer):
         model = CorrectiveAction
         fields = '__all__'
 
-class PreventiveActionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PreventiveAction
-        fields = '__all__'
 
-class ObjectivesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Objectives
-        fields = '__all__'
 
 
 
  
-class ProgramTSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TProgram
-        fields = ['id', 'Program']
-
  
-class TargetPSerializer(serializers.ModelSerializer):
-    programs = ProgramTSerializer(many=True, required=False)
-
-    class Meta:
-        model = TargetsP
-        fields = '__all__'
-
-    def create(self, validated_data):
-    
-        program_data = validated_data.pop('programs', [])
-        target = TargetsP.objects.create(**validated_data)
-        
-        for program_data in program_data:
-            TProgram.objects.create(targets=target, **program_data)
-        
-        return target
-
-    def update(self, instance, validated_data):
-        
-        program_data = validated_data.pop('programs', [])
-        
-        instance.target = validated_data.get('target', instance.target)
-        instance.associative_objective = validated_data.get('associative_objective', instance.associative_objective)
-        instance.target_date = validated_data.get('target_date', instance.target_date)
-        instance.reminder_date = validated_data.get('reminder_date', instance.reminder_date)
-        instance.status = validated_data.get('status', instance.status)
-        instance.results = validated_data.get('results', instance.results)
-        instance.title = validated_data.get('title', instance.title)
-        instance.upload_attachment = validated_data.get('upload_attachment', instance.upload_attachment)
-        instance.responsible = validated_data.get('responsible', instance.responsible)
-        instance.save()
-
-        existing_programs = {program.id: program for program in instance.programs.all()}
-        updated_program_ids = []
-
-        for program_data in program_data:
-            program_id = program_data.get("id")
-            program_value = program_data.get("Program")
-
-            if program_id and program_id in existing_programs:
-                program = existing_programs[program_id]
-                program.Program = program_value
-                program.save()
-                updated_program_ids.append(program_id)
-            else:
-                new_program = TProgram.objects.create(targets=instance, **program_data)
-                updated_program_ids.append(new_program.id)
-
-        instance.programs.exclude(id__in=updated_program_ids).delete()
-
-        return instance
-
 
 class ConformityCauseSerializer(serializers.ModelSerializer):
     class Meta:

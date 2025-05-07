@@ -1234,3 +1234,94 @@ class ForwardMessage(models.Model):
     
     def __str__(self):
         return self.subject
+
+
+class PreventiveAction(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="prevent", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='prevent_cus', null=True, blank=True)
+    
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Completed', 'Completed'),        
+    ]   
+    
+    title = models.CharField(max_length=255, blank=True, null=True)
+    executor = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='preventive_for', null=True, blank=True) 
+    description = models.TextField(blank=True, null=True)
+    action = models.TextField(blank=True, null=True)
+    date_raised = models.DateField(blank=True, null=True)
+    date_completed = models.DateField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    is_draft = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.title or "Untitled Preventive Action"
+
+
+
+class PreventiveActionNotification(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="preventive_action", null=True, blank=True) 
+    preventive_action = models.ForeignKey(PreventiveAction, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.title}"
+
+
+class Objectives(models.Model): 
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="obj", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='obj_cus', null=True, blank=True)
+    objective = models.CharField(max_length=255,blank=True, null=True)
+    performance = models.TextField(blank=True, null=True)
+    target_date = models.DateField(blank=True, null=True)
+    reminder_date = models.DateField(blank=True, null=True)
+    STATUS_CHOICES = [
+        ('On Going', 'On Going'),
+        ('Achieved', 'Achieved'),
+        ('Not Achieved', 'Not Achieved'),
+        ('Modified', 'Modified'),       
+    ] 
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='On Going')
+    indicator = models.CharField(max_length=255,blank=True, null=True)
+    responsible = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, related_name="approved_planobjectives")       
+    is_draft = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.objective or "No Title Provided"
+    
+    
+class Targets(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="traget", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='tar_cus', null=True, blank=True)
+    target =  models.CharField(max_length=50, blank=True, null=True)
+    associative_objective =  models.CharField(max_length=50, blank=True, null=True)
+    target_date = models.DateField(blank=True, null=True)
+    reminder_date = models.DateField(blank=True, null=True)
+    STATUS_CHOICES = [
+        ('On Going', 'On Going'),
+        ('Achieved', 'Achieved'),
+        ('Not Achieved', 'Not Achieved'),
+        ('Modified', 'Modified'),       
+    ] 
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='On Going')
+    results = models.TextField(blank=True, null=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)    
+    responsible = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, related_name="approved_targets")
+    is_draft = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.target or "No Title Provided"
+    
+    
+class Program(models.Model): 
+    target = models.ForeignKey(Targets, on_delete=models.CASCADE, null=True, related_name="programs")  
+    Program = models.CharField(max_length=100, blank=True, null=True)
+    
+    
+    def __str__(self):
+        return f"Additional program for {self.target.target if self.target else 'No Target'}"

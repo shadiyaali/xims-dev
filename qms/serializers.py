@@ -887,3 +887,81 @@ class ForwardMessageListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ForwardMessage
         fields = '__all__'
+        
+        
+class PreventiveActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PreventiveAction
+        fields = '__all__'
+        
+        
+class PreventiveActionGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    executor =UserSerializer()
+    class Meta:
+        model = PreventiveAction
+        fields = '__all__'
+        
+        
+
+class ObjectivesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Objectives
+        fields = '__all__'
+
+
+
+class ObjectivesGetSerializer(serializers.ModelSerializer):
+    responsible = UserSerializer()
+    class Meta:
+        model = Objectives
+        fields = '__all__'
+
+ 
+
+class ProgramSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Program
+        fields = ['id', 'Program']
+
+class TargetSerializer(serializers.ModelSerializer):
+    programs = ProgramSerializer(many=True, required=False)
+    
+    class Meta:
+        model = Targets
+        fields = [
+            'id', 'user', 'company', 'target', 'associative_objective',
+            'target_date', 'reminder_date', 'status', 'results', 'title',
+            'upload_attachment', 'responsible', 'is_draft', 'programs'
+        ]
+    
+    def create(self, validated_data):
+        # Extract programs data from the validated data
+        programs_data = validated_data.pop('programs', [])
+        
+        # Create the target instance
+        target = Targets.objects.create(**validated_data)
+        
+        # Create each program for this target
+        for program_data in programs_data:
+            Program.objects.create(target=target, **program_data)
+        
+        return target
+    
+    def update(self, instance, validated_data):
+        # Extract programs data from the validated data
+        programs_data = validated_data.pop('programs', [])
+        
+        # Update target fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Handle programs if provided
+        if programs_data:
+            # Remove existing programs and create new ones
+            instance.programs.all().delete()
+            for program_data in programs_data:
+                Program.objects.create(target=instance, **program_data)
+        
+        return instance

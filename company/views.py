@@ -1522,161 +1522,16 @@ class CorrectiveActionDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PreventiveActionListCreateView(APIView):
-    
-    def get(self, request):
-        actions = PreventiveAction.objects.all()
-        serializer = PreventiveActionSerializer(actions, many=True)
-        return Response(serializer.data)
-
-   
-    def post(self, request):
-        serializer = PreventiveActionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class PreventiveActionDetailView(APIView):
-    
-    def get(self, request, pk):
-        try:
-            action = PreventiveAction.objects.get(pk=pk)
-        except PreventiveAction.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = PreventiveActionSerializer(action)
-        return Response(serializer.data)
-
-    
-    def put(self, request, pk):
-        try:
-            action = PreventiveAction.objects.get(pk=pk)
-        except PreventiveAction.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = PreventiveActionSerializer(action, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    
-    def delete(self, request, pk):
-        try:
-            action = PreventiveAction.objects.get(pk=pk)
-        except PreventiveAction.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        action.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 
-class ObjectivesListCreateView(APIView):
-     
-    def get(self, request):
-        objectives = Objectives.objects.all()
-        serializer = ObjectivesSerializer(objectives, many=True)
-        return Response(serializer.data)
-
-    
-    def post(self, request):
-        serializer = ObjectivesSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ObjectivesDetailView(APIView):
-    
-    def get(self, request, pk):
-        try:
-            objective = Objectives.objects.get(pk=pk)
-        except Objectives.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = ObjectivesSerializer(objective)
-        return Response(serializer.data)
 
-    
-    def put(self, request, pk):
-        try:
-            objective = Objectives.objects.get(pk=pk)
-        except Objectives.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = ObjectivesSerializer(objective, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
  
-    def delete(self, request, pk):
-        try:
-            objective = Objectives.objects.get(pk=pk)
-        except Objectives.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        objective.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class TargetsPView(APIView):
-    def get(self, request):
-     
-        targets = TargetsP.objects.prefetch_related('programs').all()
-        serializer = TargetPSerializer(targets, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-      
-        serializer = TargetPSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class TargetsPDetailView(APIView):
-    def get(self, request, pk):
-        try:
- 
-            target = TargetsP.objects.prefetch_related('programs').get(pk=pk)
-        except TargetsP.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
- 
-        serializer = TargetPSerializer(target)
-        return Response(serializer.data)
-
-    def put(self, request, pk):
-        try:
-  
-            target = TargetsP.objects.get(pk=pk)
-        except TargetsP.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    
-        serializer = TargetPSerializer(target, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        try:
-            
-            target = TargetsP.objects.get(pk=pk)
-        except TargetsP.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        
-        target.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
 
  
 

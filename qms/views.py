@@ -13093,3 +13093,840 @@ class DraftMessageAsTrashView(APIView):
                 'status': 'error',
                 'message': 'Message not found or invalid request.'
             }, status=status.HTTP_404_NOT_FOUND)
+            
+
+class PreventiveActionCreateAPIView(APIView):
+    def post(self, request):
+        logger.info(f"Received preventive action creation request: {request.data}")
+        print(f"Received request data: {request.data}")
+        print(f"send_notification value: {request.data.get('send_notification')}")
+        
+        try:
+            company_id = request.data.get('company')
+            
+      
+            send_notification_value = request.data.get('send_notification', False)
+            if isinstance(send_notification_value, str):
+                send_notification = send_notification_value.lower() == 'true'
+            else:
+                send_notification = bool(send_notification_value)
+                
+            print(f"send_notification parsed as: {send_notification}")
+            logger.info(f"Company ID: {company_id}, Send notification: {send_notification}")
+
+            if not company_id:
+                logger.warning("Company ID is missing in request")
+                return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                company = Company.objects.get(id=company_id)
+                logger.info(f"Found company: {company.company_name} (ID: {company.id})")
+            except Company.DoesNotExist:
+                logger.error(f"Company with ID {company_id} not found")
+                return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = PreventiveActionSerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    preventive_action = serializer.save()
+                    preventive_action.send_notification = send_notification
+                    preventive_action.save()
+                    
+                    logger.info(f"Preventive Action created: ID={preventive_action.id}, Title={preventive_action.title}")
+                    print(f"Preventive Action created: {preventive_action.title}")
+
+                    if send_notification:
+                        logger.info("Preparing to send notifications")
+                        company_users = Users.objects.filter(company=company)
+                        
+                        # Log user details
+                        user_count = company_users.count()
+                        users_with_email = company_users.filter(email__isnull=False).count()
+                        logger.info(f"Company users count: {user_count}, Users with emails: {users_with_email}")
+                        print(f"Company users count: {user_count}")
+                        print(f"Users with emails: {users_with_email}")
+                        
+                    
+                        notifications = [
+                            PreventiveActionNotification(
+                                preventive_action=preventive_action,
+                                user=user,
+                                title=f"New Preventive Action: {preventive_action.title or 'Untitled'}",
+                                message=f"A new preventive action '{preventive_action.title}' has been added."
+                            )
+                            for user in company_users
+                        ]
+
+                        if notifications:
+                            PreventiveActionNotification.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for preventive action {preventive_action.id}")
+                            print(f"Created {len(notifications)} notifications for preventive action {preventive_action.id}")
+
+                  
+                        email_recipients = []
+                        for user in company_users:
+                            if user.email:
+                                email_recipients.append(user.email)
+                                self._send_email_async(preventive_action, user)
+                        
+                        logger.info(f"Started email sending process for {len(email_recipients)} recipients")
+                        print(f"Started email sending process for {len(email_recipients)} recipients: {email_recipients}")
+
+                return Response(
+                    {"message": "Preventive action created successfully", "notification_sent": send_notification},
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                logger.warning(f"Invalid data: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.exception(f"Error creating preventive action: {str(e)}")
+            print(f"Error creating preventive action: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, preventive_action, recipient):
+        logger.info(f"Starting email thread for recipient {recipient.email}")
+        print(f"Starting email thread for recipient {recipient.email}")
+  
+        threading.Thread(
+            target=self._send_notification_email, 
+            args=(preventive_action, recipient),
+            name=f"EmailThread-{recipient.id}"
+        ).start()
+
+    def _send_notification_email(self, preventive_action, recipient):
+        recipient_email = recipient.email
+        logger.info(f"Preparing email for {recipient_email}")
+        print(f"Preparing email for {recipient_email}")
+        
+        email_config = {
+            'host': config('EMAIL_HOST', default=''),
+            'port': config('EMAIL_PORT', default=''),
+            'username': config('EMAIL_HOST_USER', default=''),
+            'from_email': config('DEFAULT_FROM_EMAIL', default='')
+        }
+      
+        logger.info(f"Email configuration: {email_config}")
+        print(f"Email configuration: {email_config}")
+        
+        subject = f"New Preventive Action: {preventive_action.title or 'Untitled'}"
+
+        context = {
+            'title': preventive_action.title,
+            'description': preventive_action.description,
+            'executor': preventive_action.executor,
+            'date_raised': preventive_action.date_raised,
+            'date_completed': preventive_action.date_completed,
+            'status': preventive_action.status,
+            'action': preventive_action.action,
+            'created_by': preventive_action.user,
+        }
+        
+        logger.info(f"Email context prepared: {list(context.keys())}")
+        print(f"Email context prepared: {list(context.keys())}")
+
+        try:
+            logger.info(f"Rendering email template for {recipient_email}")
+            print(f"Rendering email template for {recipient_email}")
+            
+            html_message = render_to_string('qms/preventive_action/preventive_action_add.html', context)
+            plain_message = strip_tags(html_message)
+            logger.info(f"Template rendered successfully (html length: {len(html_message)})")
+            print(f"Template rendered successfully (html length: {len(html_message)})")
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            logger.info(f"Email object created for {recipient_email}")
+            print(f"Email object created for {recipient_email}")
+
+            logger.info(f"Setting up email connection for {recipient_email}")
+            print(f"Setting up email connection for {recipient_email}")
+            
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            
+            logger.info(f"Sending email to {recipient_email}...")
+            print(f"Sending email to {recipient_email}...")
+            email.send(fail_silently=False)
+            
+            logger.info(f"Email sent successfully to {recipient_email}")
+            print(f"Email sent successfully to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            print(f" Failed to send email to {recipient_email}: {str(e)}")
+
+            import traceback
+            logger.error(f"Error details: {traceback.format_exc()}")
+            print(f"Error details: {traceback.format_exc()}")
+            
+            
+            
+class PreventiveList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        cpmpliance = PreventiveAction.objects.filter(company=company,is_draft=False)
+        serializer = PreventiveActionGetSerializer(cpmpliance, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+ 
+class PreventiveDetailView(RetrieveDestroyAPIView):
+    queryset = PreventiveAction.objects.all()
+    serializer_class = PreventiveActionGetSerializer
+
+
+
+class PreventiveDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+
+   
+        data['is_draft'] = True
+
+        serializer = PreventiveActionSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            return Response(
+                {"message": "Compliance saved as draft", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class PreventiveActionEditAPIView(APIView):
+    def get_object(self, pk):
+        try:
+            return PreventiveAction.objects.get(pk=pk)
+        except PreventiveAction.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk):
+        preventive_action = self.get_object(pk)
+        serializer = PreventiveActionSerializer(preventive_action)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        logger.info(f"Received preventive action update request for ID {pk}: {request.data}")
+        print(f"Received update request data: {request.data}")
+        
+        try:
+            preventive_action = self.get_object(pk)
+            company_id = request.data.get('company')
+            
+            # Parse send_notification flag
+            send_notification_value = request.data.get('send_notification', False)
+            if isinstance(send_notification_value, str):
+                send_notification = send_notification_value.lower() == 'true'
+            else:
+                send_notification = bool(send_notification_value)
+                
+            print(f"send_notification parsed as: {send_notification}")
+            logger.info(f"Company ID: {company_id}, Send notification: {send_notification}")
+
+            if not company_id:
+                logger.warning("Company ID is missing in request")
+                return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                company = Company.objects.get(id=company_id)
+                logger.info(f"Found company: {company.company_name} (ID: {company.id})")
+            except Company.DoesNotExist:
+                logger.error(f"Company with ID {company_id} not found")
+                return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = PreventiveActionSerializer(preventive_action, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    # Store previous values to include in notification
+                    previous_title = preventive_action.title
+                    previous_status = preventive_action.status
+                    
+                    # Save the updated preventive action
+                    updated_preventive_action = serializer.save()
+                    updated_preventive_action.send_notification = send_notification
+                    updated_preventive_action.save()
+                    
+                    logger.info(f"Preventive Action updated: ID={updated_preventive_action.id}, Title={updated_preventive_action.title}")
+                    print(f"Preventive Action updated: {updated_preventive_action.title}")
+
+                    # Handle notifications if enabled
+                    if send_notification:
+                        logger.info("Preparing to send update notifications")
+                        company_users = Users.objects.filter(company=company)
+                        
+                        # Log user details
+                        user_count = company_users.count()
+                        users_with_email = company_users.filter(email__isnull=False).count()
+                        logger.info(f"Company users count: {user_count}, Users with emails: {users_with_email}")
+                        print(f"Company users count: {user_count}")
+                        print(f"Users with emails: {users_with_email}")
+                        
+                        # Prepare notification message with changes
+                        if previous_title != updated_preventive_action.title:
+                            title_change = f" (title changed from '{previous_title}' to '{updated_preventive_action.title}')"
+                        else:
+                            title_change = ""
+                            
+                        if previous_status != updated_preventive_action.status:
+                            status_change = f" Status changed from '{previous_status}' to '{updated_preventive_action.status}'."
+                        else:
+                            status_change = ""
+                        
+                        notifications = [
+                            PreventiveActionNotification(
+                                preventive_action=updated_preventive_action,
+                                user=user,
+                                title=f"Updated Preventive Action: {updated_preventive_action.title or 'Untitled'}",
+                                message=f"Preventive action '{updated_preventive_action.title}'{title_change} has been updated.{status_change}"
+                            )
+                            for user in company_users
+                        ]
+
+                        if notifications:
+                            PreventiveActionNotification.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} update notifications for preventive action {updated_preventive_action.id}")
+                            print(f"Created {len(notifications)} update notifications for preventive action {updated_preventive_action.id}")
+
+                        # Send emails to users
+                        email_recipients = []
+                        for user in company_users:
+                            if user.email:
+                                email_recipients.append(user.email)
+                                self._send_email_async(updated_preventive_action, user, is_update=True)
+                        
+                        logger.info(f"Started email sending process for {len(email_recipients)} recipients")
+                        print(f"Started email sending process for {len(email_recipients)} recipients: {email_recipients}")
+
+                return Response(
+                    {"message": "Preventive action updated successfully", "notification_sent": send_notification},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.warning(f"Invalid data: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.exception(f"Error updating preventive action: {str(e)}")
+            print(f"Error updating preventive action: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, preventive_action, recipient, is_update=False):
+        logger.info(f"Starting email thread for recipient {recipient.email}")
+        print(f"Starting email thread for recipient {recipient.email}")
+  
+        threading.Thread(
+            target=self._send_notification_email, 
+            args=(preventive_action, recipient, is_update),
+            name=f"EmailThread-{recipient.id}"
+        ).start()
+
+    def _send_notification_email(self, preventive_action, recipient, is_update=False):
+        recipient_email = recipient.email
+        logger.info(f"Preparing {'update ' if is_update else ''}email for {recipient_email}")
+        print(f"Preparing {'update ' if is_update else ''}email for {recipient_email}")
+        
+        email_config = {
+            'host': config('EMAIL_HOST', default=''),
+            'port': config('EMAIL_PORT', default=''),
+            'username': config('EMAIL_HOST_USER', default=''),
+            'from_email': config('DEFAULT_FROM_EMAIL', default='')
+        }
+      
+        logger.info(f"Email configuration: {email_config}")
+        print(f"Email configuration: {email_config}")
+        
+        subject = f"{'Updated' if is_update else 'New'} Preventive Action: {preventive_action.title or 'Untitled'}"
+
+        context = {
+            'title': preventive_action.title,
+            'description': preventive_action.description,
+            'executor': preventive_action.executor,
+            'date_raised': preventive_action.date_raised,
+            'date_completed': preventive_action.date_completed,
+            'status': preventive_action.status,
+            'action': preventive_action.action,
+            'created_by': preventive_action.user,
+            
+        }
+        
+        logger.info(f"Email context prepared: {list(context.keys())}")
+        print(f"Email context prepared: {list(context.keys())}")
+
+        try:
+            logger.info(f"Rendering email template for {recipient_email}")
+            print(f"Rendering email template for {recipient_email}")
+            
+       
+            template_name = 'qms/preventive_action/preventive_action_edit.html'  
+            
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+            logger.info(f"Template rendered successfully (html length: {len(html_message)})")
+            print(f"Template rendered successfully (html length: {len(html_message)})")
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            logger.info(f"Email object created for {recipient_email}")
+            print(f"Email object created for {recipient_email}")
+
+            logger.info(f"Setting up email connection for {recipient_email}")
+            print(f"Setting up email connection for {recipient_email}")
+            
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            
+            logger.info(f"Sending email to {recipient_email}...")
+            print(f"Sending email to {recipient_email}...")
+            email.send(fail_silently=False)
+            
+            logger.info(f"Email sent successfully to {recipient_email}")
+            print(f"Email sent successfully to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            print(f"Failed to send email to {recipient_email}: {str(e)}")
+
+            import traceback
+            logger.error(f"Error details: {traceback.format_exc()}")
+            print(f"Error details: {traceback.format_exc()}")
+            
+            
+            
+
+class PreventiveDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = PreventiveAction.objects.filter(user=user, is_draft=True)
+        serializer =PreventiveActionGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PreventiveView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = PreventiveAction.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = PreventiveActionSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class PreventiveDraftUpdateAPIView(APIView):
+    def put(self, request, pk):
+        logger.info(f"Received preventive action update request for ID {pk}: {request.data}")
+        print(f"Received update request data for ID {pk}: {request.data}")
+        
+        try:
+            # Get the preventive action
+            try:
+                preventive_action = PreventiveAction.objects.get(id=pk)
+                logger.info(f"Found preventive action: ID={preventive_action.id}, Title={preventive_action.title}")
+            except PreventiveAction.DoesNotExist:
+                logger.error(f"Preventive action with ID {pk} not found")
+                return Response({"error": "Preventive action not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get company
+            company_id = request.data.get('company')
+            if not company_id:
+                company_id = preventive_action.company.id
+                logger.info(f"Using existing company ID: {company_id}")
+            
+            try:
+                company = Company.objects.get(id=company_id)
+                logger.info(f"Found company: {company.company_name} (ID: {company.id})")
+            except Company.DoesNotExist:
+                logger.error(f"Company with ID {company_id} not found")
+                return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Parse send_notification flag
+            send_notification_value = request.data.get('send_notification', False)
+            if isinstance(send_notification_value, str):
+                send_notification = send_notification_value.lower() == 'true'
+            else:
+                send_notification = bool(send_notification_value)
+                
+            print(f"send_notification parsed as: {send_notification}")
+            logger.info(f"Company ID: {company_id}, Send notification: {send_notification}")
+            
+            # Check if changing from draft to published
+            was_draft = preventive_action.is_draft
+            is_draft = request.data.get('is_draft')
+            if isinstance(is_draft, str):
+                is_draft = is_draft.lower() == 'true'
+            else:
+                is_draft = bool(is_draft) if is_draft is not None else preventive_action.is_draft
+            
+            # When editing a draft, change is_draft to False
+            if was_draft:
+                is_draft = False
+                logger.info(f"Changing preventive action from draft to published")
+            
+            # Update the serializer data to include is_draft
+            update_data = request.data.copy()
+            update_data['is_draft'] = is_draft
+            
+            serializer = PreventiveActionSerializer(preventive_action, data=update_data, partial=True)
+            
+            if serializer.is_valid():
+                with transaction.atomic():
+                    updated_preventive_action = serializer.save()
+                    updated_preventive_action.send_notification = send_notification
+                    updated_preventive_action.save()
+                    
+                    logger.info(f"Preventive Action updated: ID={updated_preventive_action.id}, Title={updated_preventive_action.title}")
+                    print(f"Preventive Action updated: {updated_preventive_action.title}")
+                    
+                    # Send notifications if requested or if changing from draft to published
+                    if send_notification or (was_draft and not is_draft):
+                        logger.info("Preparing to send notifications")
+                        company_users = Users.objects.filter(company=company)
+                        
+                        # Log user details
+                        user_count = company_users.count()
+                        users_with_email = company_users.filter(email__isnull=False).count()
+                        logger.info(f"Company users count: {user_count}, Users with emails: {users_with_email}")
+                        print(f"Company users count: {user_count}")
+                        print(f"Users with emails: {users_with_email}")
+                        
+                        # Create notifications
+                        notifications = [
+                            PreventiveActionNotification(
+                                preventive_action=updated_preventive_action,
+                                user=user,
+                                title=f"Updated Preventive Action: {updated_preventive_action.title or 'Untitled'}",
+                                message=f"A preventive action '{updated_preventive_action.title}' has been updated."
+                            )
+                            for user in company_users
+                        ]
+                        
+                        if notifications:
+                            PreventiveActionNotification.objects.bulk_create(notifications)
+                            logger.info(f"Created {len(notifications)} notifications for preventive action {updated_preventive_action.id}")
+                            print(f"Created {len(notifications)} notifications for preventive action {updated_preventive_action.id}")
+                        
+                        # Send emails
+                        email_recipients = []
+                        for user in company_users:
+                            if user.email:
+                                email_recipients.append(user.email)
+                                self._send_email_async(updated_preventive_action, user)
+                        
+                        logger.info(f"Started email sending process for {len(email_recipients)} recipients")
+                        print(f"Started email sending process for {len(email_recipients)} recipients: {email_recipients}")
+                
+                return Response({
+                    "message": "Preventive action updated successfully", 
+                    "notification_sent": send_notification,
+                    "changed_from_draft": was_draft and not is_draft
+                }, status=status.HTTP_200_OK)
+            else:
+                logger.warning(f"Invalid data: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.exception(f"Error updating preventive action: {str(e)}")
+            print(f"Error updating preventive action: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _send_email_async(self, preventive_action, recipient):
+        logger.info(f"Starting email thread for recipient {recipient.email}")
+        print(f"Starting email thread for recipient {recipient.email}")
+  
+        threading.Thread(
+            target=self._send_notification_email, 
+            args=(preventive_action, recipient),
+            name=f"EmailThread-{recipient.id}"
+        ).start()
+
+    def _send_notification_email(self, preventive_action, recipient):
+        recipient_email = recipient.email
+        logger.info(f"Preparing email for {recipient_email}")
+        print(f"Preparing email for {recipient_email}")
+        
+        email_config = {
+            'host': config('EMAIL_HOST', default=''),
+            'port': config('EMAIL_PORT', default=''),
+            'username': config('EMAIL_HOST_USER', default=''),
+            'from_email': config('DEFAULT_FROM_EMAIL', default='')
+        }
+      
+        logger.info(f"Email configuration: {email_config}")
+        print(f"Email configuration: {email_config}")
+        
+        subject = f"Updated Preventive Action: {preventive_action.title or 'Untitled'}"
+
+        context = {
+            'title': preventive_action.title,
+            'description': preventive_action.description,
+            'executor': preventive_action.executor,
+            'date_raised': preventive_action.date_raised,
+            'date_completed': preventive_action.date_completed,
+            'status': preventive_action.status,
+            'action': preventive_action.action,
+            'created_by': preventive_action.user,
+            'is_update': True,  # Template can use this to show different messaging
+        }
+        
+        logger.info(f"Email context prepared: {list(context.keys())}")
+        print(f"Email context prepared: {list(context.keys())}")
+
+        try:
+            logger.info(f"Rendering email template for {recipient_email}")
+            print(f"Rendering email template for {recipient_email}")
+            
+            html_message = render_to_string('qms/preventive_action/preventive_action_add.html', context)
+            plain_message = strip_tags(html_message)
+            logger.info(f"Template rendered successfully (html length: {len(html_message)})")
+            print(f"Template rendered successfully (html length: {len(html_message)})")
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            logger.info(f"Email object created for {recipient_email}")
+            print(f"Email object created for {recipient_email}")
+
+            logger.info(f"Setting up email connection for {recipient_email}")
+            print(f"Setting up email connection for {recipient_email}")
+            
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            
+            logger.info(f"Sending email to {recipient_email}...")
+            print(f"Sending email to {recipient_email}...")
+            email.send(fail_silently=False)
+            
+            logger.info(f"Email sent successfully to {recipient_email}")
+            print(f"Email sent successfully to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            print(f" Failed to send email to {recipient_email}: {str(e)}")
+
+            import traceback
+            logger.error(f"Error details: {traceback.format_exc()}")
+            print(f"Error details: {traceback.format_exc()}")
+            
+            
+            
+            
+class ObjectivesListCreateView(APIView):
+     
+    def get(self, request):
+        objectives = Objectives.objects.all()
+        serializer = ObjectivesSerializer(objectives, many=True)
+        return Response(serializer.data)
+
+    
+    def post(self, request):
+        serializer = ObjectivesSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ObjectivesDetailView(APIView):
+    
+    def get(self, request, pk):
+        try:
+            objective = Objectives.objects.get(pk=pk)
+        except Objectives.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = ObjectivesGetSerializer(objective)
+        return Response(serializer.data)
+
+    
+    def put(self, request, pk):
+            try:
+                objective = Objectives.objects.get(pk=pk)
+            except Objectives.DoesNotExist:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            # Force is_draft to be False
+            data = request.data.copy()
+            data['is_draft'] = False
+
+            serializer = ObjectivesSerializer(objective, data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+    def delete(self, request, pk):
+        try:
+            objective = Objectives.objects.get(pk=pk)
+        except Objectives.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        objective.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+class ObjectiveList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        cpmpliance = Objectives.objects.filter(company=company,is_draft=False)
+        serializer = ObjectivesGetSerializer(cpmpliance, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ObjectiveDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        print("rrrr",request.data)
+        data = request.data.copy()
+
+   
+        data['is_draft'] = True
+
+        serializer = ObjectivesSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            return Response(
+                {"message": "Compliance saved as draft", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+
+class  ObjectiveDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = Objectives.objects.filter(user=user, is_draft=True)
+        serializer =ObjectivesGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ObjectiveView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Objectives.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = ObjectivesSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+
+ 
+
+class TargetListCreateView(generics.ListCreateAPIView):
+    """
+    API view to list all targets or create a new target with programs
+    """
+    queryset = Targets.objects.all()
+    serializer_class = TargetSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by user if provided
+        user_id = self.request.query_params.get('user', None)
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        # Filter by company if provided
+        company_id = self.request.query_params.get('company', None)
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+            
+        # Filter by status if provided
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+            
+        # Filter draft/non-draft
+        is_draft = self.request.query_params.get('is_draft', None)
+        if is_draft is not None:
+            is_draft_bool = is_draft.lower() == 'true'
+            queryset = queryset.filter(is_draft=is_draft_bool)
+            
+        return queryset
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                serializer.data, 
+                status=status.HTTP_201_CREATED, 
+                headers=headers
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TargetDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    API view to retrieve, update or delete a target
+    """
+    queryset = Targets.objects.all()
+    serializer_class = TargetSerializer

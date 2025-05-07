@@ -384,7 +384,34 @@ urlpatterns = [
     path('forward/<int:id>/delete/', DeleteForwardView.as_view(), name='delete-message'),
     path('message/draft-create/', MessageDraftAPIView.as_view(), name='manual-create'),  
     path('message-draft/edit/<int:id>/', DraftMessageAsTrashView.as_view(), name='compliance_edit'),
+    
+    
+    # Preventive Action
+    path('preventive/create/', PreventiveActionCreateAPIView.as_view(), name='message-create'), 
+    path('preventive/<int:company_id>/', PreventiveList.as_view(), name='manual-list'),
+    path('preventive-get/<int:pk>/', PreventiveDetailView.as_view(), name='compliance-detail'),  
+    path('preventive/draft-create/', PreventiveDraftAPIView.as_view(), name='manual-create'),  
+    path('preventive-actions/<int:pk>/edit/', PreventiveActionEditAPIView.as_view(), name='preventive-action-edit'),
+    path('preventive-draft/<int:user_id>/', PreventiveDraftAllList.as_view(), name='manual-list'),
+    path('preventive/drafts-count/<int:user_id>/',  PreventiveView.as_view(), name='draft-manuals'),
+    path('preventive-draft/edit/<int:pk>/', PreventiveDraftUpdateAPIView.as_view(), name='compliance_edit'),
+     
    
+    # Objectives
+    path('objectives/create/', ObjectivesListCreateView.as_view(), name='objectives-list-create'),
+    path('objectives/<int:company_id>/', ObjectiveList.as_view(), name='manual-list'),
+    path('objectives-get/<int:pk>/', ObjectivesDetailView.as_view(), name='objectives-detail'),
+    path('objectives/draft-create/', ObjectiveDraftAPIView.as_view(), name='manual-create'),  
+    path('objectives-draft/<int:user_id>/', ObjectiveDraftAllList.as_view(), name='manual-list'),
+    path('objectives/drafts-count/<int:user_id>/',  ObjectiveView.as_view(), name='draft-manuals'),
+    
+    # Targets
+    path('target/create/', TargetListCreateView.as_view(), name='objectives-list-create'),
+    path('objectives/<int:company_id>/', ObjectiveList.as_view(), name='manual-list'),
+    path('objectives-get/<int:pk>/', ObjectivesDetailView.as_view(), name='objectives-detail'),
+    path('objectives/draft-create/', ObjectiveDraftAPIView.as_view(), name='manual-create'),  
+    path('objectives-draft/<int:user_id>/', ObjectiveDraftAllList.as_view(), name='manual-list'),
+    path('objectives/drafts-count/<int:user_id>/',  ObjectiveView.as_view(), name='draft-manuals'),
 ]
 
 

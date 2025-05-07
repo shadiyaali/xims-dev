@@ -67,4 +67,9 @@ admin.site.register(Message)
 admin.site.register(ReplayMessage)
 admin.site.register(ForwardMessage)
 
+admin.site.register(PreventiveAction)
+admin.site.register(PreventiveActionNotification)
 
+admin.site.register(Objectives)
+admin.site.register(Targets)
+admin.site.register(Program)

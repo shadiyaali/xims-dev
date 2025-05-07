@@ -37,10 +37,10 @@ admin.site.register(EnergyAction)
 admin.site.register(Program)
 admin.site.register(CorrectionCause)
 admin.site.register(CorrectiveAction)
-admin.site.register(PreventiveAction)
-admin.site.register(Objectives)
-admin.site.register(TProgram)
-admin.site.register(TargetsP)
+
+
+
+
 admin.site.register(ConformityCause)
 admin.site.register(Conformity)
 
