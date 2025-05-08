@@ -78,4 +78,18 @@ admin.site.register(ConformityCause)
 admin.site.register(ConformityReport)
 admin.site.register(ConformityNotification)
 
- 
+admin.site.register(ReviewType)
+admin.site.register(EnergyReview)
+
+admin.site.register(BaselineReview)
+admin.site.register(Baseline)
+admin.site.register(Enpis)
+
+admin.site.register(EnergyImprovement)
+
+admin.site.register(EnergyAction)
+admin.site.register(Program)
+
+
+admin.site.register(EnergySource)
+admin.site.register(SignificantEnergy)

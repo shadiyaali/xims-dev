@@ -979,3 +979,211 @@ class ConformityGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConformityReport
         fields = '__all__' 
+        
+        
+        
+class ReviewTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReviewType
+        fields = '__all__'
+        
+        
+        
+class EnergyReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergyReview
+        fields = '__all__'
+        
+class EnergyReviewGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    review_type =ReviewTypeSerializer()
+    class Meta:
+        model = EnergyReview
+        fields = '__all__'
+        
+        
+        
+class BaselineReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BaselineReview
+        fields = '__all__'
+
+class EnpisSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Enpis
+        fields = ['id', 'enpi']  
+
+
+
+class BaselineGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    responsible = UserSerializer()
+    energy_review = BaselineReviewSerializer()
+    
+    class Meta:
+        model = Baseline
+        fields = '__all__'
+
+
+class BaselineSerializer(serializers.ModelSerializer):
+    enpis = EnpisSerializer(many=True, required=False)  
+ 
+
+    class Meta:
+        model = Baseline
+        fields = '__all__'
+
+    def create(self, validated_data):
+        enpis_data = validated_data.pop('enpis', [])
+        baseline = Baseline.objects.create(**validated_data)
+        for enpi_data in enpis_data:
+            Enpis.objects.create(baseline=baseline, **enpi_data)
+        return baseline
+
+    def update(self, instance, validated_data):
+        enpis_data = validated_data.pop('enpis', [])
+        instance.basline_title = validated_data.get('basline_title', instance.basline_title)
+        instance.established_basline = validated_data.get('established_basline', instance.established_basline)
+        instance.remarks = validated_data.get('remarks', instance.remarks)
+        instance.energy_review = validated_data.get('energy_review', instance.energy_review)
+        instance.date = validated_data.get('date', instance.date)
+        instance.responsible = validated_data.get('responsible', instance.responsible)
+        instance.save()
+
+        
+        existing_enpis = {enpi.id: enpi for enpi in instance.enpis.all()}
+        updated_enpis_ids = []
+
+        for enpi_data in enpis_data:
+            enpi_value = enpi_data.get("enpi")
+            enpi_id = enpi_data.get("id")  
+            if enpi_id and enpi_id in existing_enpis:
+                
+                enpi = existing_enpis[enpi_id]
+                enpi.enpi = enpi_value
+                enpi.save()
+                updated_enpis_ids.append(enpi_id)
+            else:
+                
+                new_enpi = Enpis.objects.create(baseline=instance, **enpi_data)
+                updated_enpis_ids.append(new_enpi.id)
+
+     
+        instance.enpis.exclude(id__in=updated_enpis_ids).delete()
+
+        return instance
+    
+    
+class EnergyImprovementsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergyImprovement
+        fields = '__all__' 
+
+
+    
+class EnergyImprovementsGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    responsible = UserSerializer()
+    class Meta:
+        model = EnergyImprovement
+        fields = '__all__' 
+
+
+class ProgramActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Program
+        fields = ['id', 'Program']
+
+
+class EnergyActionSerializer(serializers.ModelSerializer):
+    programs = ProgramActionSerializer(many=True, required=False)
+
+    class Meta:
+        model = EnergyAction
+        fields = '__all__'
+
+    def create(self, validated_data):
+        
+        program_data = validated_data.pop('programs', [])
+        energy_action = EnergyAction.objects.create(**validated_data)
+        
+      
+        for program_data in program_data:
+            Program.objects.create(energy_action=energy_action, **program_data)
+        
+        return energy_action
+
+    def update(self, instance, validated_data):
+        
+        program_data = validated_data.pop('programs', [])
+        
+        
+        instance.action_plan = validated_data.get('action_plan', instance.action_plan)
+        instance.associative_objective = validated_data.get('associative_objective', instance.associative_objective)
+        instance.legal_requirements = validated_data.get('legal_requirements', instance.legal_requirements)
+        instance.date = validated_data.get('date', instance.date)
+        instance.energy_improvements = validated_data.get('energy_improvements', instance.energy_improvements)
+        instance.title = validated_data.get('title', instance.title)
+        instance.upload_attachment = validated_data.get('upload_attachment', instance.upload_attachment)
+        instance.means = validated_data.get('means', instance.means)
+        instance.responsible = validated_data.get('responsible', instance.responsible)
+        instance.statement = validated_data.get('statement', instance.statement)
+        instance.save()
+
+     
+        existing_programs = {program.id: program for program in instance.programs.all()}
+        updated_program_ids = []
+
+        for program_data in program_data:
+            program_id = program_data.get("id")
+            program_value = program_data.get("program")
+
+            if program_id and program_id in existing_programs:
+                
+                program = existing_programs[program_id]
+                program.program = program_value
+                program.save()
+                updated_program_ids.append(program_id)
+            else:
+                
+                new_program = Program.objects.create(energy_action=instance, **program_data)
+                updated_program_ids.append(new_program.id)
+
+       
+        instance.programs.exclude(id__in=updated_program_ids).delete()
+
+        return instance
+
+
+class EnergyActionGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    responsible = UserSerializer()
+    
+    class Meta:
+        model = EnergyAction
+        fields = '__all__'
+        
+        
+        
+
+class EnergySourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnergySource
+        fields = '__all__'
+        
+        
+
+class SignificantEnergySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SignificantEnergy
+        fields = '__all__'
+
+
+class SignificantEnergyGetSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    source_type = EnergySourceSerializer()
+    
+    class Meta:
+        model = SignificantEnergy
+        fields = '__all__'
+

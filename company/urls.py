@@ -45,24 +45,11 @@ urlpatterns = [
     path('health-incidents/<int:pk>/', HealthIncidentsDetailView.as_view(), name='health-incidents-detail-update-delete'), 
     path('business-risks/', BusinessRiskView.as_view(), name='business-risk-list-create'), 
     path('business-risks/<int:pk>/', BusinessRiskDetailView.as_view(), name='business-risk-detail-update-delete'), 
-    path('review-type/', ReviewTypeView.as_view(), name='root-cause-list-create'),   
-    path('review-type/<int:pk>/', ReviewTypeDetailView.as_view(), name='root-cause-detail-update-delete'),
-    path('energy-reviews/', EnergyReviewView.as_view(), name='energy-review-list-create'),  
-    path('energy-reviews/<int:pk>/', EnergyReviewDetailView.as_view(), name='energy-review-detail'), 
-    path('review-baseline/', BaselineReviewView.as_view(), name='root-cause-list-create'),   
-    path('review-baseline/<int:pk>/', BaselineReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
-    path('baselines/', BaselineView.as_view(), name='baseline-list-create'),
-    path('baselines/<int:pk>/', BaselineDetailView.as_view(), name='baseline-detail'),
-    path('energy-source/', EnergySourceView.as_view(), name='root-cause-list-create'),   
-    path('energy-source/<int:pk>/', EnergySourceDetailView.as_view(), name='root-cause-detail-update-delete'),
-    path('significant_energy/', SignificantEnergyListView.as_view(), name='significant_energy_list'),  
-    path('significant_energy/<int:pk>/', SignificantEnergyDetailView.as_view(), name='significant_energy_detail'),
+
+
     
-    path('energy-improvements/', EnergyImprovementsListCreateAPIView.as_view(), name='energy-improvements-list-create'),
-    path('energy-improvements/<int:pk>/', EnergyImprovementsDetailAPIView.as_view(), name='energy-improvements-detail'),
-    
-    path('energy-action/', EnergyActionView.as_view(), name='baseline-list-create'),
-    path('energy-action/<int:pk>/', EnergyActionDetailView.as_view(), name='baseline-detail'),
+
+
     
     path('corrcetion-cause/', CorrectionCauseView.as_view(), name='baseline-list-create'),
     path('corrcetion-cause/<int:pk>/', CorrectionCauseDetailView.as_view(), name='baseline-detail'),

@@ -459,132 +459,17 @@ class BusinessRisk(models.Model):
         return self.business_name
     
 
-class ReviewType(models.Model):
-    title = models.CharField(max_length=50, blank=True, null=True)
-
-    def __str__(self):
-        return self.title  
-
-class EnergyReview(models.Model):
-    review_no = models.CharField(max_length=50, blank=True, null=True)
-    rivision = models.CharField(max_length=50, blank=True, null=True)
-    review_type = models.ForeignKey(ReviewType, on_delete=models.SET_NULL, null=True )
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)    
-    date  = models.DateField(blank=True, null=True)
-    remarks = models.TextField(blank=True, null=True)
-    energy_name = models.CharField(max_length=50, blank=True, null=True) 
-    relate_business_process = models.CharField(max_length=20, blank=True, null=True )
-    relate_document_process = models.CharField(max_length=20, blank=True, null=True )
-    publish = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.energy_name   
-    
-class BaselineReview(models.Model):
-    title = models.CharField(max_length=50, blank=True, null=True)
-
-    def __str__(self):
-        return self.title or "No Title Provided"
-    
-class Baseline(models.Model):
-    basline_title = models.CharField(max_length=50, blank=True, null=True)
-    established_basline = models.CharField(max_length=50, blank=True, null=True)
-    remarks =  models.TextField(blank=True, null=True)
-    energy_review = models.ForeignKey(BaselineReview, on_delete=models.SET_NULL, null=True )
-    date  = models.DateField(blank=True, null=True)
-    responsible = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_baseline"
-    )
-
-    def __str__(self):
-      return self.basline_title or "No Title Provided"
-
-
-class Enpis(models.Model):
-    enpi = models.CharField(max_length=50, blank=True, null=True)
-    baseline = models.ForeignKey(
-        Baseline, on_delete=models.CASCADE, null=True, related_name="enpis"
-    )
-
-    def __str__(self):
-        return f"Additional enpi for {self.baseline.basline_title if self.baseline else 'No Baseline'}"
 
 
 
-class EnergySource(models.Model):
-    title = models.CharField(max_length=50, blank=True, null=True)
-
-    def __str__(self):
-        return self.title or "No Title Provided"
-    
-class SignificantEnergy(models.Model):
-    significant = models.CharField(max_length=50, blank=True, null=True)
-    source_type = models.ForeignKey(EnergySource, on_delete=models.SET_NULL, null=True )
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)    
-    consumption =  models.CharField(max_length=50, blank=True, null=True)
-    consequences =  models.CharField(max_length=50, blank=True, null=True)
-    remarks =  models.TextField(blank=True, null=True)
-    title = models.CharField(max_length=50, blank=True, null=True)
-    date = models.DateField(blank=True, null=True)
-    facility = models.CharField(max_length=50, blank=True, null=True)
-    action = models.CharField(max_length=50, blank=True, null=True)
-    impact = models.CharField(max_length=50, blank=True, null=True)
-    rivision = models.CharField(max_length=50, blank=True, null=True)
-    publish = models.BooleanField(default=False)
 
 
-    def __str__(self):
-        return self.significant or "No Title Provided"
 
 
-class EnergyImprovement(models.Model):
-    eio = models.CharField(max_length=50, blank=True, null=True)
-    target = models.CharField(max_length=50, blank=True, null=True)
-    results =  models.TextField(blank=True, null=True)
-    date = models.DateField(blank=True, null=True)
-    STATUS_CHOICES = [
-        ('On Going', 'On Going'),
-        ('Achieved', 'Achieved'),
-        ('Not Achieved', 'Not Achieved'),
-        ('Modified', 'Modified'),       
-    ] 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='On Going')
-    eio_title = models.CharField(max_length=50, blank=True, null=True)
-    associated_objective = models.CharField(max_length=50, blank=True, null=True)
-    responsible = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_energy_improvements"
-    )
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)
 
-    def __str__(self):
-        return self.eio or "No Title Provided"
     
 
-class EnergyAction(models.Model):
-    action_plan =  models.CharField(max_length=50, blank=True, null=True)
-    associative_objective =  models.CharField(max_length=50, blank=True, null=True)
-    legal_requirements =  models.CharField(max_length=50, blank=True, null=True)
-    date = models.DateField(blank=True, null=True)
-    energy_improvements = models.TextField(blank=True, null=True)
-    title = models.CharField(max_length=50, blank=True, null=True)
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)
-    means = models.CharField(max_length=50, blank=True, null=True)
-    responsible = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_energy_action_plan"
-    )
-    statement = models.TextField(blank=True, null=True)
 
-    def __str__(self):
-        return self.action_plan or "No Title Provided"
-    
-class Program(models.Model):
-    Program = models.CharField(max_length=50, blank=True, null=True)
-    energy_action = models.ForeignKey(
-    EnergyAction, on_delete=models.CASCADE, null=True, related_name="programs"
-)
-
-    def __str__(self):
-        return f"Additional program for {self.energy_action.action_plan if self.energy_action else 'No Baseline'}"
     
 
 class CorrectionCause(models.Model):   

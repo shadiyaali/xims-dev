@@ -25,16 +25,10 @@ admin.site.register(RiskAssessment)
 admin.site.register(HealthRootCause)
 admin.site.register(HealthIncidents)
 admin.site.register(BusinessRisk)
-admin.site.register(ReviewType)
-admin.site.register(EnergyReview)
-admin.site.register(BaselineReview)
-admin.site.register(Baseline)
-admin.site.register(Enpis)
-admin.site.register(EnergySource)
-admin.site.register(SignificantEnergy)
-admin.site.register(EnergyImprovement)
-admin.site.register(EnergyAction)
-admin.site.register(Program)
+
+
+
+
 admin.site.register(CorrectionCause)
 admin.site.register(CorrectiveAction)
 

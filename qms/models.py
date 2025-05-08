@@ -1198,6 +1198,7 @@ class Message(models.Model):
     subject = models.CharField(max_length=255,blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_trash = models.BooleanField(default=False)
+    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='trash_message_user', null=True, blank=True) 
     is_draft= models.BooleanField(default=False)
     
     
@@ -1214,6 +1215,7 @@ class ReplayMessage(models.Model):
     message = models.TextField(blank=True, null=True)
     subject = models.CharField(max_length=255,blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='replay_message_user', null=True, blank=True) 
     is_trash = models.BooleanField(default=False)
     
     
@@ -1230,6 +1232,7 @@ class ForwardMessage(models.Model):
     message = models.TextField(blank=True, null=True)
     subject = models.CharField(max_length=255,blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='forard_message_user', null=True, blank=True) 
     is_trash = models.BooleanField(default=False)
     
     def __str__(self):
@@ -1386,6 +1389,239 @@ class ConformityReport(models.Model):
 class ConformityNotification(models.Model):
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="confir_user", null=True, blank=True) 
     conformity = models.ForeignKey(ConformityReport, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.title}"
+    
+    
+class ReviewType(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='review_rt', null=True, blank=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title  
+
+class EnergyReview(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="energy", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='energy_cus', null=True, blank=True)
+    review_no = models.IntegerField(blank=True, null=True)
+    revision = models.CharField(max_length=50, blank=True, null=True)
+    review_type = models.ForeignKey(ReviewType, on_delete=models.CASCADE, null=True)
+    upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255,blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    energy_name = models.CharField(max_length=50, blank=True, null=True)
+    relate_business_process = models.CharField(max_length=20, blank=True, null=True)
+    relate_document_process = models.TextField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.review_no and self.company:
+            last_review = EnergyReview.objects.filter(company=self.company, review_no__startswith="ER-").order_by('-id').first()
+            if last_review and last_review.review_no:
+                try:
+                    last_number = int(last_review.review_no.split("-")[1])
+                    self.review_no = f"ER-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.review_no = "ER-1"
+            else:
+                self.review_no = "ER-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.energy_name or f"Review #{self.review_no}"
+
+    
+    
+class  EnergyReviewNotification(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="energy_user", null=True, blank=True) 
+    energy_review = models.ForeignKey( EnergyReview, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.title}"
+    
+    
+    
+    
+class BaselineReview(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='base', null=True, blank=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title or "No Title Provided"
+    
+class Baseline(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="base_use", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='base_cus', null=True, blank=True)
+    basline_title = models.CharField(max_length=50, blank=True, null=True)
+    established_basline = models.CharField(max_length=50, blank=True, null=True)
+    remarks =  models.TextField(blank=True, null=True)
+    energy_review = models.ForeignKey(BaselineReview,  on_delete=models.CASCADE, null=True )
+    date  = models.DateField(blank=True, null=True)
+    responsible = models.ForeignKey( Users,  on_delete=models.CASCADE, null=True, related_name="approved_baseline")    
+    is_draft = models.BooleanField(default=False)
+    
+    
+    def __str__(self):
+      return self.basline_title or "No Title Provided"
+
+
+class Enpis(models.Model):
+    enpi = models.CharField(max_length=50, blank=True, null=True)
+    baseline = models.ForeignKey(Baseline, on_delete=models.CASCADE, null=True, related_name="enpis")
+ 
+    def __str__(self):
+        return f"Additional enpi for {self.baseline.basline_title if self.baseline else 'No Baseline'}"
+    
+    
+class EnergyImprovement(models.Model):
+    user = models.ForeignKey(
+        Users, on_delete=models.CASCADE, related_name="ene_use", blank=True, null=True
+    )
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name='ene_cus', null=True, blank=True
+    )
+    eio = models.IntegerField(blank=True, null=True)  
+    target = models.CharField(max_length=50, blank=True, null=True)
+    results = models.TextField(blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+
+    STATUS_CHOICES = [
+        ('On Going', 'On Going'),
+        ('Achieved', 'Achieved'),
+        ('Not Achieved', 'Not Achieved'),
+        ('Modified', 'Modified'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='On Going')
+
+    eio_title = models.CharField(max_length=50, blank=True, null=True)
+    associated_objective = models.CharField(max_length=50, blank=True, null=True)
+
+    responsible = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_energy_improvements"
+    )
+    
+    upload_attachment = models.FileField(
+        storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True
+    )
+    
+    is_draft = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.eio and self.company:
+            last_review = EnergyImprovement.objects.filter(company=self.company).order_by('-id').first()
+            if last_review and last_review.eio and last_review.eio.startswith("EIO-"):
+                try:
+                    last_number = int(last_review.eio.split("-")[1])
+                    self.eio = f"EIO-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.eio = "EIO-1"
+            else:
+                self.eio = "EIO-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.eio_title) if self.eio_title is not None else "No Title Provided"
+
+
+
+class EnergyAction(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="action_use", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='action_cus', null=True, blank=True)
+    action_plan = models.CharField(max_length=50, blank=True, null=True)
+    associative_objective = models.CharField(max_length=50, blank=True, null=True)
+    legal_requirements = models.CharField(max_length=50, blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    energy_improvements = models.TextField(blank=True, null=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+    upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, max_length=255, blank=True, null=True)
+    means = models.CharField(max_length=50, blank=True, null=True)
+    responsible = models.ForeignKey(Users, on_delete=models.CASCADE, null=True, related_name="approved_energy_action_plan")
+    statement = models.TextField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.action_plan and self.company:
+            last_action = EnergyAction.objects.filter(company=self.company).order_by('-id').first()
+            if last_action and last_action.action_plan and last_action.action_plan.startswith("EAP-"):
+                try:
+                    last_number = int(last_action.action_plan.split("-")[1])
+                    self.action_plan = f"EAP-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.action_plan = "EAP-1"
+            else:
+                self.action_plan = "EAP-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.action_plan or "No Title Provided"
+
+    
+class Program(models.Model):
+    Program = models.CharField(max_length=50, blank=True, null=True)
+    energy_action = models.ForeignKey(
+    EnergyAction, on_delete=models.CASCADE, null=True, related_name="programs"
+)
+
+    def __str__(self):
+        return f"Additional program for {self.energy_action.action_plan if self.energy_action else 'No Baseline'}"
+    
+    
+    
+class EnergySource(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='source', null=True, blank=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title or "No Title Provided"
+    
+class SignificantEnergy(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="sign_use", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='sign_cus', null=True, blank=True)
+    significant = models.CharField(max_length=50, blank=True, null=True)
+    source_type = models.ForeignKey(EnergySource, on_delete=models.CASCADE, null=True)
+    upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, max_length=255, blank=True, null=True)
+    consumption = models.CharField(max_length=50, blank=True, null=True)
+    consequences = models.CharField(max_length=50, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    facility = models.CharField(max_length=50, blank=True, null=True)
+    action = models.CharField(max_length=50, blank=True, null=True)
+    impact = models.CharField(max_length=50, blank=True, null=True)
+    revision = models.CharField(max_length=50, blank=True, null=True) 
+    is_notification = models.BooleanField(default=False)
+    is_draft = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.significant and self.company:
+            last_action = SignificantEnergy.objects.filter(company=self.company, significant__startswith="SEU-").order_by('-id').first()
+            if last_action and last_action.significant:
+                try:
+                    last_number = int(last_action.significant.split("-")[1])
+                    self.significant = f"SEU-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.significant = "SEU-1"
+            else:
+                self.significant = "SEU-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.significant or "No Title Provided"
+
+
+class  SignificantEnergyNotification(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="sig_user", null=True, blank=True) 
+    significant = models.ForeignKey( SignificantEnergy, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()
     is_read = models.BooleanField(default=False)

@@ -9460,7 +9460,6 @@ class CarNumberCreateAPIView(APIView):
         try:
             company_id = request.data.get('company')
             send_notification = request.data.get('send_notification', False)
-            executor_id = request.data.get('executor')
 
             if not company_id:
                 return Response(
@@ -9476,32 +9475,29 @@ class CarNumberCreateAPIView(APIView):
                     car_number = serializer.save()
                     logger.info(f"Corrective Action created: {car_number.title}")
 
-                
-                    if send_notification and executor_id:
-                        try:
-                            executor = Users.objects.get(id=executor_id)
-                            
-                        
-                            notification = CarNotification(
-                                user=executor,
+                    if send_notification:
+                        # Fetch all users from the same company
+                        company_users = Users.objects.filter(company=company)
+                        logger.info(f"Sending notifications to {company_users.count()} users.")
+
+                        for user in company_users:
+                            # Create and save notification
+                            CarNotification.objects.create(
+                                user=user,
                                 carnumber=car_number,
                                 title=f"New Corrective Action: {car_number.title}",
-                                message=f"You have been assigned as executor for corrective action '{car_number.title}'"
+                                message=f"A new Corrective Action '{car_number.title}' has been created."
                             )
-                            notification.save()
-                            logger.info(f"Created notification for executor {executor.id} for CAR {car_number.id}")
-                            
-                            # Send email to executor
-                            if executor.email:
-                                self._send_email_async(car_number, executor)
+                            logger.info(f"Notification created for user {user.id}")
 
-                        except Users.DoesNotExist:
-                            logger.warning(f"Executor with ID {executor_id} not found")
+                            # Send email if user has a valid email
+                            if user.email:
+                                self._send_email_async(car_number, user)
 
                 return Response(
                     {
                         "message": "Corrective Action created successfully",
-                        "notification_sent": send_notification and executor_id is not None
+                        "notification_sent": send_notification
                     },
                     status=status.HTTP_201_CREATED
                 )
@@ -9522,23 +9518,17 @@ class CarNumberCreateAPIView(APIView):
             )
 
     def _send_email_async(self, car_number, recipient):
-        """
-        Sends email in a separate thread to avoid blocking response.
-        """
         threading.Thread(target=self._send_notification_email, args=(car_number, recipient)).start()
 
     def _send_notification_email(self, car_number, recipient):
-        """
-        Send HTML-formatted email notification about a new CAR assignment.
-        """
-        subject = f"CAR Assignment: {car_number.title}"
+        subject = f"CAR Notification: {car_number.title}"
         recipient_email = recipient.email
 
         context = {
             'title': car_number.title,
             'source': car_number.source,
             'description': car_number.description,
-            "executor": recipient,
+            "executor": car_number.executor,
             'action_no': car_number.action_no,
             'date_raised': car_number.date_raised,
             'date_completed': car_number.date_completed,
@@ -9553,7 +9543,6 @@ class CarNumberCreateAPIView(APIView):
             html_message = render_to_string('qms/car/car_add_template.html', context)
             plain_message = strip_tags(html_message)
 
-         
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=plain_message,
@@ -9562,7 +9551,6 @@ class CarNumberCreateAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-      
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -9577,6 +9565,7 @@ class CarNumberCreateAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending CAR email to {recipient_email}: {e}")
+
 
 
 
@@ -9678,7 +9667,7 @@ class GetNextActionNumberView(APIView):
 class CarDraftUpdateAPIView(APIView):
     """
     View to update a draft CarNumber and finalize it (set is_draft=False).
-    Sends notification email to executor if send_notification is True.
+    Sends notification and email to all users in the executor's company if send_notification is True.
     """
 
     def put(self, request, pk, *args, **kwargs):
@@ -9698,27 +9687,30 @@ class CarDraftUpdateAPIView(APIView):
                     car.upload_attachment = file_obj
                     car.save()
 
-                # Send notification if requested
+                # Send notifications if requested
                 send_notification = data.get('send_notification', False)
                 executor_id = data.get('executor')
+
                 if send_notification and executor_id:
                     try:
                         executor = Users.objects.get(id=executor_id)
-                        notification = CarNotification(
-                            user=executor,
-                            carnumber=car,
-                            title=f"New Corrective Action: {car.title}",
-                            message=f"You have been assigned as executor for corrective action '{car.title}'"
-                        )
-                        notification.save()
+                        company_users = Users.objects.filter(company=executor.company)
 
-                        if executor.email:
-                            self._send_email_async(car, executor)
+                        for user in company_users:
+                            CarNotification.objects.create(
+                                user=user,
+                                carnumber=car,
+                                title=f"New Corrective Action: {car.title}",
+                                message=f"Corrective action '{car.title}' has been finalized."
+                            )
+                            if user.email:
+                                self._send_email_async(car, user)
+
                     except Users.DoesNotExist:
                         logger.warning(f"Executor with ID {executor_id} not found")
 
                 return Response(
-                    {"message": "Draft CarNumber finalized and notification sent", "data": serializer.data},
+                    {"message": "Draft CarNumber finalized and notifications sent", "data": serializer.data},
                     status=status.HTTP_200_OK
                 )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -9781,6 +9773,7 @@ class CarDraftUpdateAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending CAR email to {recipient_email}: {e}")
+
 
         
         
@@ -12809,15 +12802,19 @@ class MarkMessageAsTrashView(APIView):
     def put(self, request, *args, **kwargs):
         message_id = self.kwargs.get('id')
         try:
-           
+         
             message = Message.objects.get(id=message_id)
+            
+     
             message.is_trash = True
+            message.trash_user = request.user  
             message.save()
 
             return Response({
                 'status': 'success',
                 'message': 'Message marked as trash.'
             }, status=status.HTTP_200_OK)
+        
         except Message.DoesNotExist:
             return Response({
                 'status': 'error',
@@ -12881,6 +12878,7 @@ class MarkReplayMessageAsTrashView(APIView):
            
             message = ReplayMessage.objects.get(id=message_id)
             message.is_trash = True
+            message.trash_user = request.user  
             message.save()
 
             return Response({
@@ -12894,6 +12892,8 @@ class MarkReplayMessageAsTrashView(APIView):
             }, status=status.HTTP_404_NOT_FOUND)
             
 
+
+ 
 class MarkRestoreAsReplayTrashView(APIView):
 
     def put(self, request, *args, **kwargs):
@@ -12924,6 +12924,7 @@ class MarkForwardMessageAsTrashView(APIView):
            
             message = ForwardMessage.objects.get(id=message_id)
             message.is_trash = True
+            message.trash_user = request.user  
             message.save()
 
             return Response({
@@ -13123,7 +13124,7 @@ class UserTrashReplyMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return ReplayMessage.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
+        return ReplayMessage.objects.filter(to_user=user, is_trash=True ).order_by('-created_at')
 
 class UserTrashForwardMessageListView(generics.ListAPIView):
     serializer_class = ForwardMessageSerializer
@@ -13136,7 +13137,7 @@ class UserTrashForwardMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return ForwardMessage.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
+        return ForwardMessage.objects.filter(to_user=user, is_trash=True ).order_by('-created_at')
 
 class PreventiveActionCreateAPIView(APIView):
     def post(self, request):
@@ -14138,7 +14139,7 @@ class ConformityCauseDetailView(APIView):
     
 class ConformityCreateAPIView(APIView):
     """
-    Endpoint to handle creation of Conformity Reports and send notifications.
+    Endpoint to handle creation of Conformity Reports and send notifications to all users in the company.
     """
 
     def post(self, request):
@@ -14146,7 +14147,6 @@ class ConformityCreateAPIView(APIView):
         try:
             company_id = request.data.get('company')
             send_notification = request.data.get('send_notification', False)
-            executor_id = request.data.get('executor')
 
             if not company_id:
                 return Response(
@@ -14162,31 +14162,27 @@ class ConformityCreateAPIView(APIView):
                     conformity_report = serializer.save()
                     logger.info(f"Conformity Report created: {conformity_report.title}")
 
-                    if send_notification and executor_id:
-                        try:
-                            executor = Users.objects.get(id=executor_id)
-                            
+                    if send_notification:
+                        users = Users.objects.filter(company=company)
+                        for user in users:
                             # Create notification record
                             notification = ConformityNotification(
-                                user=executor,
+                                user=user,
                                 conformity=conformity_report,
                                 title=f"New Conformity Report: {conformity_report.title}",
-                                message=f"You have been assigned as executor for conformity report '{conformity_report.title}'"
+                                message=f"A new conformity report '{conformity_report.title}' has been created."
                             )
                             notification.save()
-                            logger.info(f"Created notification for executor {executor.id} for Conformity Report {conformity_report.id}")
-                            
-                            # Send email to executor
-                            if executor.email:
-                                self._send_email_async(conformity_report, executor)
+                            logger.info(f"Created notification for user {user.id} for Conformity Report {conformity_report.id}")
 
-                        except Users.DoesNotExist:
-                            logger.warning(f"Executor with ID {executor_id} not found")
+                            # Send email
+                            if user.email:
+                                self._send_email_async(conformity_report, user)
 
                 return Response(
                     {
                         "message": "Conformity Report created successfully",
-                        "notification_sent": send_notification and executor_id is not None
+                        "notification_sent": send_notification
                     },
                     status=status.HTTP_201_CREATED
                 )
@@ -14207,16 +14203,10 @@ class ConformityCreateAPIView(APIView):
             )
 
     def _send_email_async(self, conformity_report, recipient):
-        """
-        Sends email in a separate thread to avoid blocking response.
-        """
         threading.Thread(target=self._send_notification_email, args=(conformity_report, recipient)).start()
 
     def _send_notification_email(self, conformity_report, recipient):
-        """
-        Send HTML-formatted email notification about a new Conformity Report assignment.
-        """
-        subject = f"Conformity Report Assignment: {conformity_report.title}"
+        subject = f"Conformity Report Created: {conformity_report.title}"
         recipient_email = recipient.email
 
         context = {
@@ -14224,7 +14214,7 @@ class ConformityCreateAPIView(APIView):
             'ncr': conformity_report.ncr,
             'source': conformity_report.source,
             'description': conformity_report.description,
-            "executor":conformity_report.user,
+            "executor": conformity_report.user,
             'date_raised': conformity_report.date_raised,
             'date_completed': conformity_report.date_completed,
             'resolution': conformity_report.resolution,
@@ -14260,6 +14250,7 @@ class ConformityCreateAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending Conformity Report email to {recipient_email}: {e}")
+
             
             
 class ConformityDetailView(APIView):
@@ -14340,7 +14331,7 @@ class GetNextNCRConformity(APIView):
 class ConformityDraftUpdateAPIView(APIView):
     """
     View to update a draft ConformityReport and finalize it (set is_draft=False).
-    Sends notification email to executor if send_notification is True.
+    Sends notification and email to all users in the same company if send_notification is True.
     """
 
     def put(self, request, pk, *args, **kwargs):
@@ -14353,34 +14344,30 @@ class ConformityDraftUpdateAPIView(APIView):
             if serializer.is_valid():
                 report = serializer.save()
 
-                # Send notification if needed
+                # Send notifications and emails to all users in the same company
                 send_notification = data.get('send_notification', False)
-                executor_id = data.get('executor')
+                if send_notification:
+                    company_users = Users.objects.filter(company=report.company)
 
-                if send_notification and executor_id:
-                    try:
-                        executor = Users.objects.get(id=executor_id)
-
-                        # Save notification
+                    for user in company_users:
+                        # Create notification
                         notification = ConformityNotification(
-                            user=executor,
+                            user=user,
                             conformity=report,
-                            title=f"New Conformity Report: {report.title}",
-                            message=f"You have been assigned as executor for conformity report '{report.title}'"
+                            title=f"New Conformity Report Finalized: {report.title}",
+                            message=f"The draft conformity report '{report.title}' has been finalized."
                         )
                         notification.save()
 
-                        # Send email
-                        if executor.email:
-                            self._send_email_async(report, executor)
-
-                    except Users.DoesNotExist:
-                        logger.warning(f"Executor with ID {executor_id} not found")
+                        # Send email if user has email
+                        if user.email:
+                            self._send_email_async(report, user)
 
                 return Response(
                     {"message": "Draft finalized successfully", "data": serializer.data},
                     status=status.HTTP_200_OK
                 )
+
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except ConformityReport.DoesNotExist:
@@ -14399,7 +14386,7 @@ class ConformityDraftUpdateAPIView(APIView):
         threading.Thread(target=self._send_notification_email, args=(report, recipient)).start()
 
     def _send_notification_email(self, report, recipient):
-        subject = f"Conformity Report Assignment: {report.title}"
+        subject = f"Conformity Report Finalized: {report.title}"
         recipient_email = recipient.email
 
         context = {
@@ -14448,20 +14435,24 @@ class ConformityDraftUpdateAPIView(APIView):
 
 class ConformityEditAPIView(APIView):
     """
-    Endpoint to edit an existing (non-draft) Conformity Report and send notifications if updated.
+    Endpoint to edit an existing (non-draft) Conformity Report and notify all users in the same company.
     """
 
     def put(self, request, pk):
         print("Edit Request Data:", request.data)
         try:
             send_notification = request.data.get('send_notification', False)
-            executor_id = request.data.get('executor')
 
             try:
-                conformity_report = ConformityReport.objects.get(id=pk, is_draft=False)
+                conformity_report = ConformityReport.objects.get(id=pk)
+                if conformity_report.is_draft:
+                    return Response(
+                        {"error": "Cannot edit a draft report using this endpoint."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             except ConformityReport.DoesNotExist:
                 return Response(
-                    {"error": "Finalized Conformity Report not found"},
+                    {"error": "Conformity Report not found."},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
@@ -14469,39 +14460,33 @@ class ConformityEditAPIView(APIView):
 
             if serializer.is_valid():
                 with transaction.atomic():
-                    conformity_report = serializer.save()
-                    logger.info(f"Conformity Report updated: {conformity_report.title}")
+                    updated_report = serializer.save()
+                    logger.info(f"Conformity Report updated: {updated_report.title}")
 
-                    if send_notification and executor_id:
-                        try:
-                            executor = Users.objects.get(id=executor_id)
+                    if send_notification:
+                        company_users = Users.objects.filter(company=updated_report.company)
 
-                            # Save notification
+                        for user in company_users:
                             ConformityNotification.objects.create(
-                                user=executor,
-                                conformity=conformity_report,
-                                title=f"Updated Conformity Report: {conformity_report.title}",
-                                message=f"The report '{conformity_report.title}' has been updated and assigned to you."
+                                user=user,
+                                conformity=updated_report,
+                                title=f"Updated Conformity Report: {updated_report.title}",
+                                message=f"The report '{updated_report.title}' has been updated."
                             )
-                            logger.info(f"Notification saved for executor {executor.id} after update.")
-
-                            # Send email
-                            if executor.email:
-                                self._send_email_async(conformity_report, executor)
-
-                        except Users.DoesNotExist:
-                            logger.warning(f"Executor with ID {executor_id} not found")
+                            logger.info(f"Notification saved for user {user.id}")
+                            if user.email:
+                                self._send_email_async(updated_report, user)
 
                 return Response(
                     {
                         "message": "Conformity Report updated successfully",
-                        "notification_sent": send_notification and executor_id is not None
+                        "notification_sent": send_notification
                     },
                     status=status.HTTP_200_OK
                 )
-            else:
-                logger.warning(f"Validation error on update: {serializer.errors}")
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.warning(f"Validation error on update: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             logger.error(f"Error updating Conformity Report: {str(e)}")
@@ -14522,7 +14507,7 @@ class ConformityEditAPIView(APIView):
             'ncr': conformity_report.ncr,
             'source': conformity_report.source,
             'description': conformity_report.description,
-            "executor": conformity_report.user,
+            'executor': conformity_report.executor,
             'date_raised': conformity_report.date_raised,
             'date_completed': conformity_report.date_completed,
             'resolution': conformity_report.resolution,
@@ -14560,18 +14545,15 @@ class ConformityEditAPIView(APIView):
             logger.error(f"Error sending update email to {recipient_email}: {e}")
 
 
-
-
 class CarNumberEditAPIView(APIView):
     """
-    Endpoint to edit an existing (non-draft) Car Number and send notifications if updated.
+    Endpoint to edit an existing (non-draft) Car Number and send notifications to all company users.
     """
 
     def put(self, request, pk):
         print("Edit Request Data:", request.data)
         try:
             send_notification = request.data.get('send_notification', False)
-            executor_id = request.data.get('executor')
 
             try:
                 car_number = CarNumber.objects.get(id=pk, is_draft=False)
@@ -14588,20 +14570,26 @@ class CarNumberEditAPIView(APIView):
                     car_number = serializer.save()
                     logger.info(f"Car Number updated: {car_number.title}")
 
-                    if send_notification and executor_id:
-                        try:
-                            executor = Users.objects.get(id=executor_id)
+                    if send_notification and car_number.company:
+                        users = Users.objects.filter(company=car_number.company)
 
-                            if executor.email:
-                                self._send_email_async(car_number, executor)
+                        for user in users:
+                            # Send notification (if implemented in DB)
+                            CarNotification.objects.create(
+                                user=user,
+                                carnumber=car_number,
+                                title=f"CAR Updated: {car_number.title}",
+                                message=f"The corrective action record '{car_number.title}' has been updated."
+                            )
 
-                        except Users.DoesNotExist:
-                            logger.warning(f"Executor with ID {executor_id} not found")
+                            # Send email if email is present
+                            if user.email:
+                                self._send_email_async(car_number, user)
 
                 return Response(
                     {
                         "message": "Car Number updated successfully",
-                        "notification_sent": send_notification and executor_id is not None
+                        "notification_sent": send_notification
                     },
                     status=status.HTTP_200_OK
                 )
@@ -14664,3 +14652,1526 @@ class CarNumberEditAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending update email to {recipient_email}: {e}")
+
+
+
+
+class ReviewTypeCreateView(APIView):
+    def post(self, request):
+        serializer = ReviewTypeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ReviewTypeCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = ReviewType.objects.filter(company_id=company_id)
+        serializer = ReviewTypeSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+ 
+class ReviewTypeDetailView(APIView):
+ 
+    def get_object(self, pk):
+        try:
+            return ReviewType.objects.get(pk=pk)
+        except ReviewType.DoesNotExist:
+            return None
+
+
+    def delete(self, request, pk):
+        agenda = self.get_object(pk)
+        if not agenda:
+            return Response({"error": "Review Type not found."}, status=status.HTTP_404_NOT_FOUND)
+        agenda.delete()
+        return Response({"message": "Review Type deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+
+
+
+class EnergyReviewCreateAPIView(APIView):
+    """
+    Endpoint to handle creation of Energy Reviews and send notifications to all users in a company.
+    """
+
+    def post(self, request):
+        print("Received Data:", request.data)
+        try:
+            company_id = request.data.get('company')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+            serializer = EnergyReviewSerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    energy_review = serializer.save()
+                    logger.info(f"Energy Review created: {energy_review.energy_name}")
+
+                    if send_notification:
+                        users = Users.objects.filter(company=company)
+                        for user in users:
+                            # Create notification record
+                            notification = EnergyReviewNotification(
+                                user=user,
+                                energy_review=energy_review,
+                                title=f"New Energy Review: {energy_review.energy_name}",
+                                message=f"A new energy review '{energy_review.energy_name}' has been created."
+                            )
+                            notification.save()
+                            logger.info(f"Notification created for user {user.id}")
+ 
+                            if user.email:
+                                self._send_email_async(energy_review, user)
+
+                return Response(
+                    {
+                        "message": "Energy Review created successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                logger.warning(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error creating Energy Review: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, energy_review, recipient):
+        threading.Thread(target=self._send_notification_email, args=(energy_review, recipient)).start()
+
+    def _send_notification_email(self, energy_review, recipient):
+        subject = f"Energy Review Notification: {energy_review.energy_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'energy_name': energy_review.energy_name,
+            'review_no': energy_review.review_no,
+            'revision': energy_review.revision,
+            'review_type': energy_review.review_type.title if energy_review.review_type else "N/A",
+            'date': energy_review.date,
+            'remarks': energy_review.remarks,
+            'relate_business_process': energy_review.relate_business_process,
+            'relate_document_process': energy_review.relate_document_process,
+            'created_by': energy_review.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/energy_review/energy_review_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            
+            if energy_review.upload_attachment:
+                try:
+                    file_name = energy_review.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = energy_review.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached energy review document: {file_name}")
+                except Exception as attachment_error:
+                    print(f"Error attaching energy review file: {str(attachment_error)}")
+                    
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Energy Review email to {recipient_email}: {e}")
+
+
+
+class EnergyReviewDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return EnergyReview.objects.get(pk=pk)
+        except EnergyReview.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EnergyReviewGetSerializer(car_number)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "Conformity deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class EnergyReviewCompanyCauseView(APIView):
+    def get(self, request, company_id):
+        agendas = EnergyReview.objects.filter(company_id=company_id,is_draft=False)
+        serializer = EnergyReviewGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class EnergyReviewDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = EnergyReviewSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                compliance.upload_attachment = file_obj
+                compliance.save()
+                
+            return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+class EnergyReviewDraftCompanyView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = EnergyReview.objects.filter(user=user, is_draft=True)
+        serializer =EnergyReviewGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+
+class GetNextNCRReviewEnergy(APIView):
+ 
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+ 
+        last_review = EnergyReview.objects.filter(company=company).order_by('-review_no').first()
+        next_review_no = 1 if not last_review or not last_review.review_no else last_review.review_no + 1
+
+        return Response({'next_review_no': next_review_no}, status=status.HTTP_200_OK)
+
+
+
+class EnergyReviewEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Energy Review and notify all users in the same company.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+
+            # Fetch the EnergyReview instance by pk
+            try:
+                energy_review = EnergyReview.objects.get(id=pk)
+                if energy_review.is_draft:
+                    return Response(
+                        {"error": "Cannot edit a draft review using this endpoint."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except EnergyReview.DoesNotExist:
+                return Response(
+                    {"error": "Energy Review not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Serialize and validate the incoming data
+            serializer = EnergyReviewSerializer(energy_review, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    updated_review = serializer.save()
+                    logger.info(f"Energy Review updated: {updated_review.energy_name}")
+
+                    # If send_notification is true, send notifications to all users in the company
+                    if send_notification:
+                        company_users = Users.objects.filter(company=updated_review.company)
+
+                        for user in company_users:
+                    
+                            EnergyReviewNotification.objects.create(
+                                user=user,
+                                energy_review=updated_review,
+                                title=f"Updated Energy Review: {updated_review.energy_name}",
+                                message=f"The review '{updated_review.energy_name}' has been updated."
+                            )
+                            logger.info(f"Notification saved for user {user.id}")
+                            if user.email:
+                                self._send_email_async(updated_review, user)
+
+                return Response(
+                    {
+                        "message": "Energy Review updated successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            logger.warning(f"Validation error on update: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Energy Review: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, energy_review, recipient):
+        threading.Thread(target=self._send_notification_email, args=(energy_review, recipient)).start()
+
+    def _send_notification_email(self, energy_review, recipient):
+        subject = f"Energy Review Updated: {energy_review.energy_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'energy_name': energy_review.energy_name,
+            'review_no': energy_review.review_no,
+            'source': energy_review.relate_business_process,
+            'remarks': energy_review.remarks,
+            'date_raised': energy_review.date,
+            'revision': energy_review.revision,
+            'status': energy_review.is_draft,
+            'created_by': energy_review.user
+        }
+
+        try:
+            html_message = render_to_string('qms/energy_review/energy_review_edit.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            if energy_review.upload_attachment:
+                try:
+                    file_name = energy_review.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = energy_review.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached energy review document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching energy review file: {str(attachment_error)}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")
+
+
+ 
+
+
+class EnergyReviewDraftUpdateAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Energy Review and notify all users in the same company.
+    """
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            # Fetch the EnergyReview instance by pk
+            energy_review = get_object_or_404(EnergyReview, pk=pk)
+
+           
+            # Explicitly set 'is_draft' to False before saving
+            data = request.data
+            data['is_draft'] = False  # Ensure that the review is not a draft
+
+            # Serialize and validate the incoming data
+            serializer = EnergyReviewSerializer(energy_review, data=data, partial=True)
+            if serializer.is_valid():
+                # Save the updated review
+                updated_review = serializer.save()
+
+                # Handle file attachment if provided
+                if 'upload_attachment' in request.FILES:
+                    updated_review.upload_attachment = request.FILES['upload_attachment']
+                    updated_review.save()
+                    logger.info(f"Attachment uploaded: {updated_review.upload_attachment.name}")
+
+                # Send notifications and emails if 'send_notification' is True
+                send_notification = request.data.get('send_notification', False)
+                if send_notification:
+                    company_users = Users.objects.filter(company=updated_review.company)
+
+                    for user in company_users:
+                        # Create notification
+                        notification = EnergyReviewNotification(
+                            user=user,
+                            energy_review=updated_review,
+                            title=f"create Energy Review: {updated_review.energy_name}",
+                            message=f"The energy review '{updated_review.energy_name}' has been updated."
+                        )
+                        notification.save()
+
+                        # Send email if user has email
+                        if user.email:
+                            self._send_email_async(updated_review, user)
+
+                return Response(
+                    {"message": "Energy Review updated successfully", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnergyReview.DoesNotExist:
+            return Response(
+                {"error": "Energy Review not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error updating Energy Review: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, review, recipient):
+        # Run the email sending function in a separate thread
+        threading.Thread(target=self._send_notification_email, args=(review, recipient)).start()
+
+    def _send_notification_email(self, review, recipient):
+        subject = f"Energy Review create: {review.energy_name}"
+        recipient_email = recipient.email
+
+        context = {
+            'energy_name': review.energy_name,
+            'review_no':review.review_no,
+            'source': review.relate_business_process,
+            'remarks': review.remarks,
+            'date_raised': review.date,
+            'revision': review.revision,
+            'status': review.is_draft,
+            'created_by': review.user
+        }
+
+        try:
+            # Prepare the email content
+            html_message = render_to_string('qms/energy_review/energy_review_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            # Set up the email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if exists
+            if review.upload_attachment:
+                try:
+                    file_name = review.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = review.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached energy review document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching energy review file: {str(attachment_error)}")
+                    
+          
+            connection = CertifiEmailBackend(
+                host=settings.EMAIL_HOST,
+                port=settings.EMAIL_PORT,
+                username=settings.EMAIL_HOST_USER,
+                password=settings.EMAIL_HOST_PASSWORD,
+                use_tls=True,
+                 
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Energy Review email to {recipient_email}: {e}")
+
+    
+class conformityView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = ConformityReport.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = ConformitySerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class EnergyReviewCountView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = EnergyReview.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnergyReviewSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+        
+
+
+class BaselineReviewTypeView(APIView):
+    def get(self, request):
+ 
+        root_causes = BaselineReview.objects.all()
+        serializer = BaselineReviewSerializer(root_causes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+  
+        serializer = BaselineReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class BaselineReviewDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = BaselineReview.objects.get(pk=pk)
+        except BaselineReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = BaselineReviewSerializer(root_cause)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            root_cause = BaselineReview.objects.get(pk=pk)
+        except BaselineReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = BaselineReviewSerializer(root_cause, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = BaselineReview.objects.get(pk=pk)
+        except BaselineReview.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+ 
+
+class BaselineView(APIView):
+    def get(self, request):
+        baselines = Baseline.objects.prefetch_related('enpis').all()
+        serializer = BaselineGetSerializer(baselines, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = BaselineSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class BaselineDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            baseline = Baseline.objects.prefetch_related('enpis').get(pk=pk)
+        except Baseline.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = BaselineSerializer(baseline)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            baseline = Baseline.objects.get(pk=pk)
+        except Baseline.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = BaselineSerializer(baseline, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            baseline = Baseline.objects.get(pk=pk)
+        except Baseline.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        baseline.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+class BaselineReviewTypeCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = BaselineReview.objects.filter(company_id=company_id)
+        serializer = BaselineReviewSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class BaselineCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = Baseline.objects.filter(company_id=company_id)
+        serializer = BaselineGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class BaselineDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['is_draft'] = True 
+
+        serializer = BaselineSerializer(data=data)
+        if serializer.is_valid():
+            report = serializer.save()
+            return Response({
+                "message": "Conformity Report saved as draft",
+                "data": BaselineSerializer(report).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+
+class BaselineDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = Baseline.objects.filter(user=user, is_draft=True)
+        serializer =BaselineSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class BaselineView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Baseline.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = BaselineSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+        
+class EnergyImprovementsListCreateAPIView(APIView):
+     
+    def get(self, request):
+        
+        energy_improvements = EnergyImprovement.objects.all()
+        serializer = EnergyImprovementsSerializer(energy_improvements, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+  
+        serializer = EnergyImprovementsSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EnergyImprovementsDetailAPIView(APIView):
+  
+    def get(self, request, pk):
+        try:
+            energy_improvement = EnergyImprovement.objects.get(pk=pk)
+        except EnergyImprovement.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnergyImprovementsSerializer(energy_improvement)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            energy_improvement = EnergyImprovement.objects.get(pk=pk)
+        except EnergyImprovement.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnergyImprovementsSerializer(energy_improvement, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            energy_improvement = EnergyImprovement.objects.get(pk=pk)
+        except EnergyImprovement.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        energy_improvement.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class EnergyImprovementsCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = EnergyImprovement.objects.filter(company_id=company_id)
+        serializer = EnergyImprovementsGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    
+class EnergyImprovementsDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = EnergyImprovementsSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                compliance.upload_attachment = file_obj
+                compliance.save()
+                
+            return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EnergyImprovementsDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = EnergyImprovement.objects.filter(user=user, is_draft=True)
+        serializer =EnergyImprovementsGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class EnergyImprovementsView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = EnergyImprovement.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnergyImprovementsSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class EnergyActionView(APIView):
+    def get(self, request):
+        baselines = EnergyAction.objects.prefetch_related('programs').all()
+        serializer = EnergyActionSerializer(baselines, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer =EnergyActionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class EnergyActionDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            baseline = EnergyAction.objects.prefetch_related('programs').get(pk=pk)
+        except EnergyAction.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EnergyActionSerializer(baseline)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            baseline = EnergyAction.objects.get(pk=pk)
+        except EnergyAction.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnergyActionSerializer(baseline, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            baseline = EnergyAction.objects.get(pk=pk)
+        except EnergyAction.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        baseline.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+class EnergyActionCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = EnergyAction.objects.filter(company_id=company_id)
+        serializer = EnergyActionGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+
+class EnergyActionDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Don't copy the entire request.data, just extract what we need
+        data = {}
+        
+        # Copy over simple data fields 
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        # Set is_draft flag
+        data['is_draft'] = True
+        
+        # Handle file separately
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = EnergyActionSerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            
+            # Assign file if provided
+            if file_obj:
+                compliance.upload_attachment = file_obj
+                compliance.save()
+                
+            return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class EnergyActionDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = EnergyAction.objects.filter(user=user, is_draft=True)
+        serializer =EnergyActionGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class EnergyActionView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = EnergyAction.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnergyActionSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class SignificantEnergyCreateAPIView(APIView):
+    """
+    Endpoint to create a Significant Energy record and optionally send notifications to users of a company.
+    """
+
+    def post(self, request):
+        print("Received Data:", request.data)
+        try:
+            company_id = request.data.get('company')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+            serializer = SignificantEnergySerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    significant_energy = serializer.save()
+                    logger.info(f"Significant Energy created: {significant_energy.significant}")
+
+                    if send_notification:
+                        users = Users.objects.filter(company=company)
+                        for user in users:
+                            # Create notification
+                            notification = SignificantEnergyNotification(
+                                user=user,
+                                significant=significant_energy,
+                                title=f"New Significant Energy: {significant_energy.significant}",
+                                message=f"A new significant energy '{significant_energy.title}' has been created."
+                            )
+                            notification.save()
+                            logger.info(f"Notification created for user {user.id}")
+
+                            if user.email:
+                                self._send_email_async(significant_energy, user)
+
+                return Response(
+                    {
+                        "message": "Significant Energy created successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                logger.warning(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error creating Significant Energy: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, significant_energy, recipient):
+        threading.Thread(target=self._send_notification_email, args=(significant_energy, recipient)).start()
+
+    def _send_notification_email(self, significant_energy, recipient):
+        subject = f"Significant Energy Notification: {significant_energy.significant}"
+        recipient_email = recipient.email
+
+        context = {
+            'significant': significant_energy.significant,
+            'title': significant_energy.title,
+            'source_type': significant_energy.source_type.title if significant_energy.source_type else "N/A",
+            'date': significant_energy.date,
+            'remarks': significant_energy.remarks,
+            'consumption': significant_energy.consumption,
+            'consequences': significant_energy.consequences,
+            'facility': significant_energy.facility,
+            'impact': significant_energy.impact,
+            'action': significant_energy.action,
+            'created_by': significant_energy.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/significant/significant_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if significant_energy.upload_attachment:
+                try:
+                    file_name = significant_energy.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = significant_energy.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached significant energy document: {file_name}")
+                except Exception as attachment_error:
+                    print(f"Error attaching file: {str(attachment_error)}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Significant Energy email to {recipient_email}: {e}")
+
+
+
+class EnergySourceView(APIView):
+    def get(self, request):
+ 
+        root_causes = EnergySource.objects.all()
+        serializer = EnergySourceSerializer(root_causes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+  
+        serializer = EnergySourceSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class EnergySourceReviewDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = EnergySource.objects.get(pk=pk)
+        except EnergySource.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EnergySourceSerializer(root_cause)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            root_cause = EnergySource.objects.get(pk=pk)
+        except EnergySource.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = EnergySourceSerializer(root_cause, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = EnergySource.objects.get(pk=pk)
+        except EnergySource.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EnergySourceReviewTypeCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = EnergySource.objects.filter(company_id=company_id)
+        serializer = EnergySourceSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class SignificantEnergyDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return SignificantEnergy.objects.get(pk=pk)
+        except SignificantEnergy.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = SignificantEnergyGetSerializer(car_number)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "Conformity deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class SignificantDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+ 
+        data = {}
+        
+        
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+      
+        data['is_draft'] = True
+        
+        
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = SignificantEnergySerializer(data=data)
+        if serializer.is_valid():
+            compliance = serializer.save()
+            
+            
+            if file_obj:
+                compliance.upload_attachment = file_obj
+                compliance.save()
+                
+            return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SignificantCompanyCauseView(APIView):
+    def get(self, request, company_id):
+        agendas = SignificantEnergy.objects.filter(company_id=company_id,is_draft=False)
+        serializer = SignificantEnergyGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SignificantDraftCompanyView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = SignificantEnergy.objects.filter(user=user, is_draft=True)
+        serializer =SignificantEnergyGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+ 
+class GetNextsignificantReviewEnergy(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+ 
+        last_review = SignificantEnergy.objects.filter(company=company).order_by('-id').first()
+        
+ 
+        if last_review and last_review.significant:
+            try:
+                
+                last_number = int(last_review.significant.split("-")[1])
+                next_review_no = last_number + 1
+            except (IndexError, ValueError):
+             
+                next_review_no = 1
+        else:
+ 
+            next_review_no = 1
+
+        
+        return Response({'next_review_no': next_review_no}, status=status.HTTP_200_OK)
+
+
+
+class SignificantEnergyEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Significant Energy review and notify all users in the same company.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+
+            # Fetch the SignificantEnergy instance by pk
+            try:
+                significant_energy = SignificantEnergy.objects.get(id=pk)
+                if significant_energy.is_draft:
+                    return Response(
+                        {"error": "Cannot edit a draft review using this endpoint."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except SignificantEnergy.DoesNotExist:
+                return Response(
+                    {"error": "Significant Energy review not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Serialize and validate the incoming data
+            serializer = SignificantEnergySerializer(significant_energy, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    updated_review = serializer.save()
+                    logger.info(f"Significant Energy review updated: {updated_review.significant}")
+
+                    # If send_notification is true, send notifications to all users in the company
+                    if send_notification:
+                        company_users = Users.objects.filter(company=updated_review.company)
+
+                        for user in company_users:
+                            SignificantEnergyNotification.objects.create(
+                                user=user,
+                                significant=updated_review,
+                                title=f"Updated Significant Energy Review: {updated_review.significant}",
+                                message=f"The review '{updated_review.significant}' has been updated."
+                            )
+                            logger.info(f"Notification saved for user {user.id}")
+                            if user.email:
+                                self._send_email_async(updated_review, user)
+
+                return Response(
+                    {
+                        "message": "Significant Energy Review updated successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            logger.warning(f"Validation error on update: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Significant Energy Review: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, significant_energy, recipient):
+        threading.Thread(target=self._send_notification_email, args=(significant_energy, recipient)).start()
+
+    def _send_notification_email(self, significant_energy, recipient):
+        subject = f"Significant Energy Review Updated: {significant_energy.significant}"
+        recipient_email = recipient.email
+
+        context = {
+            'significant': significant_energy.significant,
+            'title': significant_energy.title,
+            'source_type': significant_energy.source_type.title if significant_energy.source_type else "N/A",
+            'date': significant_energy.date,
+            'remarks': significant_energy.remarks,
+            'consumption': significant_energy.consumption,
+            'consequences': significant_energy.consequences,
+            'facility': significant_energy.facility,
+            'impact': significant_energy.impact,
+            'action': significant_energy.action,
+            'created_by': significant_energy.user,
+        }
+
+        try:
+            html_message = render_to_string('qms/significant/significant_edit.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+            if significant_energy.upload_attachment:
+                try:
+                    file_name = significant_energy.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = significant_energy.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached significant energy document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching significant energy file: {str(attachment_error)}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")
+            
+
+class SignificantEnergyDraftUpdateAPIView(APIView):
+    """
+    Endpoint to update an existing Significant Energy record and notify all users in the same company.
+    """
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            # Fetch the SignificantEnergy instance by pk
+            significant_energy = get_object_or_404(SignificantEnergy, pk=pk)
+
+            # Explicitly set 'is_draft' to False before saving
+            data = request.data
+            data['is_draft'] = False  # Ensure that the record is not a draft
+
+            # Serialize and validate the incoming data
+            serializer = SignificantEnergySerializer(significant_energy, data=data, partial=True)
+            if serializer.is_valid():
+                # Save the updated record
+                updated_record = serializer.save()
+
+                # Handle file attachment if provided
+                if 'upload_attachment' in request.FILES:
+                    updated_record.upload_attachment = request.FILES['upload_attachment']
+                    updated_record.save()
+                    logger.info(f"Attachment uploaded: {updated_record.upload_attachment.name}")
+
+                # Send notifications and emails if 'send_notification' is True
+                send_notification = request.data.get('send_notification', False)
+                if send_notification:
+                    company_users = Users.objects.filter(company=updated_record.company)
+
+                    for user in company_users:
+                        # Create notification
+                        notification = SignificantEnergyNotification(
+                            user=user,
+                            significant=updated_record,
+                            title=f"Create Significant Energy Record: {updated_record.significant}",
+                            message=f"The significant energy record '{updated_record.significant}' has been Created."
+                        )
+                        notification.save()
+
+                        # Send email if user has email
+                        if user.email:
+                            self._send_email_async(updated_record, user)
+
+                return Response(
+                    {"message": "Significant Energy record created successfully", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except SignificantEnergy.DoesNotExist:
+            return Response(
+                {"error": "Significant Energy record not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error updating Significant Energy record: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, record, recipient):
+       
+        threading.Thread(target=self._send_notification_email, args=(record, recipient)).start()
+
+    def _send_notification_email(self, record, recipient):
+        subject = f"Significant Energy Record created: {record.significant}"
+        recipient_email = recipient.email
+
+        context = {
+            'significant': record.significant,
+            'title': record.title,
+            'source_type': record.source_type.title if record.source_type else "N/A",
+            'date': record.date,
+            'remarks': record.remarks,
+            'consumption': record.consumption,
+            'consequences': record.consequences,
+            'facility': record.facility,
+            'impact': record.impact,
+            'action': record.action,
+            'created_by': record.user,
+        }
+        try:
+            # Prepare the email content
+            html_message = render_to_string('qms/significant/significant_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            # Set up the email
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            # Attach file if exists
+            if record.upload_attachment:
+                try:
+                    file_name = record.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = record.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    logger.info(f"Attached significant energy document: {file_name}")
+                except Exception as attachment_error:
+                    logger.error(f"Error attaching significant energy file: {str(attachment_error)}")
+                    
+            connection = CertifiEmailBackend(
+                host=settings.EMAIL_HOST,
+                port=settings.EMAIL_PORT,
+                username=settings.EMAIL_HOST_USER,
+                password=settings.EMAIL_HOST_PASSWORD,
+                use_tls=True,
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Significant Energy email to {recipient_email}: {e}")
+
+
+
+
+class SignificantCountView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = SignificantEnergy.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = SignificantEnergySerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class GetTrashMessagesView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+    
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'User not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+        trash_messages = Message.objects.filter(is_trash=True, trash_user=user)
+
+        if trash_messages.exists():
+         
+            serializer = MessageSerializer(trash_messages, many=True)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'No trash messages found for the user.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class GetTrashReplayMessagesView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+    
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'User not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+        trash_messages = ReplayMessage.objects.filter(is_trash=True, trash_user=user)
+
+        if trash_messages.exists():
+         
+            serializer = ReplayMessageSerializer(trash_messages, many=True)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'No trash messages found for the user.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+
+class GetTrashForwardMessagesView(APIView):
+    def get(self, request, user_id, *args, **kwargs):
+        try:
+    
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'User not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+        trash_messages = ForwardMessage.objects.filter(is_trash=True, trash_user=user)
+
+        if trash_messages.exists():
+         
+            serializer = ForwardMessageSerializer(trash_messages, many=True)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'No trash messages found for the user.'
+            }, status=status.HTTP_404_NOT_FOUND)

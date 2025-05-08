@@ -388,6 +388,7 @@ urlpatterns = [
     path('messages/trash/<int:user_id>/', UserTrashMessageListView.as_view(), name='user-inbox'), 
     path('messages/replay-trash/<int:user_id>/', UserTrashReplyMessageListView.as_view(), name='user-inbox'), 
     path('messages/forward-trash/<int:user_id>/', UserTrashForwardMessageListView.as_view(), name='user-inbox'), 
+
     
     
     # Preventive Action
@@ -423,7 +424,7 @@ urlpatterns = [
     path('conf-cause/company/<int:company_id>/', ConformityCauseCompanyView.as_view(), name='company-agendas'),  
     path('conf-cause/<int:pk>/', ConformityCauseDetailView.as_view(), name='agenda-detail'),
     
-    # ConformityReport
+    # Conformity Report
     path('conformity/create/', ConformityCreateAPIView.as_view(), name='car-number-list-create'),
     path('conformity/<int:pk>/', ConformityDetailView.as_view(), name='car-number-detail'),
     path('conformity/draft-create/', ConformityDraftAPIView.as_view(), name='manual-create'),
@@ -432,6 +433,70 @@ urlpatterns = [
     path('conformity/next-action/<int:company_id>/', GetNextNCRConformity.as_view(), name='get-next-action-number'),
     path('conformity/update/<int:pk>/', ConformityEditAPIView.as_view(), name='car-draft-update'),
     path('conformity-draft/update/<int:pk>/', ConformityDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path('conformity/drafts-count/<int:user_id>/', conformityView.as_view(), name='draft-manuals'),
+    
+    # Review Type
+    path('review-type/create/', ReviewTypeCreateView.as_view(), name='agenda-list-create'), 
+    path('review-type/company/<int:company_id>/', ReviewTypeCompanyView.as_view(), name='company-agendas'),  
+    path('review-type/<int:pk>/', ReviewTypeDetailView.as_view(), name='agenda-detail'),
+    
+    # Energy Review
+    path('energy-review/create/', EnergyReviewCreateAPIView.as_view(), name='car-number-list-create'),
+    path('energy-review/<int:pk>/', EnergyReviewDetailView.as_view(), name='car-number-detail'),
+    path('energy-review/draft-create/', EnergyReviewDraftAPIView.as_view(), name='manual-create'),
+    path('energy-review/company/<int:company_id>/', EnergyReviewCompanyCauseView.as_view(), name='company-agendas'),
+    path('energy-review/draft/<user_id>/', EnergyReviewDraftCompanyView.as_view(), name='company-agendas'),   
+    path('energy-review/next-action/<int:company_id>/', GetNextNCRReviewEnergy.as_view(), name='get-next-action-number'),
+    path('energy-review/update/<int:pk>/', EnergyReviewEditAPIView.as_view(), name='car-draft-update'),
+    path('energy-review-draft/update/<int:pk>/', EnergyReviewDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path('energy-review/drafts-count/<int:user_id>/', EnergyReviewCountView.as_view(), name='draft-manuals'),
+    
+    
+    # Energy Baseline Review Type
+    path('baseline-reviewtype/create/', BaselineReviewTypeView.as_view(), name='root-cause-list-create'),   
+    path('baseline-reviewtype/company/<int:company_id>/', BaselineReviewTypeCompanyView.as_view(), name='company-agendas'), 
+    path('baseline-reviewtype/<int:pk>/', BaselineReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+    # Energy Baseline
+    path('baselines/create/', BaselineView.as_view(), name='baseline-list-create'),
+    path('baselines/company/<int:company_id>/', BaselineCompanyView.as_view(), name='company-agendas'), 
+    path('baselines/<int:pk>/', BaselineDetailView.as_view(), name='baseline-detail'),
+    path('baselines/draft-create/', BaselineDraftAPIView.as_view(), name='manual-create'),  
+    path('baselines-draft/<int:user_id>/', BaselineDraftAllList.as_view(), name='manual-list'),
+    path('baselines/drafts-count/<int:user_id>/',  BaselineView.as_view(), name='draft-manuals'),
+    
+    # Energy Improvement Performance
+    path('energy-improvements/create/', EnergyImprovementsListCreateAPIView.as_view(), name='energy-improvements-list-create'),
+    path('energy-improvements/company/<int:company_id>/', EnergyImprovementsCompanyView.as_view(), name='company-agendas'), 
+    path('energy-improvements/<int:pk>/', EnergyImprovementsDetailAPIView.as_view(), name='energy-improvements-detail'),
+    path('energy-improvements/draft-create/', EnergyImprovementsDraftAPIView.as_view(), name='manual-create'),  
+    path('energy-improvements-draft/<int:user_id>/', EnergyImprovementsDraftAllList.as_view(), name='manual-list'),
+    path('energy-improvements/drafts-count/<int:user_id>/',  EnergyImprovementsView.as_view(), name='draft-manuals'),
+    
+    # Energy Action
+    path('energy-action/create/', EnergyActionView.as_view(), name='baseline-list-create'),
+    path('energy-action/company/<int:company_id>/', EnergyActionCompanyView.as_view(), name='company-agendas'), 
+    path('energy-action/<int:pk>/', EnergyActionDetailView.as_view(), name='baseline-detail'), 
+    path('energy-action/draft-create/', EnergyActionDraftAPIView.as_view(), name='manual-create'),  
+    path('energy-action-draft/<int:user_id>/', EnergyActionDraftAllList.as_view(), name='manual-list'),
+    path('energy-action/drafts-count/<int:user_id>/',  EnergyActionView.as_view(), name='draft-manuals'),
+       
+    # Source type
+    path('source-type/create/', EnergySourceView.as_view(), name='root-cause-list-create'),   
+    path('source-type/company/<int:company_id>/', EnergySourceReviewTypeCompanyView.as_view(), name='company-agendas'), 
+    path('source-type/<int:pk>/', EnergySourceReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+    # Significant Energy Use
+    path('significant/create/', SignificantEnergyCreateAPIView.as_view(), name='car-number-list-create'),
+    path('significant/<int:pk>/', SignificantEnergyDetailView.as_view(), name='car-number-detail'),
+    path('significant/draft-create/', SignificantDraftAPIView.as_view(), name='manual-create'),
+    path('significant/company/<int:company_id>/', SignificantCompanyCauseView.as_view(), name='company-agendas'),
+    path('significant/draft/<user_id>/', SignificantDraftCompanyView.as_view(), name='company-agendas'),   
+    path('significant/next-action/<int:company_id>/', GetNextsignificantReviewEnergy.as_view(), name='get-next-action-number'),
+    path('significant/update/<int:pk>/', SignificantEnergyEditAPIView.as_view(), name='car-draft-update'),
+    path('significant-draft/update/<int:pk>/', SignificantEnergyDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path('significant/drafts-count/<int:user_id>/', SignificantCountView.as_view(), name='draft-manuals'),
+    
 ]
 
 
