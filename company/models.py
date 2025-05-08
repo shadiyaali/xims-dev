@@ -635,42 +635,6 @@ class CorrectiveAction(models.Model):
 
 
 
-class ConformityCause(models.Model):   
-    title = models.CharField(max_length=255,blank=True, null=True)
-    
-    def __str__(self):
-        return self.title
 
-class Conformity(models.Model):
-    source = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        choices=[
-            ('Audit', 'Audit'),
-            ('Customer', 'Customer'),
-            ('Internal','Internal'),
-            ('Supplier','Supplier')  
-        ]
-    )
-    ncr = models.CharField(max_length=50, blank=True, null=True)
-    root_cause = models.ForeignKey(ConformityCause, on_delete=models.SET_NULL, null=True )
-    description = models.TextField(blank=True, null=True)
-    date_raised = models.DateField(blank=True, null=True)
-    date_completed = models.DateField(blank=True, null=True)
-    Status_CHOICES = [
-        ('Pending', 'Pending'),
-        ('Completed', 'Completed'),
-        ('Deleted','Deleted')
-        
-    ]
-    status = models.CharField(max_length=20, choices=Status_CHOICES, default='Pending')
-    title = models.CharField(max_length=50, blank=True, null=True)
-    executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True )
-    resolution = models.TextField(blank=True, null=True)
-    send_notification = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.title
     
  

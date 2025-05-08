@@ -396,15 +396,7 @@ class CorrectiveActionSerializer(serializers.ModelSerializer):
  
  
 
-class ConformityCauseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ConformityCause
-        fields = ['id', 'title']
 
-class ConformitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Conformity
-        fields = '__all__'
 
 
  

@@ -75,11 +75,7 @@ urlpatterns = [
     
  
     
-    path('conformity-causes/', ConformityCauseView.as_view(), name='conformity-cause-list'),  
-    path('conformity-causes/<int:pk>/', ConformityCauseDetailView.as_view(), name='conformity-cause-detail'), 
-    path('conformities/', ConformityView.as_view(), name='conformity-list'),   
-    path('conformities/<int:pk>/', ConformityDetailView.as_view(), name='conformity-detail'), 
-    
+ 
  
    
     

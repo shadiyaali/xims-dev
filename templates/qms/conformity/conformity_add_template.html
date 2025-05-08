@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XIMS Pro - Quality Management System</title>
     <style>
+       
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -130,12 +131,12 @@
             .metadata-row {
                 flex-direction: column;
             }
-            
+
             .metadata-col {
                 width: 100%;
                 margin-bottom: 15px;
             }
-            
+
             .metadata-col:last-child {
                 margin-bottom: 0;
             }
@@ -146,17 +147,16 @@
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="https://hoztox-test.s3.ap-south-1.amazonaws.com/media/Layer_1.png" alt="XIMS Pro Logo" style="height: 24px;">
+                <img src="https://hoztox-test.s3.ap-south-1.amazonaws.com/media/Layer_1.png" alt="XIMS Pro Logo">
             </div>
         </div>
 
         <div class="title">
             <h1>Quality Management System</h1>
-            <h2>Preventive Action {{ title }}</h2>
-            <p>{{ created_by.first_name }}{{ created_by.last_name }}  has published preventive action {{ title }}.</p>
-            
+            <h2>Conformity Reports {{ title }}</h2>
+            <p>{{ created_by.first_name }} {{ created_by.last_name }} has published conformity reports {{ title }}.</p>
         </div>
-  
+
         <div class="metadata">
             <div class="metadata-border">
                 <div class="metadata-row">
@@ -170,6 +170,16 @@
                     </div>
                 </div>
 
+                <div class="metadata-row">
+                    <div class="metadata-col">
+                        <div class="metadata-label">Source</div>
+                        <div class="metadata-value">{{ source }}</div>
+                    </div>
+                    <div class="metadata-col">
+                        <div class="metadata-label">NCR</div>
+                        <div class="metadata-value">{{ ncr }}</div>
+                    </div>
+                </div>
 
                 <div class="metadata-row">
                     <div class="metadata-col">
@@ -177,8 +187,19 @@
                         <div class="metadata-value">{{ description }}</div>
                     </div>
                     <div class="metadata-col">
-                        <div class="metadata-label">Action</div>
-                        <div class="metadata-value">{{ action }}</div>
+                        <div class="metadata-label">Resolution</div>
+                        <div class="metadata-value">{{ resolution }}</div>
+                    </div>
+                </div>
+
+                <div class="metadata-row">
+                    <div class="metadata-col">
+                        <div class="metadata-label">Root Cause</div>
+                        <div class="metadata-value">{{ root_cause }}</div>
+                    </div>
+                    <div class="metadata-col">
+                        <div class="metadata-label">Supplier</div>
+                        <div class="metadata-value">{{ supplier }}</div>
                     </div>
                 </div>
 
@@ -198,10 +219,7 @@
                         <div class="metadata-label">Status</div>
                         <div class="metadata-value">{{ status }}</div>
                     </div>
-                     
                 </div>
-
-               
             </div>
         </div>
 

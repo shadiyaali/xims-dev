@@ -9536,15 +9536,17 @@ class CarNumberCreateAPIView(APIView):
 
         context = {
             'title': car_number.title,
-            'action_no': car_number.action_no,
             'source': car_number.source,
             'description': car_number.description,
+            "executor": recipient,
+            'action_no': car_number.action_no,
             'date_raised': car_number.date_raised,
             'date_completed': car_number.date_completed,
             'action_or_corrections': car_number.action_or_corrections,
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
-            'created_by':car_number.user
+            'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
+            'created_by': car_number.user
         }
 
         try:
@@ -13095,6 +13097,47 @@ class DraftMessageAsTrashView(APIView):
             }, status=status.HTTP_404_NOT_FOUND)
             
 
+class UserTrashMessageListView(generics.ListAPIView):
+    serializer_class = MessageListSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
+
+
+
+class UserTrashReplyMessageListView(generics.ListAPIView):
+    serializer_class = ReplayMessageSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return ReplayMessage.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
+
+class UserTrashForwardMessageListView(generics.ListAPIView):
+    serializer_class = ForwardMessageSerializer
+  
+
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return ForwardMessage.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
+
 class PreventiveActionCreateAPIView(APIView):
     def post(self, request):
         logger.info(f"Received preventive action creation request: {request.data}")
@@ -13876,57 +13919,748 @@ class ObjectiveView(APIView):
         
         
 
- 
 
-class TargetListCreateView(generics.ListCreateAPIView):
-    """
-    API view to list all targets or create a new target with programs
-    """
-    queryset = Targets.objects.all()
-    serializer_class = TargetSerializer
+
+class TargetCreateView(APIView):
+ 
     
-    def get_queryset(self):
-        queryset = super().get_queryset()
+    def post(self, request, *args, **kwargs):
+        serializer = TargetSerializer(data=request.data)
         
-        # Filter by user if provided
-        user_id = self.request.query_params.get('user', None)
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        # Filter by company if provided
-        company_id = self.request.query_params.get('company', None)
-        if company_id:
-            queryset = queryset.filter(company_id=company_id)
-            
-        # Filter by status if provided
-        status_filter = self.request.query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-            
-        # Filter draft/non-draft
-        is_draft = self.request.query_params.get('is_draft', None)
-        if is_draft is not None:
-            is_draft_bool = is_draft.lower() == 'true'
-            queryset = queryset.filter(is_draft=is_draft_bool)
-            
-        return queryset
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
+
+            if not request.data.get('user'):
+                serializer.validated_data['user'] = request.user
+                
+            target = serializer.save()
             return Response(
-                serializer.data, 
-                status=status.HTTP_201_CREATED, 
-                headers=headers
+                {
+                    "success": True,
+                    "message": "Target created successfully",
+                    "data": TargetSerializer(target).data
+                }, 
+                status=status.HTTP_201_CREATED
             )
+        
+        return Response(
+            {
+                "success": False,
+                "message": "Failed to create target",
+                "errors": serializer.errors
+            }, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    
+class TargetsList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        cpmpliance = Targets.objects.filter(company=company,is_draft=False)
+        serializer = TargetSerializer(cpmpliance, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+class TargetView(APIView):   
+    def get(self, request, pk=None, *args, **kwargs):
+        if pk:
+       
+            target = get_object_or_404(Targets, pk=pk)
+            serializer = TargetSerializer(target)
+            return Response(
+                {
+                    "success": True,
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )    
+    
+    def put(self, request, pk, *args, **kwargs):
+        target = get_object_or_404(Targets, pk=pk)
+        
+        
+        serializer = TargetSerializer(target, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+         
+            if 'programs' in request.data:
+                programs_data = request.data.pop('programs')
+                
+                
+                existing_programs = target.programs.all()
+                existing_programs.delete()
+                
+              
+                for program_data in programs_data:
+                    Programs.objects.create(target=target, **program_data)
+                    
+            target = serializer.save()
+            return Response(
+                {
+                    "success": True,
+                    "message": "Target updated successfully",
+                    "data": TargetSerializer(target).data
+                },
+                status=status.HTTP_200_OK
+            )
+        
+        return Response(
+            {
+                "success": False,
+                "message": "Failed to update target",
+                "errors": serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    def delete(self, request, pk, *args, **kwargs):
+        target = get_object_or_404(Targets, pk=pk)
+        target.delete()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Target deleted successfully"
+            },
+            status=status.HTTP_204_NO_CONTENT
+        )
+        
+class TargetsDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = {}
+        
+  
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+        
+        data['is_draft'] = True
+
+       
+        file_obj = request.FILES.get('upload_attachment')
+
+     
+        programs_data = request.data.get('programs')
+        if programs_data:
+            import json
+            if isinstance(programs_data, str):
+                try:
+                    programs_data = json.loads(programs_data)
+                except json.JSONDecodeError:
+                    return Response({"error": "Invalid JSON format for 'programs'"}, status=400)
+            data['programs'] = programs_data
+
+        serializer = TargetSerializer(data=data)
+
+        if serializer.is_valid():
+            compliance = serializer.save()
+
+ 
+            if file_obj:
+                compliance.upload_attachment = file_obj
+                compliance.save()
+
+            return Response(
+                {"message": "Compliance saved as draft", "data": TargetSerializer(compliance).data},
+                status=status.HTTP_201_CREATED
+            )
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class TargetDetailView(generics.RetrieveUpdateDestroyAPIView):
+    
+
+class TargetsDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = Targets.objects.filter(user=user, is_draft=True)
+        serializer =TargetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+    
+class TargetsView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Targets.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = TargetSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ConfirmitycauseCreateView(APIView):
+    def post(self, request):
+        serializer = ConformityCauseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ConformityCauseCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = ConformityCause.objects.filter(company_id=company_id)
+        serializer = ConformityCauseSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+ 
+class ConformityCauseDetailView(APIView):
+ 
+    def get_object(self, pk):
+        try:
+            return ConformityCause.objects.get(pk=pk)
+        except ConformityCause.DoesNotExist:
+            return None
+
+
+    def delete(self, request, pk):
+        agenda = self.get_object(pk)
+        if not agenda:
+            return Response({"error": "ConformityCause not found."}, status=status.HTTP_404_NOT_FOUND)
+        agenda.delete()
+        return Response({"message": "ConformityCause deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class ConformityCreateAPIView(APIView):
     """
-    API view to retrieve, update or delete a target
+    Endpoint to handle creation of Conformity Reports and send notifications.
     """
-    queryset = Targets.objects.all()
-    serializer_class = TargetSerializer
+
+    def post(self, request):
+        print("Received Data:", request.data)
+        try:
+            company_id = request.data.get('company')
+            send_notification = request.data.get('send_notification', False)
+            executor_id = request.data.get('executor')
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+            serializer = ConformitySerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    conformity_report = serializer.save()
+                    logger.info(f"Conformity Report created: {conformity_report.title}")
+
+                    if send_notification and executor_id:
+                        try:
+                            executor = Users.objects.get(id=executor_id)
+                            
+                            # Create notification record
+                            notification = ConformityNotification(
+                                user=executor,
+                                conformity=conformity_report,
+                                title=f"New Conformity Report: {conformity_report.title}",
+                                message=f"You have been assigned as executor for conformity report '{conformity_report.title}'"
+                            )
+                            notification.save()
+                            logger.info(f"Created notification for executor {executor.id} for Conformity Report {conformity_report.id}")
+                            
+                            # Send email to executor
+                            if executor.email:
+                                self._send_email_async(conformity_report, executor)
+
+                        except Users.DoesNotExist:
+                            logger.warning(f"Executor with ID {executor_id} not found")
+
+                return Response(
+                    {
+                        "message": "Conformity Report created successfully",
+                        "notification_sent": send_notification and executor_id is not None
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                logger.warning(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error creating Conformity Report: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, conformity_report, recipient):
+        """
+        Sends email in a separate thread to avoid blocking response.
+        """
+        threading.Thread(target=self._send_notification_email, args=(conformity_report, recipient)).start()
+
+    def _send_notification_email(self, conformity_report, recipient):
+        """
+        Send HTML-formatted email notification about a new Conformity Report assignment.
+        """
+        subject = f"Conformity Report Assignment: {conformity_report.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': conformity_report.title,
+            'ncr': conformity_report.ncr,
+            'source': conformity_report.source,
+            'description': conformity_report.description,
+            "executor":conformity_report.user,
+            'date_raised': conformity_report.date_raised,
+            'date_completed': conformity_report.date_completed,
+            'resolution': conformity_report.resolution,
+            'status': conformity_report.status,
+            'root_cause': conformity_report.root_cause.title if conformity_report.root_cause else "N/A",
+            'supplier': conformity_report.supplier.company_name if conformity_report.supplier else "N/A",
+            'created_by': conformity_report.user
+        }
+
+        try:
+            html_message = render_to_string('qms/conformity/conformity_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Conformity Report email to {recipient_email}: {e}")
+            
+            
+class ConformityDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return ConformityReport.objects.get(pk=pk)
+        except ConformityReport.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ConformityGetSerializer(car_number)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "Conformity not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "Conformity deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+class ConformityCompanyCauseView(APIView):
+    def get(self, request, company_id):
+        agendas = ConformityReport.objects.filter(company_id=company_id,is_draft=False)
+        serializer = ConformityGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ConformityDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['is_draft'] = True 
+
+        serializer = ConformitySerializer(data=data)
+        if serializer.is_valid():
+            report = serializer.save()
+            return Response({
+                "message": "Conformity Report saved as draft",
+                "data": ConformitySerializer(report).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class ConformityDraftCompanyView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = ConformityReport.objects.filter(user=user, is_draft=True)
+        serializer =ConformityGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class GetNextNCRConformity(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        last_report = ConformityReport.objects.filter(company=company).order_by('-ncr').first()
+        next_ncr = (last_report.ncr + 1) if last_report and last_report.ncr else 1
+
+        return Response({'next_action_no': next_ncr}, status=status.HTTP_200_OK)
+    
+
+
+ 
+
+class ConformityDraftUpdateAPIView(APIView):
+    """
+    View to update a draft ConformityReport and finalize it (set is_draft=False).
+    Sends notification email to executor if send_notification is True.
+    """
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            draft = get_object_or_404(ConformityReport, pk=pk, is_draft=True)
+            data = request.data.copy()
+            data['is_draft'] = False  # Finalize the draft
+
+            serializer = ConformitySerializer(draft, data=data, partial=True)
+            if serializer.is_valid():
+                report = serializer.save()
+
+                # Send notification if needed
+                send_notification = data.get('send_notification', False)
+                executor_id = data.get('executor')
+
+                if send_notification and executor_id:
+                    try:
+                        executor = Users.objects.get(id=executor_id)
+
+                        # Save notification
+                        notification = ConformityNotification(
+                            user=executor,
+                            conformity=report,
+                            title=f"New Conformity Report: {report.title}",
+                            message=f"You have been assigned as executor for conformity report '{report.title}'"
+                        )
+                        notification.save()
+
+                        # Send email
+                        if executor.email:
+                            self._send_email_async(report, executor)
+
+                    except Users.DoesNotExist:
+                        logger.warning(f"Executor with ID {executor_id} not found")
+
+                return Response(
+                    {"message": "Draft finalized successfully", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except ConformityReport.DoesNotExist:
+            return Response(
+                {"error": "Draft Conformity Report not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error finalizing Conformity draft: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, report, recipient):
+        threading.Thread(target=self._send_notification_email, args=(report, recipient)).start()
+
+    def _send_notification_email(self, report, recipient):
+        subject = f"Conformity Report Assignment: {report.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': report.title,
+            'ncr': report.ncr,
+            'source': report.source,
+            'description': report.description,
+            'date_raised': report.date_raised,
+            'date_completed': report.date_completed,
+            'resolution': report.resolution,
+            'status': report.status,
+            'root_cause': report.root_cause.title if report.root_cause else "N/A",
+            'supplier': report.supplier.company_name if report.supplier else "N/A",
+            'created_by': report.user,
+            'executor': report.executor
+        }
+
+        try:
+            html_message = render_to_string('qms/conformity/conformity_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Conformity email to {recipient_email}: {e}")
+
+
+
+class ConformityEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Conformity Report and send notifications if updated.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+            executor_id = request.data.get('executor')
+
+            try:
+                conformity_report = ConformityReport.objects.get(id=pk, is_draft=False)
+            except ConformityReport.DoesNotExist:
+                return Response(
+                    {"error": "Finalized Conformity Report not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = ConformitySerializer(conformity_report, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    conformity_report = serializer.save()
+                    logger.info(f"Conformity Report updated: {conformity_report.title}")
+
+                    if send_notification and executor_id:
+                        try:
+                            executor = Users.objects.get(id=executor_id)
+
+                            # Save notification
+                            ConformityNotification.objects.create(
+                                user=executor,
+                                conformity=conformity_report,
+                                title=f"Updated Conformity Report: {conformity_report.title}",
+                                message=f"The report '{conformity_report.title}' has been updated and assigned to you."
+                            )
+                            logger.info(f"Notification saved for executor {executor.id} after update.")
+
+                            # Send email
+                            if executor.email:
+                                self._send_email_async(conformity_report, executor)
+
+                        except Users.DoesNotExist:
+                            logger.warning(f"Executor with ID {executor_id} not found")
+
+                return Response(
+                    {
+                        "message": "Conformity Report updated successfully",
+                        "notification_sent": send_notification and executor_id is not None
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.warning(f"Validation error on update: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Conformity Report: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, conformity_report, recipient):
+        threading.Thread(target=self._send_notification_email, args=(conformity_report, recipient)).start()
+
+    def _send_notification_email(self, conformity_report, recipient):
+        subject = f"Conformity Report Updated: {conformity_report.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': conformity_report.title,
+            'ncr': conformity_report.ncr,
+            'source': conformity_report.source,
+            'description': conformity_report.description,
+            "executor": conformity_report.user,
+            'date_raised': conformity_report.date_raised,
+            'date_completed': conformity_report.date_completed,
+            'resolution': conformity_report.resolution,
+            'status': conformity_report.status,
+            'root_cause': conformity_report.root_cause.title if conformity_report.root_cause else "N/A",
+            'supplier': conformity_report.supplier.company_name if conformity_report.supplier else "N/A",
+            'created_by': conformity_report.user
+        }
+
+        try:
+            html_message = render_to_string('qms/conformity/conformity_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")
+
+
+
+
+class CarNumberEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Car Number and send notifications if updated.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+            executor_id = request.data.get('executor')
+
+            try:
+                car_number = CarNumber.objects.get(id=pk, is_draft=False)
+            except CarNumber.DoesNotExist:
+                return Response(
+                    {"error": "Finalized Car Number not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = CarNumberSerializer(car_number, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    car_number = serializer.save()
+                    logger.info(f"Car Number updated: {car_number.title}")
+
+                    if send_notification and executor_id:
+                        try:
+                            executor = Users.objects.get(id=executor_id)
+
+                            if executor.email:
+                                self._send_email_async(car_number, executor)
+
+                        except Users.DoesNotExist:
+                            logger.warning(f"Executor with ID {executor_id} not found")
+
+                return Response(
+                    {
+                        "message": "Car Number updated successfully",
+                        "notification_sent": send_notification and executor_id is not None
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.warning(f"Validation error on update: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Car Number: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, car_number, recipient):
+        threading.Thread(target=self._send_notification_email, args=(car_number, recipient)).start()
+
+    def _send_notification_email(self, car_number, recipient):
+        subject = f"CAR Updated: {car_number.title or f'Action #{car_number.action_no}'}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': car_number.title,
+            'source': car_number.source,
+            'description': car_number.description,
+            "executor": recipient,
+            'action_no': car_number.action_no,
+            'date_raised': car_number.date_raised,
+            'date_completed': car_number.date_completed,
+            'action_or_corrections': car_number.action_or_corrections,
+            'status': car_number.status,
+            'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
+            'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
+            'created_by': car_number.user
+        }
+
+        try:
+            html_message = render_to_string('qms/car/car_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")

@@ -1317,11 +1317,79 @@ class Targets(models.Model):
     def __str__(self):
         return self.target or "No Title Provided"
     
-    
-class Program(models.Model): 
-    target = models.ForeignKey(Targets, on_delete=models.CASCADE, null=True, related_name="programs")  
-    Program = models.CharField(max_length=100, blank=True, null=True)
-    
+class Programs(models.Model):
+    target =  models.ForeignKey(Targets, on_delete=models.SET_NULL, null=True, related_name="programs")
+    title = models.CharField(max_length=50, blank=True, null=True)
     
     def __str__(self):
-        return f"Additional program for {self.target.target if self.target else 'No Target'}"
+        return self.title or "No Title Provided"
+    
+    
+    
+class ConformityCause(models.Model):   
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='conf_rt', null=True, blank=True) 
+    title = models.CharField(max_length=255,blank=True, null=True)
+    
+    def __str__(self):
+        return self.title
+
+class ConformityReport(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="confi", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='confir_cus', null=True, blank=True)
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="supp_confi", blank=True, null=True)
+    
+    source = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=[
+            ('Audit', 'Audit'),
+            ('Customer', 'Customer'),
+            ('Internal', 'Internal'),
+            ('Supplier', 'Supplier')  
+        ]
+    )
+    
+    ncr = models.IntegerField(blank=True, null=True)   
+    
+    root_cause = models.ForeignKey(ConformityCause, on_delete=models.CASCADE, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    date_raised = models.DateField(blank=True, null=True)
+    date_completed = models.DateField(blank=True, null=True)
+    
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Completed', 'Completed'),
+        ('Deleted', 'Deleted')
+    ]
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    title = models.CharField(max_length=50, blank=True, null=True)
+    executor = models.ForeignKey(Users, on_delete=models.CASCADE, blank=True, null=True)
+    resolution = models.TextField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.ncr is None and self.company:
+            last_action = ConformityReport.objects.filter(company=self.company).order_by('-ncr').first()
+            if last_action and last_action.ncr:
+                self.ncr = last_action.ncr + 1
+            else:
+                self.ncr = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title or "No Title Provided"
+
+
+class ConformityNotification(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="confir_user", null=True, blank=True) 
+    conformity = models.ForeignKey(ConformityReport, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.title}"

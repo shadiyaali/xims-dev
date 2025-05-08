@@ -709,7 +709,7 @@ class CarNumberSerializer(serializers.ModelSerializer):
 
    
  
-from .models import InternalProblem
+ 
 
 class InternalProblemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -719,12 +719,12 @@ class InternalProblemSerializer(serializers.ModelSerializer):
     def validate(self, data):
         corrective_action = data.get('corrective_action', self.instance.corrective_action if self.instance else 'Yes')
         
-        # If corrective_action is No, set both correction and car_no to None
+ 
         if corrective_action == 'No':
             data['correction'] = None
             data['car_no'] = None
         
-        # If corrective_action is Yes, ensure correction is provided
+     
         elif corrective_action == 'Yes' and 'correction' in data and not data['correction']:
             raise serializers.ValidationError({
                 'correction': 'Correction is required when corrective action is Yes'
@@ -918,50 +918,64 @@ class ObjectivesGetSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
  
-
 class ProgramSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Program
-        fields = ['id', 'Program']
+        model = Programs
+        fields = ['title']
 
 class TargetSerializer(serializers.ModelSerializer):
     programs = ProgramSerializer(many=True, required=False)
-    
+
     class Meta:
         model = Targets
         fields = [
             'id', 'user', 'company', 'target', 'associative_objective',
-            'target_date', 'reminder_date', 'status', 'results', 'title',
-            'upload_attachment', 'responsible', 'is_draft', 'programs'
+            'target_date', 'reminder_date', 'status', 'results',
+            'title', 'upload_attachment', 'responsible', 'is_draft',
+            'programs'
         ]
-    
+
     def create(self, validated_data):
-        # Extract programs data from the validated data
         programs_data = validated_data.pop('programs', [])
-        
-        # Create the target instance
         target = Targets.objects.create(**validated_data)
-        
-        # Create each program for this target
         for program_data in programs_data:
-            Program.objects.create(target=target, **program_data)
-        
+            Programs.objects.create(target=target, **program_data)
         return target
-    
+
     def update(self, instance, validated_data):
-        # Extract programs data from the validated data
-        programs_data = validated_data.pop('programs', [])
-        
-        # Update target fields
+        programs_data = validated_data.pop('programs', None)
+
+     
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
-        # Handle programs if provided
-        if programs_data:
-            # Remove existing programs and create new ones
-            instance.programs.all().delete()
+
+  
+        if programs_data is not None:
+            instance.programs.all().delete()  
             for program_data in programs_data:
-                Program.objects.create(target=instance, **program_data)
-        
+                Programs.objects.create(target=instance, **program_data)
+
         return instance
+
+ 
+class ConformityCauseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConformityCause
+        fields = '__all__'
+        
+class ConformitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConformityReport
+        fields = '__all__' 
+        
+class ConformityGetSerializer(serializers.ModelSerializer):
+    supplier = SupplierSerializer()
+    user = UserSerializer()
+    root_cause =ConformityCauseSerializer()
+    executor = UserSerializer()
+    
+    
+    class Meta:
+        model = ConformityReport
+        fields = '__all__' 

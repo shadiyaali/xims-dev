@@ -41,7 +41,5 @@ admin.site.register(CorrectiveAction)
 
 
 
-admin.site.register(ConformityCause)
-admin.site.register(Conformity)
 
  

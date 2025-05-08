@@ -72,4 +72,10 @@ admin.site.register(PreventiveActionNotification)
 
 admin.site.register(Objectives)
 admin.site.register(Targets)
-admin.site.register(Program)
+admin.site.register(Programs)
+
+admin.site.register(ConformityCause)
+admin.site.register(ConformityReport)
+admin.site.register(ConformityNotification)
+
+ 

@@ -270,6 +270,7 @@ urlpatterns = [
     path('car_no/company/<int:company_id>/', CarNCompanyCauseView.as_view(), name='company-agendas'),
     path('car_no/draft/<user_id>/', CarNDraftCompanyCauseView.as_view(), name='company-agendas'),   
     path('car-number/next-action/<int:company_id>/', GetNextActionNumberView.as_view(), name='get-next-action-number'),
+    path('car-number/update/<int:pk>/', CarNumberEditAPIView.as_view(), name='car-draft-update'),
     path('car-draft/update/<int:pk>/', CarDraftUpdateAPIView.as_view(), name='car-draft-update'),
  
     
@@ -384,6 +385,9 @@ urlpatterns = [
     path('forward/<int:id>/delete/', DeleteForwardView.as_view(), name='delete-message'),
     path('message/draft-create/', MessageDraftAPIView.as_view(), name='manual-create'),  
     path('message-draft/edit/<int:id>/', DraftMessageAsTrashView.as_view(), name='compliance_edit'),
+    path('messages/trash/<int:user_id>/', UserTrashMessageListView.as_view(), name='user-inbox'), 
+    path('messages/replay-trash/<int:user_id>/', UserTrashReplyMessageListView.as_view(), name='user-inbox'), 
+    path('messages/forward-trash/<int:user_id>/', UserTrashForwardMessageListView.as_view(), name='user-inbox'), 
     
     
     # Preventive Action
@@ -406,12 +410,28 @@ urlpatterns = [
     path('objectives/drafts-count/<int:user_id>/',  ObjectiveView.as_view(), name='draft-manuals'),
     
     # Targets
-    path('target/create/', TargetListCreateView.as_view(), name='objectives-list-create'),
-    path('objectives/<int:company_id>/', ObjectiveList.as_view(), name='manual-list'),
-    path('objectives-get/<int:pk>/', ObjectivesDetailView.as_view(), name='objectives-detail'),
-    path('objectives/draft-create/', ObjectiveDraftAPIView.as_view(), name='manual-create'),  
-    path('objectives-draft/<int:user_id>/', ObjectiveDraftAllList.as_view(), name='manual-list'),
-    path('objectives/drafts-count/<int:user_id>/',  ObjectiveView.as_view(), name='draft-manuals'),
+    path('targets/create/', TargetCreateView.as_view(), name='target-create'),
+    path('targets/<int:company_id>/', TargetsList.as_view(), name='manual-list'),
+    path('targets-get/<int:pk>/', TargetView.as_view(), name='target-detail'),
+    path('targets/draft-create/', TargetsDraftAPIView.as_view(), name='manual-create'),  
+    path('targets-draft/<int:user_id>/', TargetsDraftAllList.as_view(), name='manual-list'),
+    path('targets/drafts-count/<int:user_id>/',  TargetsView.as_view(), name='draft-manuals'),
+    
+ 
+    # ConformityCause
+    path('conf-cause/create/', ConfirmitycauseCreateView.as_view(), name='agenda-list-create'), 
+    path('conf-cause/company/<int:company_id>/', ConformityCauseCompanyView.as_view(), name='company-agendas'),  
+    path('conf-cause/<int:pk>/', ConformityCauseDetailView.as_view(), name='agenda-detail'),
+    
+    # ConformityReport
+    path('conformity/create/', ConformityCreateAPIView.as_view(), name='car-number-list-create'),
+    path('conformity/<int:pk>/', ConformityDetailView.as_view(), name='car-number-detail'),
+    path('conformity/draft-create/', ConformityDraftAPIView.as_view(), name='manual-create'),
+    path('conformity/company/<int:company_id>/', ConformityCompanyCauseView.as_view(), name='company-agendas'),
+    path('conformity/draft/<user_id>/', ConformityDraftCompanyView.as_view(), name='company-agendas'),   
+    path('conformity/next-action/<int:company_id>/', GetNextNCRConformity.as_view(), name='get-next-action-number'),
+    path('conformity/update/<int:pk>/', ConformityEditAPIView.as_view(), name='car-draft-update'),
+    path('conformity-draft/update/<int:pk>/', ConformityDraftUpdateAPIView.as_view(), name='car-draft-update'),
 ]
 
 
