@@ -1091,7 +1091,7 @@ class EnergyImprovementsGetSerializer(serializers.ModelSerializer):
 
 class ProgramActionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Program
+        model = ProgramAction
         fields = ['id', 'Program']
 
 
@@ -1109,7 +1109,7 @@ class EnergyActionSerializer(serializers.ModelSerializer):
         
       
         for program_data in program_data:
-            Program.objects.create(energy_action=energy_action, **program_data)
+            ProgramAction.objects.create(energy_action=energy_action, **program_data)
         
         return energy_action
 
@@ -1146,7 +1146,7 @@ class EnergyActionSerializer(serializers.ModelSerializer):
                 updated_program_ids.append(program_id)
             else:
                 
-                new_program = Program.objects.create(energy_action=instance, **program_data)
+                new_program = ProgramAction.objects.create(energy_action=instance, **program_data)
                 updated_program_ids.append(new_program.id)
 
        

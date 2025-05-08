@@ -88,7 +88,7 @@ admin.site.register(Enpis)
 admin.site.register(EnergyImprovement)
 
 admin.site.register(EnergyAction)
-admin.site.register(Program)
+admin.site.register(ProgramAction)
 
 
 admin.site.register(EnergySource)

@@ -1566,7 +1566,7 @@ class EnergyAction(models.Model):
         return self.action_plan or "No Title Provided"
 
     
-class Program(models.Model):
+class ProgramAction(models.Model):
     Program = models.CharField(max_length=50, blank=True, null=True)
     energy_action = models.ForeignKey(
     EnergyAction, on_delete=models.CASCADE, null=True, related_name="programs"
