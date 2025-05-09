@@ -20,19 +20,7 @@ urlpatterns = [
     path('permissions/<int:user_id>/', UserPermissionsAPIView.as_view(), name='company-detail'), 
     path('user/change-password/<int:user_id>/', ChangeUserPasswordView.as_view(), name='change-password'),
  
-
  
-    path('process_activity/', ProcessActivityListCreate.as_view(), name='process_activity-list-create'),
-    path('process_activity/<int:pk>/', ProcessActivityDetail.as_view(), name='process_activity-detail'),
-    path('environmental-aspects/', EnvironmentalAspectView.as_view(), name='environmental-aspect-list-create'),   
-    path('environmental-aspects/<int:pk>/', EnvironmentalAspectDetailView.as_view(), name='environmental-aspect-detail-update-delete'), 
-    path('environmental-impacts/', EnvironmentalImpactView.as_view(), name='environmental-impact-list-create'), 
-    path('environmental-impacts/<int:pk>/', EnvironmentalImpactDetailView.as_view(), name='environmental-impact-detail-update-delete'),
- 
-    path('environmental-incidents/', EnvironmentalIncidentsView.as_view(), name='incident-list-create'),   
-    path('environmental-incidents/<int:pk>/', EnvironmentalIncidentDetailView.as_view(), name='incident-detail-update-delete'),
-    path('environmental-waste/', EnvironmentalWasteView.as_view(), name='waste-list-create'),   
-    path('environmental-waste/<int:pk>/', EnvironmentalWasteDetailView.as_view(), name='waste-detail-update-delete'),  
     path('process_health/', ProcessHealthListCreate.as_view(), name='process_activity-list-create'),
     path('process_health/<int:pk>/', ProcessHealthDetail.as_view(), name='process_activity-detail'),
     path('health-safety/', HealthSafetyView.as_view(), name='hazard-list-create'),  

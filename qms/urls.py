@@ -497,6 +497,83 @@ urlpatterns = [
     path('significant-draft/update/<int:pk>/', SignificantEnergyDraftUpdateAPIView.as_view(), name='car-draft-update'),
     path('significant/drafts-count/<int:user_id>/', SignificantCountView.as_view(), name='draft-manuals'),
     
+   #  Process Activity  in Environmental Aspect
+    path('process-activity/create/', ProcessActivityView.as_view(), name='root-cause-list-create'),   
+    path('process-activity/company/<int:company_id>/', ProcessActivityReviewTypeCompanyView.as_view(), name='company-agendas'), 
+    path('process-activity/<int:pk>/', ProcessActivityReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+    # Risk Environmental Aspect
+    path('aspect-create/', EnvironmentalAspectCreateView.as_view(), name='manual-list-create'),
+    path('aspect/<int:company_id>/', AspectAllList.as_view(), name='manual-list'),
+    path('aspect-detail/<int:pk>/', AspectDetailView.as_view(), name='manual-detail'),  
+    path('aspect/<int:pk>/update/', EnvironmentalAspectUpdateView.as_view(), name='manual-update'),   
+    path('aspect/submit-correction/', SubmitAspectCorrectionView.as_view(), name='submit-correction'),
+    path('aspect/<int:aspect_correction_id>/corrections/', AspectCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('aspect-review/', AspectReviewView.as_view(), name='manual-review'),
+    path('aspect/<int:aspect_id>/publish-notification/', AspectPublishNotificationView.as_view(), name='publish-notification'),
+    path('aspect/draft-create/', AspectDraftAPIView.as_view(), name='manual-create'),
+    path('aspect-draft/<int:user_id>/', AspectDraftAllList.as_view(), name='manual-list'),
+    path('aspect/drafts-count/<int:user_id>/', AspectanualcountAPIView.as_view(), name='draft-manuals'),    
+    path("notifications-aspect/<int:user_id>/", AspectNotificationView.as_view(), name="user-notifications"),  
+    path("notifications/aspect<int:user_id>/", NotificationsAspect.as_view(), name="notifications_by_user"),
+    path('aspect/count-notifications/<int:user_id>/', AspectUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('notifications-aspect/<int:notification_id>/read/', AspectMarkReadAPIView.as_view(), name='mark-notification-read'),
+    path('aspect-draft/create/<int:id>/', AspectDraftEditView.as_view(), name='manual-update'),
+    path('aspect/next-action/<int:company_id>/', GetNextAspectNumberView.as_view(), name='get-next-action-number'),
+    
+    
+    # Environmental Impact Assessment
+    path('impact-create/', ImpactCreateView.as_view(), name='manual-list-create'),
+    path('impact/<int:company_id>/', ImpactAllList.as_view(), name='manual-list'),
+    path('impact-detail/<int:pk>/', ImpactDetailView.as_view(), name='manual-detail'), 
+    path('impact/<int:pk>/update/', ImpactUpdateView.as_view(), name='manual-update'),   
+    path('impact/submit-correction/', SubmitImpactCorrectionView.as_view(), name='submit-correction'),
+    path('impact/<int:impact_correction_id>/corrections/', ImpactCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('impact-review/', ImpactReviewView.as_view(), name='manual-review'),
+    path('impact/<int:impact_id>/publish-notification/', ImpactPublishNotificationView.as_view(), name='publish-notification'),
+    path('impact/draft-create/', ImpactDraftAPIView.as_view(), name='manual-create'),
+    path('impact-draft/<int:user_id>/', ImpactDraftAllList.as_view(), name='manual-list'),
+    path('impact/drafts-count/<int:user_id>/', DraftImpactcountAPIView.as_view(), name='draft-manuals'),    
+    path("impact-notifications/<int:user_id>/", NotificationImpactView.as_view(), name="user-notifications"),  
+    path("notifications/impact/<int:user_id>/", ImpactNotificationsQMS.as_view(), name="notifications_by_user"),
+    path('impact/count-notifications/<int:user_id>/', ImpactUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('impact/notifications/<int:notification_id>/read/', ImpactMarkNotificationReadAPIView.as_view(), name='mark-notification-read'),
+    path('manual/create/<int:id>/', ManualDraftEditView.as_view(), name='manual-update'),
+    
+    #  Environment Incident Root Cause
+    path('incident-root/create/', IncidentRootActivityView.as_view(), name='root-cause-list-create'),   
+    path('incident-root/company/<int:company_id>/', IncidentRootReviewDetailView.as_view(), name='company-agendas'), 
+    path('incident-root/<int:pk>/', ProcessActivityReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+    # Environmental Incident
+    path('incident/create/', IncidentCreateAPIView.as_view(), name='car-number-list-create'),
+    path('incident-get/<int:pk>/', EnvironmentalIncidentsDetailView.as_view(), name='car-number-detail'),
+    path('incident/draft-create/', IncidentDraftAPIView.as_view(), name='manual-create'),
+    path('incident/company/<int:company_id>/', IncidentCompanyCauseView.as_view(), name='company-agendas'),
+    path('incident/draft/<user_id>/', IncidentDraftCompanyCauseView.as_view(), name='company-agendas'),   
+    path('incident/next-action/<int:company_id>/', GetNextIncidentNumberView.as_view(), name='get-next-action-number'),
+    path('incident/update/<int:pk>/', EnvironmentalIncidentEditAPIView.as_view(), name='car-draft-update'),
+    path('incident-draft/update/<int:pk>/', EnvironmentalInciDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    
+    
+    # Environmental Waste Management   
+    path('waste/<int:company_id>/', WasteAllList.as_view(), name='manual-list'),
+    path('waste-detail/<int:pk>/', WasteDetailView.as_view(), name='manual-detail'),
+    path('waste-create/', EnvironmentalWasteCreateView.as_view(), name='manual-list-create'),
+    path('waste/<int:pk>/update/', WasteUpdateView.as_view(), name='manual-update'),   
+    path('waste/submit-correction/', SubmitWasteCorrectionView.as_view(), name='submit-correction'),
+    path('waste/<int:waste_correction_id>/corrections/', WasteCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('waste-review/', WasteReviewView.as_view(), name='manual-review'),
+    path('waste/<int:waste_id>/publish-notification/', WastePublishNotificationView.as_view(), name='publish-notification'),
+    path('waste/draft-create/', EnvironmentalWasteDraftAPIView.as_view(), name='manual-create'),
+    path('waste-draft/<int:user_id>/', WasteDraftAllList.as_view(), name='manual-list'),
+    path('waste/drafts-count/<int:user_id>/', DraftWastecountAPIView.as_view(), name='draft-manuals'),    
+    path("waste/notifications/<int:user_id>/", WasteNotificationView.as_view(), name="user-notifications"),  
+    path("notifications-waste/<int:user_id>/", WasteNotificationsQMS.as_view(), name="notifications_by_user"),
+    path('waste/count-notifications/<int:user_id>/', WasteUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('waste/notifications/<int:notification_id>/read/', WasteMarkNotificationAPIView.as_view(), name='mark-notification-read'),
+    path('waste/create/<int:id>/', WasteDraftEditView.as_view(), name='manual-update'),
+    
 ]
 
 

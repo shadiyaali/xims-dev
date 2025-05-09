@@ -169,31 +169,12 @@ class UserGETSerializer(serializers.ModelSerializer):
 
 
  
-class ProcessActivitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProcessActivity
-        fields = '__all__' 
 
-class EnvironmentalAspectSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EnvironmentalAspect
-        fields = '__all__'
-class EnvironmentalImpactSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EnvironmentalImpact
-        fields = '__all__'
 
  
 
-class EnvironmentalIncidentsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EnvironmentalIncidents
-        fields = '__all__'
 
-class EnvironmentalWasteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EnvironmentalWaste
-        fields = '__all__'
+
 
 class ProcessHealthSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1629,3 +1629,380 @@ class  SignificantEnergyNotification(models.Model):
     
     def __str__(self):
         return f"Notification for {self.title}"
+    
+    
+    
+
+
+
+class ProcessActivity(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='precessactivity', null=True, blank=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title if self.title else "No Title Provided"
+    
+
+class EnvironmentalAspect(models.Model):
+    STATUS_CHOICES = [
+    ('Pending for Review/Checking', 'Pending for Review/Checking'),
+    ('Reviewed,Pending for Approval', 'Reviewed,Pending for Approval'),
+    ('Pending for Publish','Pending for Publish'),
+    ('Correction Requested','Correction Requested'),
+    ('Published','Published'),
+    ]
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="aspect", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='aspect_com', null=True, blank=True) 
+    aspect_source = models.CharField(max_length=50, blank=True, null=True)
+    aspect_no = models.CharField(max_length=50, blank=True, null=True)
+    process_activity = models.ForeignKey(ProcessActivity, on_delete=models.SET_NULL, null=True )
+    description =  models.TextField(blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    written_by = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, related_name="written_aspect")
+        
+    
+    approved_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_aspect"
+    )
+    checked_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="checked_aspect"
+    )
+    level_of_impact = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=[
+            ('Significant', 'Significant'),
+            ('Non Significant', 'Non Significant'),
+    
+        ]
+    )
+    title = models.CharField(max_length=50, blank=True, null=True)
+    legal_requirement = models.CharField(max_length=50, blank=True, null=True)
+    action = models.CharField(max_length=50, blank=True, null=True)
+    written_at = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
+    send_notification_to_checked_by = models.BooleanField(default=False)
+    send_email_to_checked_by = models.BooleanField(default=False)
+    send_notification_to_approved_by = models.BooleanField(default=False)
+    send_email_to_approved_by = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    published_user = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, blank=True, related_name="published_aspect")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending for Review/Checking')
+    
+    def save(self, *args, **kwargs):
+        if not self.aspect_no and self.company:
+            last_action = EnvironmentalAspect.objects.filter(
+                company=self.company, aspect_no__startswith="EA-"
+            ).order_by('-id').first()
+            if last_action and last_action.aspect_no:
+                try:
+                    last_number = int(last_action.aspect_no.split("-")[1])
+                    self.aspect_no = f"EA-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.aspect_no = "EA-1"
+            else:
+                self.aspect_no = "EA-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+       return self.title if self.title else f"EnvironmentalAspect #{self.id}"
+   
+   
+class NotificationAspect(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_aspect")
+    aspect = models.ForeignKey(EnvironmentalAspect, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"
+    
+    
+class CorrectionAspect(models.Model):
+    aspect_correction = models.ForeignKey(EnvironmentalAspect, on_delete=models.CASCADE, null=True, blank=True)
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="corrections_asp", null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="asp_from", null=True, blank=True)
+    correction = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Correction for {self.to_user.email}"
+    
+    
+class EnvironmentalImpact(models.Model):
+    STATUS_CHOICES = [
+    ('Pending for Review/Checking', 'Pending for Review/Checking'),
+    ('Reviewed,Pending for Approval', 'Reviewed,Pending for Approval'),
+    ('Pending for Publish','Pending for Publish'),
+    ('Correction Requested','Correction Requested'),
+    ('Published','Published'),
+    ]
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="impact", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='imp_com', null=True, blank=True)
+    number = models.CharField(max_length=50, blank=True, null=True)
+    related_record = models.CharField(max_length=50, blank=True, null=True)   
+    date = models.DateField(blank=True, null=True)
+    written_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="written_impact"
+    )
+    approved_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_impact"
+    )
+    checked_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="checked_impact"
+    )
+  
+    title = models.CharField(max_length=50, blank=True, null=True)
+    rivision = models.CharField(max_length=50, blank=True, null=True)
+    upload_attachment = models.FileField(
+        storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True
+    )
+    document_type = models.CharField(
+        max_length=255,blank = True, null =True,
+        choices=[
+            ('System', 'System'),
+            ('Paper', 'Paper'),
+            ('External','External'),
+            ('Work Instruction','Work Instruction')
+  
+        ]
+    )
+    written_at = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
+    send_notification_to_checked_by = models.BooleanField(default=False)
+    send_email_to_checked_by = models.BooleanField(default=False)
+    send_notification_to_approved_by = models.BooleanField(default=False)
+    send_email_to_approved_by = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    published_user = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, blank=True, related_name="published_imp")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending for Review/Checking')
+    review_frequency_year = models.TextField(blank=True, null=True)
+    review_frequency_month = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return self.title if self.title else f"EnvironmentalImpact #{self.id}"
+    
+
+class NotificationImpact(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_impact")
+    impact = models.ForeignKey(EnvironmentalImpact, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"
+    
+    
+class CorrectionImpact(models.Model):
+    impact_correction = models.ForeignKey(EnvironmentalImpact, on_delete=models.CASCADE, null=True, blank=True)
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="corrections_imp", null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="imp_from", null=True, blank=True)
+    correction = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Correction for {self.to_user.email}"
+    
+    
+
+
+class IncidentRoot(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='incident', null=True, blank=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title if self.title else "No Title Provided"   
+
+
+class EnvironmentalIncidents(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="inc", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='inc_com', null=True, blank=True) 
+    source = models.CharField(max_length=50, blank=True, null=True)
+    incident_no = models.CharField(max_length=50, blank=True, null=True)
+    root_cause = models.ForeignKey(IncidentRoot, on_delete=models.SET_NULL, null=True)
+    description = models.TextField(blank=True, null=True)
+    date_raised = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Completed', 'Completed'),
+        ('Deleted', 'Deleted')        
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+
+    reported_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_incidents"
+    )
+    action = models.TextField(blank=True, null=True)
+    date_completed = models.DateField(blank=True, null=True)
+    send_notification = models.BooleanField(default=False)
+    is_draft = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.incident_no and self.company:
+            last_incident = EnvironmentalIncidents.objects.filter(
+                company=self.company, incident_no__startswith="EI-"
+            ).order_by('-id').first()
+            if last_incident and last_incident.incident_no:
+                try:
+                    last_number = int(last_incident.incident_no.split("-")[1])
+                    self.incident_no = f"EI-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.incident_no = "EI-1"
+            else:
+                self.incident_no = "EI-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title if self.title else f"Incident #{self.id}"
+
+
+class IncidentNotification(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="inci", null=True, blank=True) 
+    incident = models.ForeignKey(EnvironmentalIncidents, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.title}"
+    
+    
+class EnvironmentalWaste(models.Model):
+    STATUS_CHOICES = [
+        ('Pending for Review/Checking', 'Pending for Review/Checking'),
+        ('Reviewed,Pending for Approval', 'Reviewed,Pending for Approval'),
+        ('Pending for Publish', 'Pending for Publish'),
+        ('Correction Requested', 'Correction Requested'),
+        ('Published', 'Published'),
+    ]
+
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="wastes_user", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='lst', null=True, blank=True)
+    wmp = models.CharField(max_length=50, blank=True, null=True)
+
+    written_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="written_wasrter"
+    )
+    approved_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_waste"
+    )
+    checked_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="checked_waste"
+    )
+
+    originator = models.CharField(max_length=50, blank=True, null=True)
+    waste_type = models.CharField(max_length=50, blank=True, null=True)
+    waste_quantity = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=50, blank=True, null=True)
+
+    waste_handling = models.CharField(
+        max_length=255, blank=True, null=True,
+        choices=[
+            ('Company', 'Company'),
+            ('Client', 'Client'),
+            ('Contractor', 'Contractor'),
+            ('Third Party/Others', 'Third Party/Others'),
+        ]
+    )
+
+    waste_category = models.CharField(
+        max_length=255, blank=True, null=True,
+        choices=[
+            ('Hazardous', 'Hazardous'),
+            ('Non Hazardous', 'Non Hazardous'),
+        ]
+    )
+
+    waste_minimization = models.CharField(
+        max_length=255, blank=True, null=True,
+        choices=[
+            ('Reuse', 'Reuse'),
+            ('Recycle', 'Recycle'),
+            ('Recovery', 'Recovery'),
+            ('Disposal', 'Disposal'),
+            ('Non Disposable', 'Non Disposable'),
+        ]
+    )
+
+    responsible_party = models.CharField(max_length=50, blank=True, null=True)
+    legal_requirement = models.CharField(max_length=50, blank=True, null=True)
+    remark = models.TextField(blank=True, null=True)
+
+    written_at = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    is_draft = models.BooleanField(default=False)
+    send_notification_to_checked_by = models.BooleanField(default=False)
+    send_email_to_checked_by = models.BooleanField(default=False)
+    send_notification_to_approved_by = models.BooleanField(default=False)
+    send_email_to_approved_by = models.BooleanField(default=False)
+   
+
+    published_user = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, blank=True, related_name="published_wastes"
+    )
+
+    status = models.CharField(
+        max_length=100, choices=STATUS_CHOICES, default='Pending for Review/Checking'
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.wmp and self.company:
+            last_incident = EnvironmentalWaste.objects.filter(
+                company=self.company, wmp__startswith="WMP-"
+            ).order_by('-id').first()
+            if last_incident and last_incident.wmp:
+                try:
+                    last_number = int(last_incident.wmp.split("-")[1])
+                    self.wmp = f"WMP-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.wmp = "WMP-1"
+            else:
+                self.wmp = "WMP-1"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.wmp or 'No WMP'} - {self.location or 'No Location'}"
+    
+    
+    
+class NotificationWaste(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_waste")
+    waste = models.ForeignKey(EnvironmentalWaste, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"
+    
+    
+class CorrectionWaste(models.Model):
+    waste_correction = models.ForeignKey(EnvironmentalWaste, on_delete=models.CASCADE, null=True, blank=True)
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="corrections_was", null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="was_from", null=True, blank=True)
+    correction = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Correction for {self.to_user.email}"
+    
+    

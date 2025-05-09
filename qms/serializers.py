@@ -1187,3 +1187,296 @@ class SignificantEnergyGetSerializer(serializers.ModelSerializer):
         model = SignificantEnergy
         fields = '__all__'
 
+
+
+class ProcessActivitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessActivity
+        fields = '__all__' 
+
+class EnvironmentalAspectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalAspect
+        fields = '__all__'
+        
+        
+class EnvironmentalAspectGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    process_activity = ProcessActivitySerializer()
+    
+    
+    class Meta:
+        model = EnvironmentalAspect
+        fields = '__all__'
+        
+        
+class EnvironmentalAspectUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalAspect
+        fields = '__all__'
+        extra_kwargs = {
+          
+            'written_at': {'read_only': True},
+            'checked_at': {'read_only': True},
+            'approved_at': {'read_only': True},
+            'updated_at': {'read_only': True}
+        }
+    
+
+    def update(self, instance, validated_data):
+      
+        validated_data['status'] = 'Pending for Review/Checking'       
+        return super().update(instance, validated_data)
+
+
+class AspectViewAllSerializer(serializers.ModelSerializer):
+    written_by = UserSerializer()
+    approved_by = UserSerializer()
+    checked_by = UserSerializer()
+    published_user = UserSerializer()
+
+    class Meta:
+        model = EnvironmentalAspect
+        fields = '__all__'       
+ 
+
+class NotificationAspectSerializer(serializers.ModelSerializer):
+    aspect = AspectViewAllSerializer()  
+    class Meta:
+        model = NotificationAspect
+        fields = "__all__"   
+    
+class CorrectionAspectSerializer(serializers.ModelSerializer):
+    to_user_email = serializers.EmailField(source='to_user.email', read_only=True)
+    from_user_email = serializers.EmailField(source='from_user.email', read_only=True)
+    aspect_correction_title = serializers.CharField(source='aspect_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionAspect
+        fields = [
+            'id', 
+            'aspect_correction', 
+            'aspect_correction_title',
+            'to_user', 
+            'to_user_email',
+            'from_user', 
+            'from_user_email',
+            'correction', 
+            'created_at'
+        ]
+        
+
+
+class CorrectionAspectGetSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(read_only=True) 
+    from_user= UserSerializer(read_only=True) 
+    aspect_correction_title = serializers.CharField(source='aspect_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionAspect
+        fields = [
+            'id', 
+            'aspect_correction', 
+            'aspect_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]
+
+class EnvironmentalImpactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalImpact
+        fields = '__all__'
+
+
+
+
+class EnvironmentalImpactGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    
+    
+    class Meta:
+        model = EnvironmentalImpact
+        fields = '__all__'
+        
+        
+        
+class EnvironmentalImpacttUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalImpact
+        fields = '__all__'
+        extra_kwargs = {
+          
+            'written_at': {'read_only': True},
+            'checked_at': {'read_only': True},
+            'approved_at': {'read_only': True},
+            'updated_at': {'read_only': True}
+        }
+    
+
+    def update(self, instance, validated_data):
+      
+        validated_data['status'] = 'Pending for Review/Checking'       
+        return super().update(instance, validated_data)
+    
+    
+class CorrectionGetImpactSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(read_only=True) 
+    from_user= UserSerializer(read_only=True) 
+    impact_correction_title = serializers.CharField(source='impact_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionImpact
+        fields = [
+            'id', 
+            'impact_correction',
+             
+            'impact_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]
+        
+
+class ImpactViewAllSerializer(serializers.ModelSerializer):
+    written_by = UserSerializer()
+    approved_by = UserSerializer()
+    checked_by = UserSerializer()
+    published_user = UserSerializer()
+
+    class Meta:
+        model = EnvironmentalImpact
+        fields = '__all__'  
+       
+class ImpactNotificationSerializer(serializers.ModelSerializer):
+    impact = ImpactViewAllSerializer()  
+    class Meta:
+        model = NotificationImpact
+        fields = "__all__"
+
+class EnvironmentalIncidentsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalIncidents
+        fields = '__all__'
+
+
+
+class IncidentRootSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IncidentRoot
+        fields = '__all__' 
+        
+        
+class EnvironmentalIncidentsGetSerializer(serializers.ModelSerializer):
+    reported_by = UserSerializer()
+    root_cause = IncidentRootSerializer()
+    class Meta:
+        model = EnvironmentalIncidents
+        fields = '__all__'
+
+
+class EnvironmentalWasteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalWaste
+        fields = '__all__'
+        
+        
+        
+class WasteGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    
+    
+    class Meta:
+        model = EnvironmentalWaste
+        fields = '__all__'
+
+class WasteUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnvironmentalWaste
+        fields = '__all__'
+        extra_kwargs = {
+          
+            'written_at': {'read_only': True},
+            'checked_at': {'read_only': True},
+            'approved_at': {'read_only': True},
+            'updated_at': {'read_only': True}
+        }
+    
+
+    def update(self, instance, validated_data):
+      
+        validated_data['status'] = 'Pending for Review/Checking'       
+        return super().update(instance, validated_data)
+    
+    
+    
+class CorrectionWasteSerializer(serializers.ModelSerializer):
+    to_user_email = serializers.EmailField(source='to_user.email', read_only=True)
+    from_user_email = serializers.EmailField(source='from_user.email', read_only=True)
+    waste_correction_title = serializers.CharField(source='waste_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionWaste
+        fields = [
+            'id', 
+            'waste_correction', 
+            'waste_correction_title',
+            'to_user', 
+            'to_user_email',
+            'from_user', 
+            'from_user_email',
+            'correction', 
+            'created_at'
+        ]
+
+class CorrectionWasteGetQMSSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(read_only=True) 
+    from_user= UserSerializer(read_only=True) 
+    waste_correction_title = serializers.CharField(source='waste_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionWaste
+        fields = [
+            'id', 
+            'waste_correction', 
+            'waste_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]
+
+class WasteViewAllSerializer(serializers.ModelSerializer):
+    written_by = UserSerializer()
+    approved_by = UserSerializer()
+    checked_by = UserSerializer()
+    published_user = UserSerializer()
+
+    class Meta:
+        model = EnvironmentalWaste
+        fields = '__all__'       
+ 
+
+class WasteNotificationSerializer(serializers.ModelSerializer):
+     waste = WasteViewAllSerializer()  
+     class Meta:
+        model = NotificationWaste
+        fields = "__all__"
+        

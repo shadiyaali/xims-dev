@@ -12,13 +12,11 @@ admin.site.register(Permission)
 
 
 
- 
-admin.site.register(ProcessActivity)
-admin.site.register(EnvironmentalAspect)
-admin.site.register(EnvironmentalImpact)
 
-admin.site.register(EnvironmentalIncidents)
-admin.site.register(EnvironmentalWaste)
+
+
+
+
 admin.site.register(ProcessHealth)
 admin.site.register(HealthSafety)
 admin.site.register(RiskAssessment)

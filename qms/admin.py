@@ -46,9 +46,11 @@ admin.site.register(MeetingNotification)
 admin.site.register(Audit)
 admin.site.register(Inspection)
 admin.site.register(Cause)
+
 admin.site.register(RootCause)
 admin.site.register(CarNumber)
 admin.site.register(CarNotification)
+
 admin.site.register(InternalProblem)
 admin.site.register(Supplier)
 admin.site.register(SupplierProblem)
@@ -93,3 +95,19 @@ admin.site.register(ProgramAction)
 
 admin.site.register(EnergySource)
 admin.site.register(SignificantEnergy)
+
+ 
+admin.site.register(ProcessActivity)
+admin.site.register(EnvironmentalAspect)
+admin.site.register(NotificationAspect)
+admin.site.register(CorrectionAspect)
+
+admin.site.register(EnvironmentalImpact)
+admin.site.register(NotificationImpact)
+admin.site.register(CorrectionImpact)
+
+admin.site.register(EnvironmentalIncidents)
+admin.site.register(IncidentRoot)
+
+
+admin.site.register(EnvironmentalWaste)

@@ -16175,3 +16175,3398 @@ class GetTrashForwardMessagesView(APIView):
                 'status': 'error',
                 'message': 'No trash messages found for the user.'
             }, status=status.HTTP_404_NOT_FOUND)
+            
+            
+            
+class  ProcessActivityView(APIView):
+    def get(self, request):
+ 
+        root_causes = ProcessActivity.objects.all()
+        serializer = ProcessActivitySerializer(root_causes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+  
+        serializer = ProcessActivitySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class ProcessActivityReviewDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = ProcessActivity.objects.get(pk=pk)
+        except ProcessActivity.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ProcessActivitySerializer(root_cause)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            root_cause = ProcessActivity.objects.get(pk=pk)
+        except ProcessActivity.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = ProcessActivitySerializer(root_cause, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = ProcessActivity.objects.get(pk=pk)
+        except ProcessActivity.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProcessActivityReviewTypeCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = ProcessActivity.objects.filter(company_id=company_id)
+        serializer = ProcessActivitySerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+    
+class EnvironmentalAspectCreateView(APIView):
+    def post(self, request):
+        logger.info("Received EnvironmentalAspect creation request.")
+        serializer = EnvironmentalAspectSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    aspect = serializer.save()
+                    aspect.written_at = now()
+                    aspect.is_draft = False
+
+                    aspect.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by')
+                    )
+                    aspect.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by')
+                    )
+
+                    aspect.save()
+                    logger.info(f"EnvironmentalAspect created with ID: {aspect.id}")
+
+                    # Notify Checked By
+                    if aspect.checked_by:
+                        if aspect.send_notification_to_checked_by:
+                            try:
+                                NotificationAspect.objects.create(
+                                    user=aspect.checked_by,
+                                    aspect=aspect,
+                                    title="Aspect Checking Required",
+                                    message="An environmental aspect has been created for your review."
+                                )
+                                logger.info(f"Notification created for checked_by user {aspect.checked_by.id}")
+                            except Exception as e:
+                                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                        if aspect.send_email_to_checked_by and aspect.checked_by.email:
+                            self.send_email_notification(aspect, aspect.checked_by, "review")
+                        else:
+                            logger.warning("Email to checked_by skipped: flag disabled or email missing.")
+                    else:
+                        logger.warning("No checked_by user assigned.")
+
+                    return Response(
+                        {"message": "EnvironmentalAspect created successfully", "id": aspect.id},
+                        status=status.HTTP_201_CREATED
+                    )
+            except Exception as e:
+                logger.error(f"Error during aspect creation: {str(e)}")
+                return Response(
+                    {"error": "An unexpected error occurred."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        logger.error(f"EnvironmentalAspect creation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_email_notification(self, aspect, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Environmental Aspect for Review: {aspect.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': aspect.title or 'N/A',
+                        'aspect_no': aspect.aspect_no or 'N/A',
+                        'aspect_source': aspect.aspect_source or 'N/A',
+                        'level_of_impact': aspect.level_of_impact or 'N/A',
+                        'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                        'description': aspect.description or 'N/A',
+                        'date': aspect.date,
+                        'written_by': aspect.written_by,
+                        'checked_by': aspect.checked_by,
+                        'approved_by': aspect.approved_by,
+                        'legal_requirement': aspect.legal_requirement or 'N/A',
+                        'action': aspect.action or 'N/A',
+                  
+                    }
+
+
+                    html_message = render_to_string('qms/aspect/aspect_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+class AspectAllList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        manuals = EnvironmentalAspect.objects.filter(company=company, is_draft=False)
+        serializer = EnvironmentalAspectGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class AspectDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            manual = EnvironmentalAspect.objects.get(pk=pk)
+        except EnvironmentalAspect.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnvironmentalAspectGetSerializer(manual)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        try:
+            manual = EnvironmentalAspect.objects.get(pk=pk)
+        except EnvironmentalAspect.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        manual.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+ 
+
+
+class EnvironmentalAspectUpdateView(APIView):
+    def put(self, request, pk):
+        print("Request data:", request.data)
+        try:
+            with transaction.atomic():
+                aspect = EnvironmentalAspect.objects.get(pk=pk)
+
+              
+                serializer = EnvironmentalAspectUpdateSerializer(aspect, data=request.data, partial=True)
+
+                if serializer.is_valid():
+                    updated_aspect = serializer.save()
+
+              
+                    updated_aspect.written_at = now()
+                    updated_aspect.is_draft = False
+                    updated_aspect.status = 'Pending for Review/Checking'
+
+                    updated_aspect.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_aspect.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+
+                    updated_aspect.save()
+
+             
+                    if updated_aspect.checked_by:
+                        if updated_aspect.send_notification_to_checked_by:
+                            try:
+                                NotificationAspect.objects.create(
+                                    user=updated_aspect.checked_by,
+                                    aspect=updated_aspect,
+                                    title="Aspect Updated - Review Required",
+                                    message=f"Aspect '{updated_aspect.title}' has been updated and requires your review."
+                                )
+                            except Exception as e:
+                                logger.error(f"Notification error for checked_by: {str(e)}")
+
+                        if updated_aspect.send_email_to_checked_by and updated_aspect.checked_by.email:
+                            self.send_email_notification(updated_aspect, updated_aspect.checked_by, "review")
+
+                    return Response({"message": "Environmental aspect updated successfully"}, status=status.HTTP_200_OK)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalAspect.DoesNotExist:
+            return Response({"error": "Environmental aspect not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def send_email_notification(self, aspect, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Environmental Aspect Corrections Updated: {aspect.title}"
+
+                    from django.template.loader import render_to_string
+                    from django.utils.html import strip_tags
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': aspect.title or 'N/A',
+                        'aspect_no': aspect.aspect_no or 'N/A',
+                        'aspect_source': aspect.aspect_source or 'N/A',
+                        'level_of_impact': aspect.level_of_impact or 'N/A',
+                        'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                        'description': aspect.description or 'N/A',
+                        'date': aspect.date,
+                        'written_by': aspect.written_by,
+                        'checked_by': aspect.checked_by,
+                        'approved_by': aspect.approved_by,
+                        'legal_requirement': aspect.legal_requirement or 'N/A',
+                        'action': aspect.action or 'N/A',
+                  
+                    }
+
+
+                    html_message = render_to_string('qms/aspect/aspect_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    
+                     
+
+            
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+ 
+
+class SubmitAspectCorrectionView(APIView):
+    def post(self, request):
+        try:
+            aspect_id = request.data.get('aspect_id')
+            correction_text = request.data.get('correction')
+            from_user_id = request.data.get('from_user')
+
+            if not all([aspect_id, correction_text, from_user_id]):
+                return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                aspect = EnvironmentalAspect.objects.get(id=aspect_id)
+            except EnvironmentalAspect.DoesNotExist:
+                return Response({'error': 'Aspect not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                from_user = Users.objects.get(id=from_user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if from_user == aspect.checked_by:
+                to_user = aspect.written_by
+            elif from_user == aspect.approved_by:
+                to_user = aspect.checked_by
+            else:
+                return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
+
+            correction = CorrectionAspect.objects.create(
+                aspect_correction=aspect,
+                to_user=to_user,
+                from_user=from_user,
+                correction=correction_text
+            )
+
+            aspect.save()
+
+            self.create_aspect_notification(correction)
+            self.send_aspect_correction_email(correction)
+
+            serializer = CorrectionAspectSerializer(correction)
+            return Response({'message': 'Correction submitted successfully', 'correction': serializer.data},
+                            status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create_aspect_notification(self, correction):
+        try:
+            aspect = correction.aspect_correction
+            to_user = correction.to_user
+            from_user = correction.from_user
+
+            if from_user == aspect.approved_by and to_user == aspect.checked_by:
+                should_send = aspect.send_notification_to_checked_by
+            elif from_user == aspect.checked_by and to_user == aspect.written_by:
+                should_send = True
+            else:
+                should_send = False
+
+            if should_send:
+                message = (
+                    f"Correction Request from {from_user.first_name} "
+                    f"to {to_user.first_name} for Aspect: {aspect.title}"
+                )
+                NotificationAspect.objects.create(
+                    user=to_user,
+                    aspect=aspect,
+                    message=message
+                )
+        except Exception as e:
+            print(f"Notification error: {str(e)}")
+
+    def send_aspect_correction_email(self, correction):
+        try:
+            aspect = correction.aspect_correction
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email
+
+            if from_user == aspect.checked_by and to_user == aspect.written_by:
+                template_name = 'qms/aspect/aspect_correction_to_writer.html'
+                subject = f"Correction Requested on '{aspect.title}'"
+                should_send = True
+            elif from_user == aspect.approved_by and to_user == aspect.checked_by:
+                template_name = 'qms/aspect/aspect_correction_to_checker.html'
+                subject = f"Correction Requested on '{aspect.title}'"
+                should_send = aspect.send_email_to_checked_by
+            else:
+                return
+
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+                       
+                        'title': aspect.title or 'N/A',
+                        'aspect_no': aspect.aspect_no or 'N/A',
+                        'aspect_source': aspect.aspect_source or 'N/A',
+                        'level_of_impact': aspect.level_of_impact or 'N/A',
+                        'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                        'description': aspect.description or 'N/A',
+                        'date': aspect.date,
+                        'written_by': aspect.written_by,
+                        'checked_by': aspect.checked_by,
+                        'approved_by': aspect.approved_by,
+                        'legal_requirement': aspect.legal_requirement or 'N/A',
+                        'action': aspect.action or 'N/A',
+                  
+                    }
+
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+        except Exception as e:
+            print(f"Error sending aspect correction email: {str(e)}")
+
+
+class AspectCorrectionsListView(generics.ListAPIView):
+    serializer_class = CorrectionAspectGetSerializer
+
+    def get_queryset(self):
+        aspect_correction_id = self.kwargs.get("aspect_correction_id")
+        return CorrectionAspect.objects.filter(aspect_correction_id=aspect_correction_id)
+
+
+
+
+
+class AspectReviewView(APIView):
+    def post(self, request):
+        logger.info("Received request for aspect review process.")
+        
+        try:
+            aspect_id = request.data.get('aspect_id')
+            current_user_id = request.data.get('current_user_id')
+
+            if not all([aspect_id, current_user_id]):
+                return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                aspect = EnvironmentalAspect.objects.get(id=aspect_id)
+                current_user = Users.objects.get(id=current_user_id)
+            except (EnvironmentalAspect.DoesNotExist, Users.DoesNotExist):
+                return Response({'error': 'Invalid aspect or user'}, status=status.HTTP_404_NOT_FOUND)
+
+            with transaction.atomic():
+                if current_user == aspect.written_by and not aspect.written_at:
+                    aspect.written_at = now()
+                    aspect.save()
+
+                current_status = aspect.status  
+
+                # Case 1: Checked_by reviews
+                if current_status == 'Pending for Review/Checking' and current_user == aspect.checked_by:
+                    aspect.status = 'Reviewed,Pending for Approval'
+                    aspect.checked_at = now()
+                    aspect.save()
+
+                    if aspect.send_notification_to_approved_by:
+                        NotificationAspect.objects.create(
+                            user=aspect.approved_by,
+                            aspect=aspect,
+                            message=f"Aspect '{aspect.title}' is ready for approval."
+                        )
+
+                    if aspect.send_email_to_approved_by:
+                        self.send_email_notification(
+                            aspect=aspect,
+                            recipients=[aspect.approved_by],
+                            action_type="review"
+                        )
+
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == aspect.approved_by:
+                    aspect.status = 'Pending for Publish'
+                    aspect.approved_at = now()
+                    aspect.save()
+
+                    for user in [aspect.written_by, aspect.checked_by, aspect.approved_by]:
+                        if user:
+                            NotificationAspect.objects.create(
+                                user=user,
+                                aspect=aspect,
+                                message=f"Aspect '{aspect.title}' has been approved and is pending for publish."
+                            )
+
+                    self.send_email_notification(
+                        aspect=aspect,
+                        recipients=[u for u in [aspect.written_by, aspect.checked_by, aspect.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                # Correction Requested Case
+                elif current_status == 'Correction Requested' and current_user == aspect.written_by:
+                    aspect.level_of_impact = 'Pending for Review/Checking'
+                    aspect.save()
+
+                else:
+                    return Response({
+                        'message': 'No action taken. User not authorized for current aspect status.'
+                    }, status=status.HTTP_200_OK)
+
+            return Response({
+                'status': 'success',
+                'message': 'Aspect processed successfully',
+                'aspect_status': aspect.level_of_impact
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error in aspect review process: {str(e)}")
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def send_email_notification(self, aspect, recipients, action_type):
+     
+
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Aspect Submitted for Approval: {aspect.title}"
+                        context = {
+                        
+                            'title': aspect.title or 'N/A',
+                            'aspect_no': aspect.aspect_no or 'N/A',
+                            'aspect_source': aspect.aspect_source or 'N/A',
+                            'level_of_impact': aspect.level_of_impact or 'N/A',
+                            'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                            'description': aspect.description or 'N/A',
+                            'date': aspect.date,
+                            'written_by': aspect.written_by,
+                            'checked_by': aspect.checked_by,
+                            'approved_by': aspect.approved_by,
+                            'legal_requirement': aspect.legal_requirement or 'N/A',
+                            'action': aspect.action or 'N/A',
+                    
+                        }
+                        html_message = render_to_string('qms/aspect/aspect_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Aspect Approved: {aspect.title}"
+                        context = {
+                        
+                            'title': aspect.title or 'N/A',
+                            'aspect_no': aspect.aspect_no or 'N/A',
+                            'aspect_source': aspect.aspect_source or 'N/A',
+                            'level_of_impact': aspect.level_of_impact or 'N/A',
+                            'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                            'description': aspect.description or 'N/A',
+                            'date': aspect.date,
+                            'written_by': aspect.written_by,
+                            'checked_by': aspect.checked_by,
+                            'approved_by': aspect.approved_by,
+                            'legal_requirement': aspect.legal_requirement or 'N/A',
+                            'action': aspect.action or 'N/A',
+                    
+                        }
+                        html_message = render_to_string('qms/aspect/aspect_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+
+ 
+
+class AspectPublishNotificationView(APIView):
+    """
+    Endpoint to handle publishing an Environmental Aspect and sending notifications to company users.
+    """
+
+    def post(self, request, aspect_id):
+        try:
+            aspect = EnvironmentalAspect.objects.get(id=aspect_id)
+            company_id = request.data.get('company_id')
+            published_by = request.data.get('published_by')  
+            send_notification = request.data.get('send_notification', False)
+            
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            company = Company.objects.get(id=company_id)
+
+            with transaction.atomic():
+                # Update aspect status and published information
+                aspect.status = 'Published'
+                aspect.published_at = now()
+                
+                if published_by:
+                    try:
+                        publishing_user = Users.objects.get(id=published_by)
+                        aspect.published_user = publishing_user
+                    except Users.DoesNotExist:
+                        logger.warning(f"Publisher user ID {published_by} not found")
+                
+                aspect.send_notification = send_notification
+                aspect.save()
+
+                if send_notification:
+                    company_users = Users.objects.filter(company=company)
+
+                    notifications = [
+                        NotificationAspect(
+                            user=user,
+                            aspect=aspect,
+                            title=f"Aspect Published: {aspect.title}",
+                            message=f"A new environmental aspect '{aspect.title}' has been published."
+                        )
+                        for user in company_users
+                    ]
+
+                    if notifications:
+                        NotificationAspect.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for aspect {aspect_id}")
+
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_publish_email(aspect, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(
+                {
+                    "message": "Aspect published successfully",
+                    "notification_sent": send_notification,
+                    "publisher_set": published_by is not None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except EnvironmentalAspect.DoesNotExist:
+            return Response(
+                {"error": "Aspect not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in aspect publish notification: {str(e)}")
+            return Response(
+                {"error": f"Failed to publish aspect: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_publish_email(self, aspect, recipient):
+  
+
+        publisher_name = "N/A"
+        if aspect.published_user:
+            publisher_name = f"{aspect.published_user.first_name} {aspect.published_user.last_name}"
+        elif aspect.approved_by:
+            publisher_name = f"{aspect.approved_by.first_name} {aspect.approved_by.last_name}"
+
+        subject = f"New Aspect Published: {aspect.title}"
+
+        context = {
+                        
+                            'title': aspect.title or 'N/A',
+                            'aspect_no': aspect.aspect_no or 'N/A',
+                            'aspect_source': aspect.aspect_source or 'N/A',
+                            'level_of_impact': aspect.level_of_impact or 'N/A',
+                            'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                            'description': aspect.description or 'N/A',
+                            'date': aspect.date,
+                            'written_by': aspect.written_by,
+                            'checked_by': aspect.checked_by,
+                            'approved_by': aspect.approved_by,
+                            'legal_requirement': aspect.legal_requirement or 'N/A',
+                            'action': aspect.action or 'N/A',
+                    
+                        }
+
+        html_message = render_to_string('qms/aspect/aspect_publish_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+         
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+
+class AspectDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()  
+        data['is_draft'] = True     
+
+        serializer = EnvironmentalAspectSerializer(data=data)
+        if serializer.is_valid():
+            aspect = serializer.save()
+            return Response(
+                {"message": "Environmental Aspect saved as draft", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class AspectDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        manuals = EnvironmentalAspect.objects.filter(user=user, is_draft=True)
+        serializer = EnvironmentalAspectGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class AspectanualcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+       
+        draft_manuals = EnvironmentalAspect.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnvironmentalAspectSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class AspectNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationAspect.objects.filter(user=user ).order_by("-created_at")
+        serializer = NotificationAspectSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        NotificationAspect.objects.filter(user=user, is_read=False).update(is_read=True)
+        return Response({"message": "Notifications marked as read"}, status=status.HTTP_200_OK)
+
+ 
+    
+
+class NotificationsAspect(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = NotificationAspect.objects.filter(user=user).order_by('-created_at')
+
+        serializer = NotificationAspectSerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class AspectUnreadNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationAspect.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
+        
+class AspectMarkReadAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationAspect, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = NotificationAspectSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+            
+
+
+class AspectDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received aspect edit request.")
+
+        try:
+            aspect = EnvironmentalAspect.objects.get(id=id)
+
+            serializer = EnvironmentalAspectSerializer(aspect, data=request.data, partial=True)
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        aspect = serializer.save()
+                        aspect.is_draft = False
+                        aspect.save()
+
+                        logger.info(f"Aspect updated successfully with ID: {aspect.id}")
+
+                        if aspect.checked_by:
+                            if aspect.send_notification_to_checked_by:
+                                self._send_notifications(aspect)
+
+                            if aspect.send_email_to_checked_by and aspect.checked_by.email:
+                                self.send_email_notification(aspect, aspect.checked_by, "review")
+
+                        return Response(
+                            {"message": "Aspect updated successfully", "id": aspect.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during aspect update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalAspect.DoesNotExist:
+            return Response({"error": "Aspect not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, aspect):
+        if aspect.checked_by:
+            try:
+                NotificationAspect.objects.create(
+                    user=aspect.checked_by,
+                    aspect=aspect,
+                    title="Aspect Review Notification",
+                    message="An environmental aspect has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {aspect.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, aspect, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Aspect Ready for Review: {aspect.title}"
+
+                    context = {
+                        
+                            'title': aspect.title or 'N/A',
+                            'aspect_no': aspect.aspect_no or 'N/A',
+                            'aspect_source': aspect.aspect_source or 'N/A',
+                            'level_of_impact': aspect.level_of_impact or 'N/A',
+                            'process_activity': aspect.process_activity.title if aspect.process_activity else 'N/A',
+                            'description': aspect.description or 'N/A',
+                            'date': aspect.date,
+                            'written_by': aspect.written_by,
+                            'checked_by': aspect.checked_by,
+                            'approved_by': aspect.approved_by,
+                            'legal_requirement': aspect.legal_requirement or 'N/A',
+                            'action': aspect.action or 'N/A',
+                    
+                        }
+
+                    html_message = render_to_string('qms/aspect/aspect_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+ 
+
+class ImpactCreateView(APIView):
+    def post(self, request):
+        logger.info("Received impact creation request.")
+        serializer = EnvironmentalImpactSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    impact = serializer.save()
+                    impact.written_at = now()
+                    impact.is_draft = False
+
+                    impact.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by')
+                    )
+                    impact.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by')
+                    )
+
+                    impact.save()
+                    logger.info(f"Impact created successfully with ID: {impact.id}")
+
+                    if impact.checked_by:
+                        if impact.send_notification_to_checked_by:
+                            try:
+                                NotificationImpact.objects.create(
+                                    user=impact.checked_by,
+                                    impact=impact,
+                                    title="Notification for Checking/Review",
+                                    message="An environmental impact has been created for your review."
+                                )
+                                logger.info(f"Notification created for checked_by user {impact.checked_by.id}")
+                            except Exception as e:
+                                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                        if impact.send_email_to_checked_by and impact.checked_by.email:
+                            self.send_email_notification(impact, impact.checked_by, "review")
+                        else:
+                            logger.warning("Email to checked_by skipped: flag disabled or email missing.")
+                    else:
+                        logger.warning("No checked_by user assigned.")
+
+                    return Response(
+                        {"message": "Impact created successfully", "id": impact.id},
+                        status=status.HTTP_201_CREATED
+                    )
+
+            except Exception as e:
+                logger.error(f"Error during impact creation: {str(e)}")
+                return Response(
+                    {"error": "An unexpected error occurred."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        logger.error(f"Impact creation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_email_notification(self, impact, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Impact Ready for Review: {impact.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': impact.title,
+                        'document_number': impact.number or 'N/A',
+                        'document_type': impact.document_type,
+                        'rivision':  impact.rivision,
+                        'written_by': impact.written_by,
+                        'checked_by': impact.checked_by,
+                        'approved_by': impact.approved_by,
+                        'date': impact.date,
+                        'related_record':impact.related_record,
+                        'review_frequency_year': impact.review_frequency_year or 0,
+                        'review_frequency_month': impact.review_frequency_month or 0,
+                    }
+
+                    html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    if impact.upload_attachment:
+                        try:
+                            file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = impact.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached impact document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching impact file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+class ImpactAllList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        manuals = EnvironmentalImpact.objects.filter(company=company, is_draft=False)
+        serializer = EnvironmentalImpactGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ImpactDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            manual = EnvironmentalImpact.objects.get(pk=pk)
+        except EnvironmentalImpact.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnvironmentalImpactGetSerializer(manual)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        try:
+            manual = EnvironmentalImpactGetSerializer.objects.get(pk=pk)
+        except EnvironmentalImpactGetSerializer.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        manual.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+ 
+
+class ImpactUpdateView(APIView):
+    def put(self, request, pk):
+        print("Request data:", request.data)
+        try:
+            with transaction.atomic():
+                impact = EnvironmentalImpact.objects.get(pk=pk)
+                
+                serializer = EnvironmentalImpacttUpdateSerializer(impact, data=request.data, partial=True)
+
+                if serializer.is_valid():
+                    updated_impact = serializer.save()
+
+                    updated_impact.written_at = now()
+                    updated_impact.is_draft = False
+                    updated_impact.status = 'Pending for Review/Checking'
+
+                    updated_impact.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_impact.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+
+                    updated_impact.save()
+
+                    # Handle notification/email to checked_by
+                    if updated_impact.checked_by:
+                        if updated_impact.send_notification_to_checked_by:
+                            try:
+                                NotificationImpact.objects.create(
+                                    user=updated_impact.checked_by,
+                                    impact=updated_impact,
+                                    title="Impact Updated - Review Required",
+                                    message=f"Impact '{updated_impact.title}' has been updated and requires your review."
+                                )
+                            except Exception as e:
+                                logger.error(f"Notification error for checked_by: {str(e)}")
+
+                        if updated_impact.send_email_to_checked_by and updated_impact.checked_by.email:
+                            self.send_email_notification(updated_impact, updated_impact.checked_by, "review")
+
+                    return Response({"message": "Impact updated successfully"}, status=status.HTTP_200_OK)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalImpact.DoesNotExist:
+            return Response({"error": "Impact not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def send_email_notification(self, impact, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Impact Corrections Updated: {impact.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': impact.title,
+                        'document_number': impact.number or 'N/A',
+                        'document_type': impact.document_type,
+                        'rivision':  impact.rivision,
+                        'written_by': impact.written_by,
+                        'checked_by': impact.checked_by,
+                        'approved_by': impact.approved_by,
+                        'date': impact.date,
+                        'related_record':impact.related_record,
+                        'review_frequency_year': impact.review_frequency_year or 0,
+                        'review_frequency_month': impact.review_frequency_month or 0,
+                    }
+
+                    html_message = render_to_string('qms/impact/impact_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    if impact.upload_attachment:
+                        try:
+                            file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = impact.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached impact file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+ 
+
+class SubmitImpactCorrectionView(APIView):
+    def post(self, request):
+        try:
+            impact_id = request.data.get('impact_id')
+            correction_text = request.data.get('correction')
+            from_user_id = request.data.get('from_user')
+
+            if not all([impact_id, correction_text, from_user_id]):
+                return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get impact object
+            try:
+                impact = EnvironmentalImpact.objects.get(id=impact_id)
+            except EnvironmentalImpact.DoesNotExist:
+                return Response({'error': 'Impact not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Get user object
+            try:
+                from_user = Users.objects.get(id=from_user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if from_user == impact.checked_by:
+                to_user = impact.written_by
+            elif from_user == impact.approved_by:
+                to_user = impact.checked_by
+            else:
+                return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create correction
+            correction = CorrectionImpact.objects.create(
+                impact_correction=impact,
+                to_user=to_user,
+                from_user=from_user,
+                correction=correction_text
+            )
+
+            # Update impact status
+            impact.status = 'Correction Requested'
+            impact.save()
+
+            # Create notification and send email
+            self.create_correction_notification(correction)
+            self.send_correction_email_notification(correction)
+
+            return Response({'message': 'Correction submitted successfully'}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"Error in SubmitImpactCorrectionView: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create_correction_notification(self, correction):
+        try:
+            impact = correction.impact_correction
+            to_user = correction.to_user
+            from_user = correction.from_user
+
+            if from_user == impact.approved_by and to_user == impact.checked_by:
+                should_send = impact.send_notification_to_checked_by
+            elif from_user == impact.checked_by and to_user == impact.written_by:
+                should_send = True
+            else:
+                should_send = False
+
+            if should_send:
+                message = (
+                    f"Correction Request from {from_user.first_name} "
+                    f"to {to_user.first_name} for Impact: {impact.title}"
+                )
+                NotificationImpact.objects.create(
+                    user=to_user,
+                    impact=impact,
+                    title="Correction Request",
+                    message=message
+                )
+        except Exception as e:
+            print(f"Notification creation failed: {str(e)}")
+
+    def send_correction_email_notification(self, correction):
+        try:
+            impact = correction.impact_correction
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
+
+            if from_user == impact.checked_by and to_user == impact.written_by:
+                template_name = 'qms/impact/impact_correction_to_writer.html'
+                subject = f"Correction Requested on '{impact.title}'"
+                should_send = True
+            elif from_user == impact.approved_by and to_user == impact.checked_by:
+                template_name = 'qms/impact/impact_correction_to_checker.html'
+                subject = f"Correction Requested on '{impact.title}'"
+                should_send = impact.send_email_to_checked_by
+            else:
+                return
+
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+                  
+                        'title': impact.title,
+                        'document_number': impact.number or 'N/A',
+                        'document_type': impact.document_type,
+                        'rivision':  impact.rivision,
+                        'written_by': impact.written_by,
+                        'checked_by': impact.checked_by,
+                        'approved_by': impact.approved_by,
+                        'date': impact.date,
+                        'related_record':impact.related_record,
+                        'review_frequency_year': impact.review_frequency_year or 0,
+                        'review_frequency_month': impact.review_frequency_month or 0,
+                    }
+
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if impact.upload_attachment:
+                try:
+                    file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = impact.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                except Exception as e:
+                    print(f"File attachment failed: {str(e)}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Correction email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Email sending failed: {str(e)}")
+
+
+class ImpactCorrectionsListView(generics.ListAPIView):
+    serializer_class = CorrectionGetImpactSerializer
+
+    def get_queryset(self):
+        impact_correction_id = self.kwargs.get("impact_correction_id")
+        return CorrectionImpact.objects.filter(impact_correction_id=impact_correction_id)
+    
+    
+class ImpactReviewView(APIView):
+    def post(self, request):
+        logger.info("Received request for impact review process.")
+        print("Received request for impact review process.")
+
+        try:
+            impact_id = request.data.get('impact_id')
+            current_user_id = request.data.get('current_user_id')
+
+            print(f"impact_id: {impact_id}, current_user_id: {current_user_id}")
+
+            if not all([impact_id, current_user_id]):
+                print("Missing required parameters.")
+                return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                impact = EnvironmentalImpact.objects.get(id=impact_id)
+                current_user = Users.objects.get(id=current_user_id)
+                print(f"Impact: {impact}, Current User: {current_user}")
+            except (EnvironmentalImpact.DoesNotExist, Users.DoesNotExist):
+                print("Invalid impact or user.")
+                return Response({'error': 'Invalid impact or user'}, status=status.HTTP_404_NOT_FOUND)
+
+            with transaction.atomic():
+                if current_user == impact.written_by and not impact.written_at:
+                    impact.written_at = now()
+                    impact.save()
+                    print("Written by timestamp updated.")
+
+                current_status = impact.status
+                print(f"Current status: {current_status}")
+
+                if current_status == 'Pending for Review/Checking' and current_user == impact.checked_by:
+                    impact.status = 'Reviewed,Pending for Approval'
+                    impact.checked_at = now()
+                    impact.save()
+                    print("Status updated to Reviewed,Pending for Approval.")
+
+                    if impact.send_notification_to_approved_by:
+                        NotificationImpact.objects.create(
+                            user=impact.approved_by,
+                            impact=impact,
+                            message=f"Impact '{impact.title}' is ready for approval."
+                        )
+                        print(f"Notification sent to {impact.approved_by.email}.")
+
+                    if impact.send_email_to_approved_by:
+                        print("Sending review email...")
+                        self.send_email_notification(
+                            impact=impact,
+                            recipients=[impact.approved_by],
+                            action_type="review"
+                        )
+
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == impact.approved_by:
+                    impact.status = 'Pending for Publish'
+                    impact.approved_at = now()
+                    impact.save()
+                    print("Status updated to Pending for Publish.")
+
+                    for user in [impact.written_by, impact.checked_by, impact.approved_by]:
+                        if user:
+                            NotificationImpact.objects.create(
+                                user=user,
+                                impact=impact,
+                                message=f"Impact '{impact.title}' has been approved and is pending for publish."
+                            )
+                            print(f"Notification sent to {user.email}")
+
+                    print("Sending approval email...")
+                    self.send_email_notification(
+                        impact=impact,
+                        recipients=[u for u in [impact.written_by, impact.checked_by, impact.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                elif current_status == 'Correction Requested' and current_user == impact.written_by:
+                    impact.status = 'Pending for Review/Checking'
+                    impact.save()
+                    print("Status reset to Pending for Review/Checking.")
+
+                else:
+                    print("No action taken. Unauthorized user.")
+                    return Response({
+                        'message': 'No action taken. User not authorized for current impact status.'
+                    }, status=status.HTTP_200_OK)
+
+            return Response({
+                'status': 'success',
+                'message': 'Impact processed successfully',
+                'impact_status': impact.status
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error in impact review process: {str(e)}")
+            print(f"Error: {str(e)}")
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def send_email_notification(self, impact, recipients, action_type):
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+            print(f"Preparing to send email to: {recipient_email}")
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Impact Submitted for Approval: {impact.title}"
+                        context = {
+                            'title': impact.title,
+                            'document_number': impact.number or 'N/A',
+                            'document_type': impact.document_type,
+                            'rivision':  impact.rivision,
+                            'written_by': impact.written_by,
+                            'checked_by': impact.checked_by,
+                            'approved_by': impact.approved_by,
+                            'date': impact.date,
+                            'related_record': impact.related_record,
+                            'review_frequency_year': impact.review_frequency_year or 0,
+                            'review_frequency_month': impact.review_frequency_month or 0,
+                        }
+                        html_message = render_to_string('qms/impact/impact_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Impact Approved: {impact.title}"
+                        context = {
+                            'title': impact.title,
+                            'document_number': impact.number or 'N/A',
+                            'document_type': impact.document_type,
+                            'rivision':  impact.rivision,
+                            'written_by': impact.written_by,
+                            'checked_by': impact.checked_by,
+                            'approved_by': impact.approved_by,
+                            'date': impact.date,
+                            'related_record': impact.related_record,
+                            'review_frequency_year': impact.review_frequency_year or 0,
+                            'review_frequency_month': impact.review_frequency_month or 0,
+                        }
+                        html_message = render_to_string('qms/impact/impact_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        print(f"Unknown action type: {action_type}")
+                        continue
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    if impact.upload_attachment:
+                        try:
+                            file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = impact.upload_attachment.read()
+                            impact.upload_attachment.seek(0)  # Reset pointer
+                            email.attach(file_name, file_content)
+                            print(f"Attached file: {file_name}")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+                            print(f"Attachment error: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+                    print(f"Email sent to {recipient_email}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+                    print(f"Failed to send email: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+                print("Recipient email is None. Skipping.")
+
+
+ 
+
+class ImpactPublishNotificationView(APIView):
+    """
+    Endpoint to handle publishing an Environmental Impact record and sending notifications to company users.
+    """
+
+    def post(self, request, impact_id):
+        try:
+            impact = EnvironmentalImpact.objects.get(id=impact_id)
+            company_id = request.data.get('company_id')
+            published_by = request.data.get('published_by')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+
+            with transaction.atomic():
+                impact.status = 'Published'
+                impact.published_at = now()
+
+                if published_by:
+                    try:
+                        publishing_user = Users.objects.get(id=published_by)
+                        impact.published_user = publishing_user
+                    except Users.DoesNotExist:
+                        logger.warning(f"Publisher user ID {published_by} not found")
+
+                impact.send_notification = send_notification
+                impact.save()
+
+                if send_notification:
+                    company_users = Users.objects.filter(company=company)
+
+                    notifications = [
+                        NotificationImpact(
+                            user=user,
+                            impact=impact,
+                            title=f"Impact Published: {impact.title}",
+                            message=f"A new impact record '{impact.title}' has been published."
+                        )
+                        for user in company_users
+                    ]
+
+                    if notifications:
+                        NotificationImpact.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for impact {impact_id}")
+
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_publish_email(impact, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(
+                {
+                    "message": "Impact published successfully",
+                    "notification_sent": send_notification,
+                    "publisher_set": published_by is not None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except EnvironmentalImpact.DoesNotExist:
+            return Response({"error": "Impact not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error in publishing impact: {str(e)}")
+            return Response({"error": f"Failed to publish impact: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_publish_email(self, impact, recipient):
+        publisher_name = "N/A"
+        if impact.published_user:
+            publisher_name = f"{impact.published_user.first_name} {impact.published_user.last_name}"
+        elif impact.approved_by:
+            publisher_name = f"{impact.approved_by.first_name} {impact.approved_by.last_name}"
+
+        subject = f"New Impact Published: {impact.title}"
+
+        context = {
+                            'title': impact.title,
+                            'document_number': impact.number or 'N/A',
+                            'document_type': impact.document_type,
+                            'rivision':  impact.rivision,
+                            'written_by': impact.written_by,
+                            'checked_by': impact.checked_by,
+                            'approved_by': impact.approved_by,
+                            'date': impact.date,
+                            'related_record': impact.related_record,
+                            'review_frequency_year': impact.review_frequency_year or 0,
+                            'review_frequency_month': impact.review_frequency_month or 0,
+                        }
+
+        html_message = render_to_string('qms/impact/impact_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        if impact.upload_attachment:
+            try:
+                file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = impact.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached impact file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+class ImpactDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+      
+        data = {}
+    
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+
+        data['is_draft'] = True
+        
+  
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = EnvironmentalImpactSerializer(data=data)
+        if serializer.is_valid():
+            manual = serializer.save()
+            
+ 
+            if file_obj:
+                manual.upload_attachment = file_obj
+                manual.save()
+                
+            return Response({"message": "Environmental Impact saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ImpactDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        manuals = EnvironmentalImpact.objects.filter(user=user, is_draft=True)
+        serializer = EnvironmentalImpactGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class DraftImpactcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        # Change filter to find manuals where user_id matches and is_draft is True
+        draft_manuals = EnvironmentalImpact.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnvironmentalImpactSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class NotificationImpactView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationImpact.objects.filter(user=user ).order_by("-created_at")
+        serializer = ImpactNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ImpactNotificationsQMS(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = NotificationImpact.objects.filter(user=user).order_by('-created_at')
+
+        serializer = ImpactNotificationSerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ImpactUnreadNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationImpact.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ImpactMarkNotificationReadAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationImpact, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = ImpactNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class EnvironmentalImpactDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received Environmental Impact edit request.")
+
+        try:
+           
+            impact = EnvironmentalImpact.objects.get(id=id)
+
+            
+            serializer = EnvironmentalImpactSerializer(impact, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+              
+                        impact = serializer.save()
+
+                    
+                        impact.is_draft = False
+                        impact.save()
+
+                        logger.info(f"Environmental Impact updated successfully with ID: {impact.id}")
+
+                    
+                        if impact.checked_by:
+                            if impact.send_notification_to_checked_by:
+                                self._send_notifications(impact)
+
+                            if impact.send_email_to_checked_by and impact.checked_by.email:
+                                self.send_email_notification(impact, impact.checked_by, "review")
+
+                        return Response(
+                            {"message": "Environmental Impact updated successfully", "id": impact.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during Environmental Impact update: {str(e)}")
+                    return Response(
+                        {"error": "An unexpected error occurred."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalImpact.DoesNotExist:
+            return Response({"error": "Environmental Impact not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, impact):
+        if impact.checked_by:
+            try:
+                NotificationImpact.objects.create(
+                    user=impact.checked_by,
+                    impact=impact,
+                    title="Notification for Checking/Review",
+                    message="An Environmental Impact document has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {impact.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, impact, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Environmental Impact Ready for Review: {impact.title}"
+
+                    context = {
+                            'title': impact.title,
+                            'document_number': impact.number or 'N/A',
+                            'document_type': impact.document_type,
+                            'rivision':  impact.rivision,
+                            'written_by': impact.written_by,
+                            'checked_by': impact.checked_by,
+                            'approved_by': impact.approved_by,
+                            'date': impact.date,
+                            'related_record': impact.related_record,
+                            'review_frequency_year': impact.review_frequency_year or 0,
+                            'review_frequency_month': impact.review_frequency_month or 0,
+                        }
+
+                    html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    if impact.upload_attachment:
+                        try:
+                            file_name = impact.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = impact.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached impact document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching impact file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+                    return
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+ 
+
+class GetNextAspectNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+            last_aspect = EnvironmentalAspect.objects.filter(
+                company=company, aspect_no__startswith="EA-"
+            ).order_by('-id').first()
+            
+            if last_aspect and last_aspect.aspect_no:
+                try:
+                    last_number = int(last_aspect.aspect_no.split("-")[1])
+                    next_aspect_no = f"EA-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_aspect_no = "EA-1"
+            else:
+                next_aspect_no = "EA-1"
+
+            return Response({'next_aspect_no': next_aspect_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class  IncidentRootActivityView(APIView):
+    def get(self, request):
+ 
+        root_causes = IncidentRoot.objects.all()
+        serializer = IncidentRootSerializer(root_causes, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+  
+        serializer = IncidentRootSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class IncidentRootReviewDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = IncidentRoot.objects.get(pk=pk)
+        except IncidentRoot.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = IncidentRootSerializer(root_cause)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        try:
+            root_cause = IncidentRoot.objects.get(pk=pk)
+        except IncidentRoot.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = IncidentRootSerializer(root_cause, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = IncidentRoot.objects.get(pk=pk)
+        except IncidentRoot.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class IncidentRootReviewTypeCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = IncidentRoot.objects.filter(company_id=company_id)
+        serializer = IncidentRootSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class IncidentCreateAPIView(APIView):
+    """
+    Endpoint to create Environmental Incident and send notifications/emails.
+    """
+    def post(self, request):
+        print("Received Incident Data:", request.data)
+        try:
+            company_id = request.data.get('company')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            company = Company.objects.get(id=company_id)
+            serializer = EnvironmentalIncidentsSerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    incident = serializer.save()
+                    logger.info(f"Incident created: {incident.title}")
+
+                    if send_notification:
+                        company_users = Users.objects.filter(company=company)
+                        logger.info(f"Sending notifications to {company_users.count()} users.")
+
+                        for user in company_users:
+                            # Save notification
+                            IncidentNotification.objects.create(
+                                user=user,
+                                incident=incident,
+                                title=f"New Incident: {incident.title}",
+                                message=f"A new environmental incident '{incident.title}' has been reported."
+                            )
+                            logger.info(f"Notification created for user {user.id}")
+
+                            if user.email:
+                                self._send_email_async(incident, user)
+
+                return Response({
+                    "message": "Incident created successfully",
+                    "notification_sent": send_notification
+                }, status=status.HTTP_201_CREATED)
+            else:
+                logger.warning(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error creating incident: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, incident, recipient):
+        threading.Thread(target=self._send_notification_email, args=(incident, recipient)).start()
+
+    def _send_notification_email(self, incident, recipient):
+        subject = f"Incident Notification: {incident.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': incident.title,
+            'source': incident.source,
+            'description': incident.description,
+            'incident_no': incident.incident_no,
+            'date_raised': incident.date_raised,
+            'date_completed': incident.date_completed,
+            'status': incident.status,
+            'reported_by': incident.reported_by,
+            'action': incident.action,
+            'remarks': incident.remarks,
+            'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
+            'created_by': incident.user
+        }
+
+        try:
+            html_message = render_to_string('qms/incidents/incident_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending incident email to {recipient_email}: {e}")
+
+class EnvironmentalIncidentsDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return EnvironmentalIncidents.objects.get(pk=pk)
+        except EnvironmentalIncidents.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "CarNumber not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = EnvironmentalIncidentsGetSerializer(car_number)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+ 
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "CarNumber not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "CarNumber deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+ 
+
+class IncidentDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = {}
+
+ 
+        for key in request.data:
+            data[key] = request.data[key]
+
+        data['is_draft'] = True   
+
+    
+        serializer = EnvironmentalIncidentsSerializer(data=data)
+        if serializer.is_valid():
+            incident = serializer.save()  
+
+            return Response(
+                {"message": "Incident saved as draft", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class IncidentCompanyCauseView(APIView):
+    def get(self, request, company_id):
+        agendas = EnvironmentalIncidents.objects.filter(company_id=company_id,is_draft=False)
+        serializer = EnvironmentalIncidentsGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class IncidentDraftCompanyCauseView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = EnvironmentalIncidents.objects.filter(user=user, is_draft=True)
+        serializer =EnvironmentalIncidentsGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class GetNextIncidentNumberView(APIView):
+    def get(self, request, company_id):
+        try:        
+            company = Company.objects.get(id=company_id)      
+            last_incident = EnvironmentalIncidents.objects.filter(company=company).order_by('-id').first()       
+            next_incident_no = "EI-1"  
+            if last_incident and last_incident.incident_no:
+                try:
+                    last_number = int(last_incident.incident_no.split("-")[1])
+                    next_incident_no = f"EI-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_incident_no = "EI-1"  
+
+            return Response({'next_incident_no': next_incident_no}, status=status.HTTP_200_OK)
+        
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+ 
+
+class EnvironmentalIncidentEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Environmental Incident and send notifications to all company users.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+
+            try:
+                incident = EnvironmentalIncidents.objects.get(id=pk, is_draft=False)
+            except EnvironmentalIncidents.DoesNotExist:
+                return Response(
+                    {"error": "Finalized Environmental Incident not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = EnvironmentalIncidentsSerializer(incident, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    incident = serializer.save()
+                    logger.info(f"Environmental Incident updated: {incident.title}")
+
+                    # Send notifications if enabled
+                    if send_notification and incident.company:
+                        users = Users.objects.filter(company=incident.company)
+
+                        for user in users:
+                            # Create notification for the user
+                            IncidentNotification.objects.create(
+                                user=user,
+                                incident=incident,
+                                title=f"Incident Updated: {incident.title}",
+                                message=f"The incident '{incident.title}' has been updated."
+                            )
+
+                         
+                            if user.email:
+                                self._send_email_async(incident, user)
+
+                return Response(
+                    {
+                        "message": "Environmental Incident updated successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.warning(f"Validation error on update: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Environmental Incident: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, incident, recipient):
+        
+        threading.Thread(target=self._send_notification_email, args=(incident, recipient)).start()
+
+    def _send_notification_email(self, incident, recipient):
+        subject = f"Incident Updated: {incident.title or f'Incident #{incident.incident_no}'}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': incident.title,
+            'source': incident.source,
+            'description': incident.description,
+            'incident_no': incident.incident_no,
+            'date_raised': incident.date_raised,
+            'date_completed': incident.date_completed,
+            'status': incident.status,
+            'reported_by': incident.reported_by,
+            'action': incident.action,
+            'remarks': incident.remarks,
+            'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
+            'created_by': incident.user
+        }
+
+
+        try:
+            html_message = render_to_string('qms/incidents/incident_edit.html', context)  
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+           
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")
+
+
+class EnvironmentalInciDraftUpdateAPIView(APIView):
+    """
+    View to update an Environmental Incident and finalize it (set is_draft=False).
+    Sends notification and email to all users in the incident's company if send_notification is True.
+    """
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            incident_draft = get_object_or_404(EnvironmentalIncidents, pk=pk, is_draft=True)
+
+            data = request.data.copy()
+            data['is_draft'] = False  # Finalize the draft
+
+            file_obj = request.FILES.get('upload_attachment')
+
+            serializer = EnvironmentalIncidentsSerializer(incident_draft, data=data, partial=True)
+            if serializer.is_valid():
+                incident = serializer.save()
+
+                if file_obj:
+                    incident.upload_attachment = file_obj
+                    incident.save()
+
+                # Print the send_notification flag
+                send_notification = data.get('send_notification', False)
+                print(f"send_notification: {send_notification}")
+
+                if send_notification:
+                    try:
+                        # Get all users in the same company as the incident's company
+                        company_users = Users.objects.filter(company=incident.company)
+
+                        for user in company_users:
+                            IncidentNotification.objects.create(
+                                user=user,
+                                incident=incident,
+                                title=f"New Environmental Incident: {incident.title}",
+                                message=f"Environmental incident '{incident.title}' has been finalized."
+                            )
+                            if user.email:
+                                print(f"Sending email to {user.email}")
+                                self._send_email_async(incident, user)
+                            else:
+                                print(f"User {user.id} does not have an email address.")
+                    except Exception as e:
+                        print(f"Error while sending notifications to users in the same company: {e}")
+
+                return Response(
+                    {"message": "Draft Environmental Incident finalized and notifications sent", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalIncidents.DoesNotExist:
+            return Response(
+                {"error": "Draft Environmental Incident not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print(f"Error finalizing Environmental Incident draft: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, incident, recipient):
+        threading.Thread(target=self._send_notification_email, args=(incident, recipient)).start()
+
+    def _send_notification_email(self, incident, recipient):
+        subject = f"Environmental Incident Assignment: {incident.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': incident.title,
+            'source': incident.source,
+            'description': incident.description,
+            'incident_no': incident.incident_no,
+            'date_raised': incident.date_raised,
+            'date_completed': incident.date_completed,
+            'status': incident.status,
+            'reported_by': incident.reported_by,
+            'action': incident.action,
+            'remarks': incident.remarks,
+            'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
+            'created_by': incident.user
+        }
+
+        try:
+            html_message = render_to_string('qms/incidents/incident_add.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending Environmental Incident email to {recipient_email}: {e}")
+
+
+
+
+class EnvironmentalWasteCreateView(APIView):
+    def post(self, request):
+        logger.info("Received waste creation request.")
+        serializer = EnvironmentalWasteSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    waste = serializer.save()
+                    waste.written_at = now()
+                    waste.is_draft = False
+
+                    waste.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by')
+                    )
+                    waste.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by')
+                    )
+
+                    waste.save()
+                    logger.info(f"Waste record created successfully with ID: {waste.id}")
+
+                    if waste.checked_by:
+                        if waste.send_notification_to_checked_by:
+                            try:
+                                NotificationWaste.objects.create(
+                                    user=waste.checked_by,
+                                    waste=waste,
+                                    title="Notification for Checking/Review",
+                                    message="A waste record has been created for your review."
+                                )
+                                logger.info(f"Notification created for checked_by user {waste.checked_by.id}")
+                            except Exception as e:
+                                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                        if waste.send_email_to_checked_by and waste.checked_by.email:
+                            self.send_email_notification(waste, waste.checked_by, "review")
+                        else:
+                            logger.warning("Email to checked_by skipped: flag disabled or email missing.")
+                    else:
+                        logger.warning("No checked_by user assigned.")
+
+                    return Response(
+                        {"message": "Waste record created successfully", "id": waste.id},
+                        status=status.HTTP_201_CREATED
+                    )
+
+            except Exception as e:
+                logger.error(f"Error during waste creation: {str(e)}")
+                return Response(
+                    {"error": "An unexpected error occurred."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        logger.error(f"Waste creation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_email_notification(self, waste, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Waste Record Ready for Review: {waste.wmp}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+
+                    html_message = render_to_string('qms/waste/waste_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+class WasteAllList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        manuals = EnvironmentalWaste.objects.filter(company=company, is_draft=False)
+        serializer = WasteGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+    
+class WasteDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            manual = EnvironmentalWaste.objects.get(pk=pk)
+        except EnvironmentalWaste.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = WasteGetSerializer(manual)
+        return Response(serializer.data)
+
+
+
+    def delete(self, request, pk):
+        try:
+            manual = EnvironmentalWaste.objects.get(pk=pk)
+        except EnvironmentalWaste.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        manual.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+
+
+class WasteUpdateView(APIView):
+    def put(self, request, pk):
+        print("Request data:", request.data)
+        try:
+            with transaction.atomic():
+                waste = EnvironmentalWaste.objects.get(pk=pk)
+                serializer = WasteUpdateSerializer(waste, data=request.data, partial=True)
+
+                if serializer.is_valid():
+                    updated_waste = serializer.save()
+
+                    updated_waste.written_at = now()
+                    updated_waste.is_draft = False
+                    updated_waste.status = 'Pending for Review/Checking'
+
+                    updated_waste.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_waste.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+
+                    updated_waste.save()
+
+                    if updated_waste.checked_by:
+                        if updated_waste.send_notification_to_checked_by:
+                            try:
+                                NotificationWaste.objects.create(
+                                    user=updated_waste.checked_by,
+                                    waste=updated_waste,
+                                    title="Waste Updated - Review Required",
+                                    message=f"Waste '{updated_waste.wmp}' has been updated and requires your review."
+                                )
+                            except Exception as e:
+                                logger.error(f"Notification error for checked_by: {str(e)}")
+
+                        if updated_waste.send_email_to_checked_by and updated_waste.checked_by.email:
+                            self.send_email_notification(updated_waste, updated_waste.checked_by, "review")
+
+                    return Response({"message": "Waste updated successfully"}, status=status.HTTP_200_OK)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except EnvironmentalWaste.DoesNotExist:
+            return Response({"error": "Waste not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def send_email_notification(self, waste, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Waste Corrections Updated: {waste.wmp or 'No WMP'}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+                    html_message = render_to_string('qms/waste/waste_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email sent to {recipient_email} for waste update")
+                else:
+                    logger.warning("Unknown action type for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+ 
+
+
+class SubmitWasteCorrectionView(APIView):
+    def post(self, request):
+        try:
+            waste_id = request.data.get('waste_id')
+            correction_text = request.data.get('correction')
+            from_user_id = request.data.get('from_user')
+
+            if not all([waste_id, correction_text, from_user_id]):
+                return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                waste = EnvironmentalWaste.objects.get(id=waste_id)
+            except EnvironmentalWaste.DoesNotExist:
+                return Response({'error': 'Waste not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                from_user = Users.objects.get(id=from_user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if from_user == waste.checked_by:
+                to_user = waste.written_by
+            elif from_user == waste.approved_by:
+                to_user = waste.checked_by
+            else:
+                return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
+
+            correction = CorrectionWaste.objects.create(
+                waste_correction=waste,
+                to_user=to_user,
+                from_user=from_user,
+                correction=correction_text
+            )
+
+            waste.status = 'Correction Requested'
+            waste.save()
+
+            self.create_correction_notification(correction)
+            self.send_correction_email_notification(correction)
+
+            serializer = CorrectionWasteSerializer(correction)
+            return Response({'message': 'Correction submitted successfully', 'correction': serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"Error occurred in waste correction: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create_correction_notification(self, correction):
+        try:
+            waste = correction.waste_correction
+            to_user = correction.to_user
+            from_user = correction.from_user
+
+            should_send = (
+                (from_user == waste.approved_by and to_user == waste.checked_by and waste.send_notification_to_checked_by)
+                or (from_user == waste.checked_by and to_user == waste.written_by)
+            )
+
+            if should_send:
+                message = (
+                    f"Correction Request from {from_user.first_name} "
+                    f"to {to_user.first_name} for Waste: {waste.wmp}"
+                )
+                NotificationWaste.objects.create(
+                    user=to_user,
+                    waste=waste,
+                    message=message
+                )
+        except Exception as e:
+            print(f"Failed to create waste correction notification: {str(e)}")
+
+    def send_correction_email_notification(self, correction):
+        try:
+            waste = correction.waste_correction
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
+
+            if from_user == waste.checked_by and to_user == waste.written_by:
+                template_name = 'qms/waste/waste_correction_to_writer.html'
+                subject = f"Correction Requested on Waste {waste.wmp}"
+                should_send = True
+            elif from_user == waste.approved_by and to_user == waste.checked_by:
+                template_name = 'qms/waste/waste_correction_to_checker.html'
+                subject = f"Correction Requested on Waste {waste.wmp}"
+                should_send = waste.send_email_to_checked_by
+            else:
+                return
+
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+                        
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+        except Exception as e:
+            print(f"Error sending waste correction email: {str(e)}")
+
+
+
+class WasteCorrectionsListView(generics.ListAPIView):
+    serializer_class = CorrectionWasteGetQMSSerializer
+
+    def get_queryset(self):
+        waste_correction_id = self.kwargs.get("waste_correction_id")
+        return CorrectionWaste.objects.filter(waste_correction_id=waste_correction_id)
+
+
+class WasteReviewView(APIView):
+    def post(self, request):
+        logger.info("Received request for waste review process.")
+        
+        try:
+            waste_id = request.data.get('waste_id')
+            current_user_id = request.data.get('current_user_id')
+
+            if not all([waste_id, current_user_id]):
+                return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                waste = EnvironmentalWaste.objects.get(id=waste_id)
+                current_user = Users.objects.get(id=current_user_id)
+            except (EnvironmentalWaste.DoesNotExist, Users.DoesNotExist):
+                return Response({'error': 'Invalid waste record or user'}, status=status.HTTP_404_NOT_FOUND)
+
+            with transaction.atomic():
+                if current_user == waste.written_by and not waste.written_at:
+                    waste.written_at = now()
+                    waste.save()
+
+                current_status = waste.status
+
+                # Case 1: Checked_by reviews
+                if current_status == 'Pending for Review/Checking' and current_user == waste.checked_by:
+                    waste.status = 'Reviewed,Pending for Approval'
+                    waste.checked_at = now()
+                    waste.save()
+
+                    if waste.send_notification_to_approved_by:
+                        NotificationWaste.objects.create(
+                            user=waste.approved_by,
+                            waste=waste,
+                            message=f"Waste entry '{waste.wmp}' is ready for approval."
+                        )
+
+                    if waste.send_email_to_approved_by:
+                        self.send_email_notification(
+                            waste=waste,
+                            recipients=[waste.approved_by],
+                            action_type="review"
+                        )
+
+                # Case 2: Approved_by approves
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == waste.approved_by:
+                    waste.status = 'Pending for Publish'
+                    waste.approved_at = now()
+                    waste.save()
+
+                    for user in [waste.written_by, waste.checked_by, waste.approved_by]:
+                        if user:
+                            NotificationWaste.objects.create(
+                                user=user,
+                                waste=waste,
+                                message=f"Waste entry '{waste.wmp}' has been approved and is pending for publish."
+                            )
+
+                    self.send_email_notification(
+                        waste=waste,
+                        recipients=[u for u in [waste.written_by, waste.checked_by, waste.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                elif current_status == 'Correction Requested' and current_user == waste.written_by:
+                    waste.status = 'Pending for Review/Checking'
+                    waste.save()
+
+                else:
+                    return Response({
+                        'message': 'No action taken. User not authorized for current waste status.'
+                    }, status=status.HTTP_200_OK)
+
+            return Response({
+                'status': 'success',
+                'message': 'Waste record processed successfully',
+                'waste_status': waste.status
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error in waste review process: {str(e)}")
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def send_email_notification(self, waste, recipients, action_type):
+        from decouple import config
+        from django.core.mail import EmailMultiAlternatives
+
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Waste Record Submitted for Approval: {waste.wmp}"
+                        context = {
+                        
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+                        html_message = render_to_string('qms/waste/waste_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Waste Record Approved: {waste.wmp}"
+                        context = {
+                        
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+                        html_message = render_to_string('qms/waste/waste_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
+ 
+
+class WastePublishNotificationView(APIView):
+    """
+    Endpoint to handle publishing an Environmental Waste and sending notifications to company users.
+    """
+
+    def post(self, request, waste_id):
+        try:
+            waste = EnvironmentalWaste.objects.get(id=waste_id)
+            company_id = request.data.get('company_id')
+            published_by = request.data.get('published_by')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+
+            with transaction.atomic():
+                # Update status and published info
+                waste.status = 'Published'
+                waste.published_at = now()
+
+                if published_by:
+                    try:
+                        publishing_user = Users.objects.get(id=published_by)
+                        waste.published_user = publishing_user
+                    except Users.DoesNotExist:
+                        logger.warning(f"Publisher user ID {published_by} not found")
+
+                waste.save()
+
+                if send_notification:
+                    company_users = Users.objects.filter(company=company)
+
+                    notifications = [
+                        NotificationWaste(
+                            user=user,
+                            waste=waste,
+                            title=f"Waste Published: {waste.wmp or 'No WMP'}",
+                            message=f"A new waste record '{waste.wmp}' has been published."
+                        )
+                        for user in company_users
+                    ]
+
+                    if notifications:
+                        NotificationWaste.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for waste {waste_id}")
+
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_publish_email(waste, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(
+                {
+                    "message": "Waste published successfully",
+                    "notification_sent": send_notification,
+                    "publisher_set": published_by is not None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except EnvironmentalWaste.DoesNotExist:
+            return Response({"error": "Waste not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error in publish notification: {str(e)}")
+            return Response({"error": f"Failed to publish waste: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_publish_email(self, waste, recipient):
+      
+
+        publisher_name = "N/A"
+        if waste.published_user:
+            publisher_name = f"{waste.published_user.first_name} {waste.published_user.last_name}"
+        elif waste.approved_by:
+            publisher_name = f"{waste.approved_by.first_name} {waste.approved_by.last_name}"
+
+        subject = f"New Waste Record Published: {waste.wmp or 'No WMP'}"
+
+        context = {
+                        
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+
+        html_message = render_to_string('qms/waste/waste_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+class EnvironmentalWasteDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        
+        data = request.data.copy()
+        
+    
+        data['is_draft'] = True
+
+        
+        serializer = EnvironmentalWasteSerializer(data=data)
+        if serializer.is_valid():
+            waste = serializer.save()
+            return Response({
+                "message": "Environmental Waste saved as draft",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class WasteDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        manuals = EnvironmentalWaste.objects.filter(user=user, is_draft=True)
+        serializer = WasteGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class DraftWastecountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        
+        draft_manuals = EnvironmentalWaste.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnvironmentalWasteSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class WasteNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationWaste.objects.filter(user=user ).order_by("-created_at")
+        serializer = WasteNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        NotificationWaste.objects.filter(user=user, is_read=False).update(is_read=True)
+        return Response({"message": "Notifications marked as read"}, status=status.HTTP_200_OK)
+    
+    
+class WasteNotificationsQMS(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = NotificationWaste.objects.filter(user=user).order_by('-created_at')
+
+        serializer = WasteNotificationSerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class WasteUnreadNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationWaste.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class WasteMarkNotificationAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationWaste, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = WasteNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+ 
+
+class WasteDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received waste edit request.")
+
+        try:
+            waste = EnvironmentalWaste.objects.get(id=id)
+        except EnvironmentalWaste.DoesNotExist:
+            return Response({"error": "Waste not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EnvironmentalWasteSerializer(waste, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+        
+                waste = serializer.save()
+       
+                waste.is_draft = False
+                waste.written_at = now()
+                waste.status = 'Pending for Review/Checking'
+         
+                waste.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                waste.send_email_to_checked_by      = parse_bool(request.data.get('send_email_checked'))
+                waste.save()
+
+         
+                if waste.checked_by:
+                    if waste.send_notification_to_checked_by:
+                        try:
+                            NotificationWaste.objects.create(
+                                user=waste.checked_by,
+                                waste=waste,
+                                title="Waste Updated - Review Required",
+                                message=f"Waste record '{waste.wmp}' has been updated and requires your review."
+                            )
+                            logger.info(f"Notification created for checked_by user {waste.checked_by.id}")
+                        except Exception as e:
+                            logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                    if waste.send_email_to_checked_by and waste.checked_by.email:
+                        self._send_email_notification(waste, waste.checked_by, action_type="review")
+
+                return Response(
+                    {"message": "Waste updated successfully", "id": waste.id},
+                    status=status.HTTP_200_OK
+                )
+        except Exception as e:
+            logger.error(f"Error during waste update: {str(e)}")
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_notification(self, waste, recipient, action_type):
+        if not recipient.email:
+            logger.warning("Recipient email is None. Skipping email send.")
+            return
+
+        if action_type == "review":
+            subject = f"Waste Ready for Review: {waste.wmp}"
+            template = 'qms/waste/waste_to_checked_by.html'
+        else:
+            logger.warning(f"Unknown action type '{action_type}' for email.")
+            return
+
+        context = {
+                        'recipient_name': recipient.first_name,
+                        'wmp': waste.wmp,
+                        'originator': waste.originator,
+                        'waste_type': waste.waste_type,
+                        'location': waste.location,
+                        'written_by': waste.written_by,
+                        'checked_by': waste.checked_by,
+                        'approved_by': waste.approved_by,
+                        'date': waste.written_at,
+                        'waste_minimization': waste.waste_minimization,
+                        'waste_category': waste.waste_category,
+                        'waste_handling': waste.waste_handling,
+                        'responsible_party': waste.responsible_party,
+                        'legal_requirement': waste.legal_requirement,
+                        'remark': waste.remark,
+                        'status': waste.status,
+                        'created_by': waste.user,
+                        "waste_quantity": waste.waste_quantity,
+                           
+                    }
+
+        html_message = render_to_string(template, context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient.email} for action: {action_type}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
