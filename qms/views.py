@@ -3995,12 +3995,7 @@ class ProcessDetailView(APIView):
 
  
 
-import threading
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.core.mail.message import EmailMultiAlternatives
-from decouple import config
-from django.db import transaction
+ 
 
 class ProcessCreateAPIView(APIView):
     def post(self, request):
@@ -14883,18 +14878,27 @@ class EnergyReviewDraftCompanyView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
-
 class GetNextNCRReviewEnergy(APIView):
- 
     def get(self, request, company_id):
         try:
             company = Company.objects.get(id=company_id)
         except Company.DoesNotExist:
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
 
- 
-        last_review = EnergyReview.objects.filter(company=company).order_by('-review_no').first()
-        next_review_no = 1 if not last_review or not last_review.review_no else last_review.review_no + 1
+        
+        last_review = EnergyReview.objects.filter(company=company).order_by('-id').first()
+
+       
+        if not last_review or not last_review.review_no:
+            next_review_no = "ER-1"
+        else:
+           
+            try:
+                last_number = int(last_review.review_no.split("-")[1])
+                next_review_no = f"ER-{last_number + 1}"
+            except (IndexError, ValueError):
+       
+                next_review_no = "ER-1"
 
         return Response({'next_review_no': next_review_no}, status=status.HTTP_200_OK)
 
@@ -19778,7 +19782,7 @@ class HealthSafetyCreateView(APIView):
                         'approved_by': health.approved_by,
                         'date': health.date,
                         'written_at': health.written_at,
-                        'status': health.status,
+                       
                         'created_by': health.user,
                        'created_year': notification.created_at.year if notification else None,
 
@@ -19818,23 +19822,28 @@ class HealthSafetyCreateView(APIView):
 
 
 
+
 class HealthUpdateView(APIView):
     def put(self, request, pk):
         print("Request data:", request.data)
+        logger.info(f"Incoming PUT request to update health record {pk}")
         try:
             with transaction.atomic():
                 health_safety = HealthSafety.objects.get(pk=pk)
-                serializer = HealthUpdateSerializer(health_safety, data=request.data, partial=True)
+                serializer = HealthSafetyUpdateSerializer(health_safety, data=request.data, partial=True)
 
                 if serializer.is_valid():
                     updated_health = serializer.save()
-
                     updated_health.written_at = now()
                     updated_health.is_draft = False
                     updated_health.status = 'Pending for Review/Checking'
 
-                    updated_health.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
-                    updated_health.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+                    # ✅ Match request keys
+                    updated_health.send_notification_to_checked_by = parse_bool(request.data.get('send_notification_to_checked_by'))
+                    updated_health.send_email_to_checked_by = parse_bool(request.data.get('send_email_to_checked_by'))
+
+                    print("send_notification_to_checked_by:", updated_health.send_notification_to_checked_by)
+                    print("send_email_to_checked_by:", updated_health.send_email_to_checked_by)
 
                     updated_health.save()
 
@@ -19847,17 +19856,24 @@ class HealthUpdateView(APIView):
                                     title="Health Update - Review Required",
                                     message=f"Health record '{updated_health.hazard_no}' has been updated and requires your review."
                                 )
+                                logger.info("Notification created for checked_by.")
                             except Exception as e:
                                 logger.error(f"Notification error for checked_by: {str(e)}")
 
                         if updated_health.send_email_to_checked_by and updated_health.checked_by.email:
+                            logger.info("Sending email to checked_by.")
+                            print("Sending email to:", updated_health.checked_by.email)
                             self.send_email_notification(updated_health, updated_health.checked_by, "review")
+                        else:
+                            logger.warning("Checked_by has no email or email sending not requested.")
 
                     return Response({"message": "Health record updated successfully"}, status=status.HTTP_200_OK)
-
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    logger.warning(f"Invalid serializer data: {serializer.errors}")
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except HealthSafety.DoesNotExist:
+            logger.error("HealthSafety object not found.")
             return Response({"error": "Health record not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def send_email_notification(self, health, recipient, action_type):
@@ -19867,24 +19883,30 @@ class HealthUpdateView(APIView):
             try:
                 if action_type == "review":
                     subject = f"Health Record Update: {health.hazard_no or 'No Hazard No'}"
+                    created_at = health.created_at if hasattr(health, 'created_at') else None
+                    created_year = created_at.year if created_at else None
+                    logger.info(f"Health record created year: {created_year}")
 
                     context = {
                         'recipient_name': recipient.first_name,
-                        'hazard_no': health.hazard_no,
+                        'title': health.title,
                         'hazard_source': health.hazard_source,
-                        'description': health.description,
+                        'hazard_no': health.hazard_no,
                         'process_activity': health.process_activity,
+                        'description': health.description,
                         'level_of_risk': health.level_of_risk,
                         'legal_requirement': health.legal_requirement,
                         'action': health.action,
                         'written_by': health.written_by,
                         'checked_by': health.checked_by,
                         'approved_by': health.approved_by,
-                        'status': health.status,
-                        'created_by': health.user,
                         'date': health.date,
+                        'written_at': health.written_at,
                        
+                        'created_by': health.user,
+                        'created_year': created_year
                     }
+
                     html_message = render_to_string('qms/health/health_update_to_checked_by.html', context)
                     plain_message = strip_tags(html_message)
 
@@ -19913,3 +19935,147 @@ class HealthUpdateView(APIView):
                 logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
         else:
             logger.warning("Recipient email is None. Skipping email send.")
+
+
+ 
+class SubmitHealthCorrectionView(APIView):
+    def post(self, request):
+        try:
+            health_id = request.data.get('health_id')
+            correction_text = request.data.get('correction')
+            from_user_id = request.data.get('from_user')
+
+            if not all([health_id, correction_text, from_user_id]):
+                return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                health = HealthSafety.objects.get(id=health_id)
+            except HealthSafety.DoesNotExist:
+                return Response({'error': 'HealthSafety entry not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                from_user = Users.objects.get(id=from_user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if from_user == health.checked_by:
+                to_user = health.written_by
+            elif from_user == health.approved_by:
+                to_user = health.checked_by
+            else:
+                return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
+
+            correction = CorrectionHealth.objects.create(
+                health_correction=health,
+                to_user=to_user,
+                from_user=from_user,
+                correction=correction_text
+            )
+
+            health.status = 'Correction Requested'
+            health.save()
+
+            self.create_correction_notification(correction)
+            self.send_correction_email_notification(correction)
+
+            serializer = CorrectionHealthSerializer(correction)
+            return Response({'message': 'Correction submitted successfully', 'correction': serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"Error occurred in health correction: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create_correction_notification(self, correction):
+        try:
+            health = correction.health_correction
+            to_user = correction.to_user
+            from_user = correction.from_user
+
+            should_send = (
+                (from_user == health.approved_by and to_user == health.checked_by and health.send_notification_to_checked_by)
+                or (from_user == health.checked_by and to_user == health.written_by)
+            )
+
+            if should_send:
+                message = (
+                    f"Correction Request from {from_user.first_name} "
+                    f"to {to_user.first_name} for Hazard: {health.hazard_no}"
+                )
+                NotificationHealth.objects.create(
+                    user=to_user,
+                    health=health,
+                    message=message
+                )
+        except Exception as e:
+            print(f"Failed to create health correction notification: {str(e)}")
+
+    def send_correction_email_notification(self, correction):
+        try:
+            health = correction.health_correction
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
+
+            if from_user == health.checked_by and to_user == health.written_by:
+                template_name = 'qms/health/health_correction_to_writer.html'
+                subject = f"Correction Requested on Hazard {health.hazard_no}"
+                should_send = True
+            elif from_user == health.approved_by and to_user == health.checked_by:
+                template_name = 'qms/health/health_correction_to_checker.html'
+                subject = f"Correction Requested on Hazard {health.hazard_no}"
+                should_send = health.send_email_to_checked_by
+            else:
+                return
+
+            if not recipient_email or not should_send:
+                return
+
+            context = {
+             
+                        'title': health.title,
+                        'hazard_source': health.hazard_source,
+                        'hazard_no': health.hazard_no,
+                        'process_activity': health.process_activity,
+                        'description': health.description,
+                        'level_of_risk': health.level_of_risk,
+                        'legal_requirement': health.legal_requirement,
+                        'action': health.action,
+                        'written_by': health.written_by,
+                        'checked_by': health.checked_by,
+                        'approved_by': health.approved_by,
+                        'date': health.date,
+                        'written_at': health.written_at,                      
+                        'created_by': health.user,
+                     
+                    }
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+        except Exception as e:
+            print(f"Error sending health correction email: {str(e)}")
+
+class HealthCorrectionsListView(generics.ListAPIView):
+    serializer_class = CorrectionHealthGetQMSSerializer
+
+    def get_queryset(self):
+        health_correction_id = self.kwargs.get("health_correction")
+        print(f"Requested health_correction_id: {health_correction_id}")  
+        return CorrectionHealth.objects.filter(health_correction_id=health_correction_id)

@@ -588,12 +588,12 @@ urlpatterns = [
     
       
     # Health and Safety
-    path('heaith/<int:company_id>/', HealthAllList.as_view(), name='manual-list'),
-    path('heaith-detail/<int:pk>/', HealthDetailView.as_view(), name='manual-detail'),
-    path('heaith-create/', HealthSafetyCreateView.as_view(), name='manual-list-create'),
-    path('heaith/<int:pk>/update/', WasteUpdateView.as_view(), name='manual-update'),   
-    path('waste/submit-correction/', SubmitWasteCorrectionView.as_view(), name='submit-correction'),
-    path('waste/<int:waste_correction_id>/corrections/', WasteCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('health/<int:company_id>/', HealthAllList.as_view(), name='manual-list'),
+    path('health-detail/<int:pk>/', HealthDetailView.as_view(), name='manual-detail'),
+    path('heath-create/', HealthSafetyCreateView.as_view(), name='manual-list-create'),
+    path('health/<int:pk>/update/', HealthUpdateView.as_view(), name='manual-update'),   
+    path('health/submit-correction/', SubmitHealthCorrectionView.as_view(), name='submit-correction'),
+    path('health/<int:health_correction_id>/corrections/', HealthCorrectionsListView.as_view(), name='manual-corrections-list'),   
     path('waste-review/', WasteReviewView.as_view(), name='manual-review'),
     path('waste/<int:waste_id>/publish-notification/', WastePublishNotificationView.as_view(), name='publish-notification'),
     path('waste/draft-create/', EnvironmentalWasteDraftAPIView.as_view(), name='manual-create'),

@@ -114,3 +114,5 @@ admin.site.register(EnvironmentalWaste)
 
 admin.site.register(ProcessHealth)
 admin.site.register(HealthSafety)
+admin.site.register(NotificationHealth)
+admin.site.register(CorrectionHealth)

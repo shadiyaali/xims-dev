@@ -1513,3 +1513,59 @@ class HealthSafetyGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = HealthSafety
         fields = '__all__'
+        
+class HealthSafetyUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthSafety
+        fields = '__all__'
+        extra_kwargs = {
+          
+            'written_at': {'read_only': True},
+            'checked_at': {'read_only': True},
+            'approved_at': {'read_only': True},
+            'updated_at': {'read_only': True}
+        }
+    
+
+    def update(self, instance, validated_data):
+      
+        validated_data['status'] = 'Pending for Review/Checking'       
+        return super().update(instance, validated_data)
+    
+class CorrectionHealthSerializer(serializers.ModelSerializer):
+    to_user_email = serializers.EmailField(source='to_user.email', read_only=True)
+    from_user_email = serializers.EmailField(source='from_user.email', read_only=True)
+    health_correction_title = serializers.CharField(source='health_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionHealth
+        fields = [
+            'id', 
+            'health_correction', 
+            'health_correction_title',
+            'to_user', 
+            'to_user_email',
+            'from_user', 
+            'from_user_email',
+            'correction', 
+            'created_at'
+        ]
+        
+class CorrectionHealthGetQMSSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(read_only=True) 
+    from_user= UserSerializer(read_only=True) 
+    health_correction_title = serializers.CharField(source='health_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionHealth
+        fields = [
+            'id', 
+            'health_correction', 
+            'health_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]

@@ -1416,7 +1416,7 @@ class ReviewType(models.Model):
 class EnergyReview(models.Model):
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="energy", blank=True, null=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='energy_cus', null=True, blank=True)
-    review_no = models.IntegerField(blank=True, null=True)
+    review_no =  models.CharField(max_length=50, blank=True, null=True)
     revision = models.CharField(max_length=50, blank=True, null=True)
     review_type = models.ForeignKey(ReviewType, on_delete=models.CASCADE, null=True)
     upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255,blank=True, null=True)
