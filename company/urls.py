@@ -21,10 +21,6 @@ urlpatterns = [
     path('user/change-password/<int:user_id>/', ChangeUserPasswordView.as_view(), name='change-password'),
  
  
-    path('process_health/', ProcessHealthListCreate.as_view(), name='process_activity-list-create'),
-    path('process_health/<int:pk>/', ProcessHealthDetail.as_view(), name='process_activity-detail'),
-    path('health-safety/', HealthSafetyView.as_view(), name='hazard-list-create'),  
-    path('health-safety/<int:pk>/', HealthSafetyDetailView.as_view(), name='hazard-detail-update-delete'),
     path('risk-assessment/', RiskAssessmentView.as_view(), name='assessment-list-create'), 
     path('risk-assessment/<int:pk>/', RiskAssessmentDetailView.as_view(), name='assessment-detail-update-delete'),
     path('health-root-causes/', HealthRootCauseView.as_view(), name='root-cause-list-create'),   

@@ -314,7 +314,14 @@ class ComplianceNotification(models.Model):
     def __str__(self):
         return f"Notification for {self.title}"
     
+
+class CauseParty(models.Model):   
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='party_cause', null=True, blank=True) 
+    title = models.CharField(max_length=255,blank=True, null=True)
     
+    def __str__(self):
+        return self.title
+   
 class InterestedParty(models.Model):
     user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="interest", blank=True, null=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='interested', null=True, blank=True) 
@@ -325,6 +332,7 @@ class InterestedParty(models.Model):
     name = models.CharField(max_length=255)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='Internal')  
     special_requirements = models.TextField(blank=True, null=True)
+    type = models.ForeignKey(CauseParty, on_delete=models.CASCADE, related_name='type_cause', null=True, blank=True) 
     legal_requirements = models.CharField(  blank=True, null=True)
     custom_legal_requirements = models.TextField(blank=True, null=True)
     file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
@@ -2005,4 +2013,111 @@ class CorrectionWaste(models.Model):
     def __str__(self):
         return f"Correction for {self.to_user.email}"
     
+
+
+class ProcessHealth(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='process_type', null=True, blank=True) 
+    title = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return self.title  
     
+class HealthSafety(models.Model):
+    STATUS_CHOICES = [
+        ('Pending for Review/Checking', 'Pending for Review/Checking'),
+        ('Reviewed,Pending for Approval', 'Reviewed,Pending for Approval'),
+        ('Pending for Publish', 'Pending for Publish'),
+        ('Correction Requested', 'Correction Requested'),
+        ('Published', 'Published'),
+    ]
+
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="health_user", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='health_lst', null=True, blank=True)
+    hazard_source = models.CharField(max_length=50, blank=True, null=True)
+    hazard_no = models.CharField(max_length=50, blank=True, null=True)
+    process_activity = models.ForeignKey(ProcessHealth, on_delete=models.SET_NULL, null=True )
+    description =  models.TextField(blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    written_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="written_hazard"
+    )
+    approved_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_hazard"
+    )
+    checked_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="checked_hazard"
+    )
+    level_of_risk = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=[
+            ('High', 'High'),
+            ('Medium', 'Medium'),
+            ('Low','Low')
+    
+        ]
+    )
+    title = models.CharField(max_length=50, blank=True, null=True)
+    legal_requirement = models.CharField(max_length=50, blank=True, null=True)
+    action = models.CharField(max_length=50, blank=True, null=True)
+    written_at = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    is_draft = models.BooleanField(default=False)
+    send_notification_to_checked_by = models.BooleanField(default=False)
+    send_email_to_checked_by = models.BooleanField(default=False)
+    send_notification_to_approved_by = models.BooleanField(default=False)
+    send_email_to_approved_by = models.BooleanField(default=False)
+   
+
+    published_user = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, blank=True, related_name="health_publish"
+    )
+
+    status = models.CharField(
+        max_length=100, choices=STATUS_CHOICES, default='Pending for Review/Checking'
+    )
+    
+    
+    def save(self, *args, **kwargs):
+        if not self.hazard_no and self.company:
+            last_incident = HealthSafety.objects.filter(
+                company=self.company, hazard_no__startswith="HS-"
+            ).order_by('-id').first()
+            if last_incident and last_incident.hazard_no:
+                try:
+                    last_number = int(last_incident.hazard_no.split("-")[1])
+                    self.hazard_no = f"HS-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.hazard_no = "HS-1"
+            else:
+                self.hazard_no = "HS-1"
+        super().save(*args, **kwargs)
+
+        return self.title if self.title else f"HealthSafety #{self.id}"
+    
+    
+class NotificationHealth(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_healthe")
+    health = models.ForeignKey(HealthSafety, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"
+    
+    
+class CorrectionHealth(models.Model):
+    health_correction = models.ForeignKey(HealthSafety, on_delete=models.CASCADE, null=True, blank=True)
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="corrections_health", null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="health_from", null=True, blank=True)
+    correction = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Correction for {self.to_user.email}"

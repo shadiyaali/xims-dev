@@ -169,24 +169,6 @@ class UserGETSerializer(serializers.ModelSerializer):
 
 
  
-
-
- 
-
-
-
-
-class ProcessHealthSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProcessHealth
-        fields = '__all__' 
-
-class HealthSafetySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = HealthSafety
-        fields = '__all__'
-
- 
 class RiskAssessmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiskAssessment

@@ -324,8 +324,14 @@ class InterestedPartySerializer(serializers.ModelSerializer):
         model = InterestedParty
         fields = '__all__'
         
+class CausePartySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CauseParty
+        fields = '__all__'
+        
 class InterestedPartyGetSerializer(serializers.ModelSerializer):
     needs = NeedsSerializer(many=True, read_only=True)
+    type = CausePartySerializer()
     class Meta:
         model = InterestedParty
         fields = '__all__'
@@ -1479,4 +1485,17 @@ class WasteNotificationSerializer(serializers.ModelSerializer):
      class Meta:
         model = NotificationWaste
         fields = "__all__"
-        
+
+
+
+
+
+class ProcessHealthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProcessHealth
+        fields = '__all__' 
+
+class HealthSafetySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthSafety
+        fields = '__all__'

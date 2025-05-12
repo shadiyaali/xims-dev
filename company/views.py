@@ -505,24 +505,6 @@ class UserDelete(APIView):
  
 
     
-
-
-    
- 
- 
- 
- 
- 
-
-
- 
-
- 
- 
-
- 
- 
-
  
  
 
@@ -530,102 +512,7 @@ class UserDelete(APIView):
 
 
 
-class ProcessHealthListCreate(APIView):
-  
-    def get(self, request):
-        process_activities = ProcessHealth.objects.all()
-        serializer = ProcessHealthSerializer(process_activities, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-  
-    def post(self, request):
-        serializer = ProcessHealthSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class ProcessHealthDetail(APIView):
-   
-    def get(self, request, pk):
-        try:
-            process_activity = ProcessHealth.objects.get(pk=pk)
-        except ProcessHealth.DoesNotExist:
-            raise NotFound("ProcessActivity record not found.")
-        
-        serializer = ProcessHealthSerializer(process_activity)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-   
-    def put(self, request, pk):
-        try:
-            process_activity = ProcessHealth.objects.get(pk=pk)
-        except ProcessHealth.DoesNotExist:
-            raise NotFound("ProcessActivity record not found.")
-        
-        serializer = ProcessHealthSerializer(process_activity, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    
-    def delete(self, request, pk):
-        try:
-            process_activity = ProcessHealth.objects.get(pk=pk)
-        except ProcessHealth.DoesNotExist:
-            raise NotFound("ProcessActivity record not found.")
-        
-        process_activity.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
  
-class HealthSafetyView(APIView):
-    def get(self, request):
-       
-        hazards = HealthSafety.objects.all()
-        serializer = HealthSafetySerializer(hazards, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-       
-        serializer = HealthSafetySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
- 
-class HealthSafetyDetailView(APIView):
-    def get(self, request, pk):
-        try:
-            hazard = HealthSafety.objects.get(pk=pk)
-        except HealthSafety.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = HealthSafetySerializer(hazard)
-        return Response(serializer.data)
-
-    def put(self, request, pk):
-        try:
-            hazard = HealthSafety.objects.get(pk=pk)
-        except HealthSafety.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = HealthSafetySerializer(hazard, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        try:
-            hazard = HealthSafety.objects.get(pk=pk)
-        except HealthSafety.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        hazard.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
 
  
 class RiskAssessmentView(APIView):

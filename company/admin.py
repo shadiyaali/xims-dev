@@ -8,17 +8,6 @@ admin.site.register(Permission)
 
 
 
-
-
-
-
-
-
-
-
-
-admin.site.register(ProcessHealth)
-admin.site.register(HealthSafety)
 admin.site.register(RiskAssessment)
 admin.site.register(HealthRootCause)
 admin.site.register(HealthIncidents)

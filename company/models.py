@@ -142,45 +142,7 @@ def generate_unique_filename_audit(instance, filename):
 
 
     
-class ProcessHealth(models.Model):
-    title = models.CharField(max_length=50, blank=True, null=True)
 
-    def __str__(self):
-        return self.title  
-    
-class HealthSafety(models.Model):
-    hazard_source = models.CharField(max_length=50, blank=True, null=True)
-    hazard = models.CharField(max_length=50, blank=True, null=True)
-    process_activity = models.ForeignKey(ProcessHealth, on_delete=models.SET_NULL, null=True )
-    description =  models.TextField(blank=True, null=True)
-    date = models.DateField(blank=True, null=True)
-    written_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="written_hazard"
-    )
-    approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_hazard"
-    )
-    checked_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="checked_hazard"
-    )
-    level_of_risk = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        choices=[
-            ('High', 'High'),
-            ('Medium', 'Medium'),
-            ('Low','Low')
-    
-        ]
-    )
-    hazard_name = models.CharField(max_length=50, blank=True, null=True)
-    legal_requirement = models.CharField(max_length=50, blank=True, null=True)
-    action = models.CharField(max_length=50, blank=True, null=True)
-    
-    
-    def __str__(self):
-        return self.hazard_name
     
 class RiskAssessment(models.Model):
     assessment_no = models.CharField(max_length=50, blank=True, null=True)

@@ -18405,6 +18405,28 @@ class GetNextIncidentNumberView(APIView):
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 
+ 
+class GetNextWMPNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+
+            last_waste = EnvironmentalWaste.objects.filter(
+                company=company, wmp__startswith="WMP-"
+            ).order_by('-id').first()
+
+            next_wmp_no = "WMP-1"
+            if last_waste and last_waste.wmp:
+                try:
+                    last_number = int(last_waste.wmp.split("-")[1])
+                    next_wmp_no = f"WMP-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_wmp_no = "WMP-1"
+
+            return Response({'next_wmp_no': next_wmp_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
 
  
 
@@ -19570,3 +19592,72 @@ class WasteDraftEditView(APIView):
             logger.info(f"Email sent to {recipient.email} for action: {action_type}")
         except Exception as e:
             logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+
+class CausePartyCreateView(APIView):
+    def post(self, request):
+        serializer = CausePartySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CompanyCausePartyView(APIView):
+    def get(self, request, company_id):
+        agendas = CauseParty.objects.filter(company_id=company_id)
+        serializer = CausePartySerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+ 
+   
+class CausePartyDetailView(APIView):
+ 
+    def get_object(self, pk):
+        try:
+            return CauseParty.objects.get(pk=pk)
+        except CauseParty.DoesNotExist:
+            return None
+
+
+    def delete(self, request, pk):
+        agenda = self.get_object(pk)
+        if not agenda:
+            return Response({"error": "Agenda not found."}, status=status.HTTP_404_NOT_FOUND)
+        agenda.delete()
+        return Response({"message": "Agenda deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class  ProcessHealthView(APIView):
+    def post(self, request):  
+        serializer = ProcessHealthSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class ProcessHealthDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = ProcessHealth.objects.get(pk=pk)
+        except ProcessHealth.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ProcessHealthSerializer(root_cause)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = ProcessHealth.objects.get(pk=pk)
+        except ProcessHealth.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProcessHealthCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = ProcessHealth.objects.filter(company_id=company_id)
+        serializer = ProcessHealthSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

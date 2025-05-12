@@ -111,3 +111,6 @@ admin.site.register(IncidentRoot)
 
 
 admin.site.register(EnvironmentalWaste)
+
+admin.site.register(ProcessHealth)
+admin.site.register(HealthSafety)

@@ -80,6 +80,11 @@ urlpatterns = [
     path('compliances-draft/edit/<int:pk>/', EditsDraftCompliance.as_view(), name='compliance_edit'),
     
    
+    # interested party type 
+    path('cause-party/create/', CausePartyCreateView.as_view(), name='agenda-list-create'), 
+    path('cause-party/company/<int:company_id>/', CompanyCausePartyView.as_view(), name='company-agendas'),  
+    path('agcause-partyenda/<int:pk>/', CausePartyDetailView.as_view(), name='agenda-detail'),
+    
     # Interested Parties
     path('interested-parties/<int:company_id>/', InterestedPartyList.as_view(), name='manual-list'),
     path('interested-parties-get/<int:pk>/', InterestedPartyDetailView.as_view(), name='interested-party-detail'),
@@ -543,7 +548,7 @@ urlpatterns = [
     #  Environment Incident Root Cause
     path('incident-root/create/', IncidentRootActivityView.as_view(), name='root-cause-list-create'),   
     path('incident-root/company/<int:company_id>/', IncidentRootReviewDetailView.as_view(), name='company-agendas'), 
-    path('incident-root/<int:pk>/', ProcessActivityReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
+    path('incident-root/<int:pk>/', IncidentRootReviewTypeCompanyView.as_view(), name='root-cause-detail-update-delete'),
     
     # Environmental Incident
     path('incident/create/', IncidentCreateAPIView.as_view(), name='car-number-list-create'),
@@ -573,7 +578,13 @@ urlpatterns = [
     path('waste/count-notifications/<int:user_id>/', WasteUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
     path('waste/notifications/<int:notification_id>/read/', WasteMarkNotificationAPIView.as_view(), name='mark-notification-read'),
     path('waste/create/<int:id>/', WasteDraftEditView.as_view(), name='manual-update'),
+    path('waste/next-action/<int:company_id>/', GetNextWMPNumberView.as_view(), name='get-next-action-number'),
     
+    
+    # Health and Safety Incident process
+    path('health-root/create/', ProcessHealthView.as_view(), name='root-cause-list-create'),   
+    path('health-root/company/<int:company_id>/', ProcessHealthCompanyView.as_view(), name='company-agendas'), 
+    path('health-root/<int:pk>/', ProcessHealthDetailView.as_view(), name='root-cause-detail-update-delete'),
 ]
 
 
