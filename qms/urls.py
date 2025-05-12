@@ -585,6 +585,28 @@ urlpatterns = [
     path('health-root/create/', ProcessHealthView.as_view(), name='root-cause-list-create'),   
     path('health-root/company/<int:company_id>/', ProcessHealthCompanyView.as_view(), name='company-agendas'), 
     path('health-root/<int:pk>/', ProcessHealthDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+      
+    # Health and Safety
+    path('heaith/<int:company_id>/', HealthAllList.as_view(), name='manual-list'),
+    path('heaith-detail/<int:pk>/', HealthDetailView.as_view(), name='manual-detail'),
+    path('heaith-create/', HealthSafetyCreateView.as_view(), name='manual-list-create'),
+    path('heaith/<int:pk>/update/', WasteUpdateView.as_view(), name='manual-update'),   
+    path('waste/submit-correction/', SubmitWasteCorrectionView.as_view(), name='submit-correction'),
+    path('waste/<int:waste_correction_id>/corrections/', WasteCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('waste-review/', WasteReviewView.as_view(), name='manual-review'),
+    path('waste/<int:waste_id>/publish-notification/', WastePublishNotificationView.as_view(), name='publish-notification'),
+    path('waste/draft-create/', EnvironmentalWasteDraftAPIView.as_view(), name='manual-create'),
+    path('waste-draft/<int:user_id>/', WasteDraftAllList.as_view(), name='manual-list'),
+    path('waste/drafts-count/<int:user_id>/', DraftWastecountAPIView.as_view(), name='draft-manuals'),    
+    path("waste/notifications/<int:user_id>/", WasteNotificationView.as_view(), name="user-notifications"),  
+    path("notifications-waste/<int:user_id>/", WasteNotificationsQMS.as_view(), name="notifications_by_user"),
+    path('waste/count-notifications/<int:user_id>/', WasteUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('waste/notifications/<int:notification_id>/read/', WasteMarkNotificationAPIView.as_view(), name='mark-notification-read'),
+    path('waste/create/<int:id>/', WasteDraftEditView.as_view(), name='manual-update'),
+    path('waste/next-action/<int:company_id>/', GetNextWMPNumberView.as_view(), name='get-next-action-number'),
+    
+    
 ]
 
 

@@ -19661,3 +19661,253 @@ class ProcessHealthCompanyView(APIView):
         agendas = ProcessHealth.objects.filter(company_id=company_id)
         serializer = ProcessHealthSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class HealthAllList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        manuals = HealthSafety.objects.filter(company=company, is_draft=False)
+        serializer = HealthSafetyGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class HealthDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            manual = HealthSafety.objects.get(pk=pk)
+        except HealthSafety.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = WasteGetSerializer(manual)
+        return Response(serializer.data)
+
+
+
+    def delete(self, request, pk):
+        try:
+            manual = HealthSafety.objects.get(pk=pk)
+        except HealthSafety.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        manual.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+class HealthSafetyCreateView(APIView):
+    def post(self, request):
+        logger.info("Received health creation request.")
+        serializer = HealthSafetySerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    health = serializer.save()
+                    health.written_at = now()
+                    health.is_draft = False
+
+                    health.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by')
+                    )
+                    health.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by')
+                    )
+
+                    health.save()
+                    logger.info(f"Health record created successfully with ID: {health.id}")
+
+                    if health.checked_by:
+                        if health.send_notification_to_checked_by:
+                            try:
+                                NotificationHealth.objects.create(
+                                    user=health.checked_by,
+                                    health=health,
+                                    title="Notification for Checking/Review",
+                                    message="A health record has been created for your review."
+                                )
+                                logger.info(f"Notification created for checked_by user {health.checked_by.id}")
+                            except Exception as e:
+                                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                        if health.send_email_to_checked_by and health.checked_by.email:
+                            self.send_email_notification(health, health.checked_by, "review")
+                        else:
+                            logger.warning("Email to checked_by skipped: flag disabled or email missing.")
+                    else:
+                        logger.warning("No checked_by user assigned.")
+
+                    return Response(
+                        {"message": "Health record created successfully", "id": health.id},
+                        status=status.HTTP_201_CREATED
+                    )
+
+            except Exception as e:
+                logger.error(f"Error during health creation: {str(e)}")
+                return Response(
+                    {"error": "An unexpected error occurred."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        logger.error(f"Health creation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_email_notification(self, health, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Health Record Ready for Review: {health.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': health.title,
+                        'hazard_source': health.hazard_source,
+                        'hazard_no': health.hazard_no,
+                        'process_activity': health.process_activity,
+                        'description': health.description,
+                        'level_of_risk': health.level_of_risk,
+                        'legal_requirement': health.legal_requirement,
+                        'action': health.action,
+                        'written_by': health.written_by,
+                        'checked_by': health.checked_by,
+                        'approved_by': health.approved_by,
+                        'date': health.date,
+                        'written_at': health.written_at,
+                        'status': health.status,
+                        'created_by': health.user,
+                    }
+
+                    html_message = render_to_string('qms/health/health_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+
+
+class HealthUpdateView(APIView):
+    def put(self, request, pk):
+        print("Request data:", request.data)
+        try:
+            with transaction.atomic():
+                health_safety = HealthSafety.objects.get(pk=pk)
+                serializer = HealthUpdateSerializer(health_safety, data=request.data, partial=True)
+
+                if serializer.is_valid():
+                    updated_health = serializer.save()
+
+                    updated_health.written_at = now()
+                    updated_health.is_draft = False
+                    updated_health.status = 'Pending for Review/Checking'
+
+                    updated_health.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_health.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+
+                    updated_health.save()
+
+                    if updated_health.checked_by:
+                        if updated_health.send_notification_to_checked_by:
+                            try:
+                                NotificationHealth.objects.create(
+                                    user=updated_health.checked_by,
+                                    health=updated_health,
+                                    title="Health Update - Review Required",
+                                    message=f"Health record '{updated_health.hazard_no}' has been updated and requires your review."
+                                )
+                            except Exception as e:
+                                logger.error(f"Notification error for checked_by: {str(e)}")
+
+                        if updated_health.send_email_to_checked_by and updated_health.checked_by.email:
+                            self.send_email_notification(updated_health, updated_health.checked_by, "review")
+
+                    return Response({"message": "Health record updated successfully"}, status=status.HTTP_200_OK)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except HealthSafety.DoesNotExist:
+            return Response({"error": "Health record not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def send_email_notification(self, health, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Health Record Update: {health.hazard_no or 'No Hazard No'}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'hazard_no': health.hazard_no,
+                        'hazard_source': health.hazard_source,
+                        'description': health.description,
+                        'process_activity': health.process_activity,
+                        'level_of_risk': health.level_of_risk,
+                        'legal_requirement': health.legal_requirement,
+                        'action': health.action,
+                        'written_by': health.written_by,
+                        'checked_by': health.checked_by,
+                        'approved_by': health.approved_by,
+                        'status': health.status,
+                        'created_by': health.user,
+                        'date': health.date,
+                       
+                    }
+                    html_message = render_to_string('qms/health/health_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email sent to {recipient_email} for health record update")
+                else:
+                    logger.warning("Unknown action type for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")

@@ -1538,7 +1538,7 @@ class EnergyImprovement(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return str(self.eio_title) if self.eio_title is not None else "No Title Provided"
+        return str(self.title) 
 
 
 
@@ -2020,7 +2020,7 @@ class ProcessHealth(models.Model):
     title = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
-        return self.title  
+        return self.title  if self.title else "No Title Provided"
     
 class HealthSafety(models.Model):
     STATUS_CHOICES = [
@@ -2096,8 +2096,10 @@ class HealthSafety(models.Model):
             else:
                 self.hazard_no = "HS-1"
         super().save(*args, **kwargs)
-
-        return self.title if self.title else f"HealthSafety #{self.id}"
+        
+    def __str__(self):
+         return self.title or "HealthSafety Record"
+  
     
     
 class NotificationHealth(models.Model):
@@ -2110,7 +2112,7 @@ class NotificationHealth(models.Model):
     
     def __str__(self):
         return f"Notification for {self.user.email} - {self.message}"
-    
+   
     
 class CorrectionHealth(models.Model):
     health_correction = models.ForeignKey(HealthSafety, on_delete=models.CASCADE, null=True, blank=True)

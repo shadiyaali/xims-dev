@@ -332,6 +332,7 @@ class CausePartySerializer(serializers.ModelSerializer):
 class InterestedPartyGetSerializer(serializers.ModelSerializer):
     needs = NeedsSerializer(many=True, read_only=True)
     type = CausePartySerializer()
+    user = UserSerializer()
     class Meta:
         model = InterestedParty
         fields = '__all__'
@@ -1496,6 +1497,19 @@ class ProcessHealthSerializer(serializers.ModelSerializer):
         fields = '__all__' 
 
 class HealthSafetySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthSafety
+        fields = '__all__'
+        
+
+
+class HealthSafetyGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    
+    
     class Meta:
         model = HealthSafety
         fields = '__all__'
