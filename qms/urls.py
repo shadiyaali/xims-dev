@@ -594,19 +594,52 @@ urlpatterns = [
     path('health/<int:pk>/update/', HealthUpdateView.as_view(), name='manual-update'),   
     path('health/submit-correction/', SubmitHealthCorrectionView.as_view(), name='submit-correction'),
     path('health/<int:health_correction_id>/corrections/', HealthCorrectionsListView.as_view(), name='manual-corrections-list'),   
-    path('waste-review/', WasteReviewView.as_view(), name='manual-review'),
-    path('waste/<int:waste_id>/publish-notification/', WastePublishNotificationView.as_view(), name='publish-notification'),
-    path('waste/draft-create/', EnvironmentalWasteDraftAPIView.as_view(), name='manual-create'),
-    path('waste-draft/<int:user_id>/', WasteDraftAllList.as_view(), name='manual-list'),
-    path('waste/drafts-count/<int:user_id>/', DraftWastecountAPIView.as_view(), name='draft-manuals'),    
-    path("waste/notifications/<int:user_id>/", WasteNotificationView.as_view(), name="user-notifications"),  
-    path("notifications-waste/<int:user_id>/", WasteNotificationsQMS.as_view(), name="notifications_by_user"),
-    path('waste/count-notifications/<int:user_id>/', WasteUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
-    path('waste/notifications/<int:notification_id>/read/', WasteMarkNotificationAPIView.as_view(), name='mark-notification-read'),
-    path('waste/create/<int:id>/', WasteDraftEditView.as_view(), name='manual-update'),
-    path('waste/next-action/<int:company_id>/', GetNextWMPNumberView.as_view(), name='get-next-action-number'),
+    path('health-review/', HealthReviewView.as_view(), name='manual-review'),
+    path('health/<int:health_id>/publish-notification/', HealthPublishNotificationView.as_view(), name='publish-notification'),
+    path('health/draft-create/', EnvironmentalHealthDraftAPIView.as_view(), name='manual-create'),
+    path('health-draft/<int:user_id>/', HealthDraftAllList.as_view(), name='manual-list'),
+    path('health/drafts-count/<int:user_id>/', DraftHealthcountAPIView.as_view(), name='draft-manuals'),    
+    path("health/notifications/<int:user_id>/", HealthNotificationView.as_view(), name="user-notifications"),  
+    path("notifications-health/<int:user_id>/", HealthNotificationsQMS.as_view(), name="notifications_by_user"),
+    path('health/count-notifications/<int:user_id>/', HealthUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('health/notifications/<int:notification_id>/read/', HealthMarkNotificationAPIView.as_view(), name='mark-notification-read'),
+    path('health/create/<int:id>/', HealthDraftEditView.as_view(), name='manual-update'),
+    path('health/next-action/<int:company_id>/', GetNextHazardNumberView.as_view(), name='get-next-action-number'),
     
     
+    # Health and Safety Risk Assessments
+    path('assessment/<int:company_id>/', AssessmentAllList.as_view(), name='manual-list'),
+    path('assessment-detail/<int:pk>/', AssessmentDetailView.as_view(), name='manual-detail'),
+    path('assessment-create/', RiskAssessmentCreateView.as_view(), name='manual-list-create'),
+    path('assessment/<int:pk>/update/', RiskAssessmentUpdateView.as_view(), name='manual-update'),   
+    path('assessment/submit-correction/', RiskAssessmentCorrectionView.as_view(), name='submit-correction'),
+    path('assessment/<int:assessment_correction_id>/corrections/', AssessmentCorrectionsListView.as_view(), name='manual-corrections-list'),   
+    path('assessment-review/', AssessmentReviewView.as_view(), name='manual-review'),
+    path('assessment/<int:assessment_id>/publish-notification/', AssessmentPublishNotificationView.as_view(), name='publish-notification'),
+    path('assessment/draft-create/', AssessmentlDraftAPIView.as_view(), name='manual-create'),
+    path('assessment-draft/<int:user_id>/', AssessmentDraftAllList.as_view(), name='manual-list'),
+    path('assessment/drafts-count/<int:user_id>/', AssessmentcountAPIView.as_view(), name='draft-manuals'),    
+    path("assessment/notifications/<int:user_id>/", AssessmentNotificationView.as_view(), name="user-notifications"),  
+    path("notifications-assessment/<int:user_id>/", AssessmentNotificationsQMS.as_view(), name="notifications_by_user"),
+    path('assessment/count-notifications/<int:user_id>/', AssessmentUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('assessment/notifications/<int:notification_id>/read/', AssessmentMarkNotificationAPIView.as_view(), name='mark-notification-read'),
+    path('assessment/create/<int:id>/', AssessmentDraftEditView.as_view(), name='manual-update'),
+    
+    # HealthRootCause in Health and Safety Incidents
+    path('safety-root/create/', SafetyRoothView.as_view(), name='root-cause-list-create'),   
+    path('safety-root/company/<int:company_id>/', SafetyRootCompanyView.as_view(), name='company-agendas'), 
+    path('safety-root/<int:pk>/', SafetyRootDetailView.as_view(), name='root-cause-detail-update-delete'),
+    
+    
+    path('safety_incidents/', HealthIncidentCreateAPIView.as_view(), name='car-number-list-create'),
+    path('safety_incidents/<int:pk>/', HealthIncidentDetailView.as_view(), name='car-number-detail'),
+    path('safety_incidents/draft-create/', HealthIncidentDraftAPIView.as_view(), name='manual-create'),
+    path('safety_incidents/company/<int:company_id>/', HealthIncidentCompanyView.as_view(), name='company-agendas'),
+    path('safety_incidents/draft/<user_id>/', HealthIncidentDrafteView.as_view(), name='company-agendas'),   
+    path('safety_incidents/next-action/<int:company_id>/', GetNextIncidentNumberView.as_view(), name='get-next-action-number'),
+    path('safety_incidents/update/<int:pk>/', HealthIncidentEditAPIView.as_view(), name='car-draft-update'),
+    path('safety_incidents-draft/update/<int:pk>/', HealthIncidentDraftUpdateAPIView.as_view(), name='car-draft-update'),
+       
 ]
 
 

@@ -116,3 +116,12 @@ admin.site.register(ProcessHealth)
 admin.site.register(HealthSafety)
 admin.site.register(NotificationHealth)
 admin.site.register(CorrectionHealth)
+
+
+admin.site.register(RiskAssessment)
+admin.site.register(NotificationAssessments)
+admin.site.register(CorrectionAssessments)
+
+
+admin.site.register(HealthRootCause)
+admin.site.register(HealthIncidents)

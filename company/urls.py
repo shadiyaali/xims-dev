@@ -21,12 +21,8 @@ urlpatterns = [
     path('user/change-password/<int:user_id>/', ChangeUserPasswordView.as_view(), name='change-password'),
  
  
-    path('risk-assessment/', RiskAssessmentView.as_view(), name='assessment-list-create'), 
-    path('risk-assessment/<int:pk>/', RiskAssessmentDetailView.as_view(), name='assessment-detail-update-delete'),
-    path('health-root-causes/', HealthRootCauseView.as_view(), name='root-cause-list-create'),   
-    path('health-root-causes/<int:pk>/', HealthRootCauseDetailView.as_view(), name='root-cause-detail-update-delete'),
-    path('health-incidents/', HealthIncidentsView.as_view(), name='health-incidents-list-create'),   
-    path('health-incidents/<int:pk>/', HealthIncidentsDetailView.as_view(), name='health-incidents-detail-update-delete'), 
+ 
+    
     path('business-risks/', BusinessRiskView.as_view(), name='business-risk-list-create'), 
     path('business-risks/<int:pk>/', BusinessRiskDetailView.as_view(), name='business-risk-detail-update-delete'), 
 

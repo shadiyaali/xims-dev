@@ -8,9 +8,6 @@ admin.site.register(Permission)
 
 
 
-admin.site.register(RiskAssessment)
-admin.site.register(HealthRootCause)
-admin.site.register(HealthIncidents)
 admin.site.register(BusinessRisk)
 
 

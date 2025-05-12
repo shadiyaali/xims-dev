@@ -263,6 +263,7 @@ class ManualCreateView(APIView):
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
                         'date': manual.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
@@ -510,6 +511,7 @@ class SubmitCorrectionView(APIView):
                 'checked_by': manual.checked_by,
                 'approved_by': manual.approved_by,
                 'date': manual.date,
+                 'notification_year': timezone.now().year 
             }
 
             # Render email message
@@ -679,6 +681,7 @@ class ManualReviewView(APIView):
                             'written_by': manual.written_by,
                             'checked_by': manual.checked_by,
                             'approved_by': manual.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': manual.date,
                             'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
                             'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
@@ -701,6 +704,7 @@ class ManualReviewView(APIView):
                             'checked_by': manual.checked_by,
                             'approved_by': manual.approved_by,
                             'date': manual.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
                             'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
                         }
@@ -855,6 +859,7 @@ class ManualUpdateView(APIView):
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
                         'date': manual.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/manual/manual_update_to_checked_by.html', context)
@@ -1118,6 +1123,7 @@ class ManualPublishNotificationView(APIView):
             "checked_by": manual.checked_by,
             "approved_by": manual.approved_by,
             'date': manual.date,
+             'notification_year': timezone.now().year ,
             'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
             'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
         }
@@ -1301,6 +1307,7 @@ class ProcedureCreateView(APIView):
                         'checked_by': procedure.checked_by,
                         'approved_by': procedure.approved_by,
                         'date': procedure.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_to_checked_by.html', context)
@@ -1479,6 +1486,7 @@ class ProcedureUpdateView(APIView):
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
                         'date': procedure.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_update_to_checked_by.html', context)
@@ -1640,6 +1648,7 @@ class SubmitCorrectionProcedureView(APIView):
                 'checked_by': procedure.checked_by,
                 'approved_by': procedure.approved_by,
                 'date': procedure.date,
+                 'notification_year': timezone.now().year 
             }
 
             html_message = render_to_string(template_name, context)
@@ -1800,6 +1809,7 @@ class ProcedureReviewView(APIView):
                             "checked_by": procedure.checked_by,
                             "approved_by": procedure.approved_by,
                             'date': procedure.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                             'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                         }
@@ -1820,6 +1830,7 @@ class ProcedureReviewView(APIView):
                             "written_by": procedure.written_by,
                             "checked_by": procedure.checked_by,
                             "approved_by": procedure.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': procedure.date,
                             'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                             'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
@@ -2050,6 +2061,7 @@ class RecordCreateView(APIView):
                     'checked_by': record.checked_by,
                     'approved_by': record.approved_by,
                     'date': record.date,
+                     'notification_year': timezone.now().year 
                 }
 
                 html_message = render_to_string('qms/record/record_to_checked_by.html', context)
@@ -2240,6 +2252,7 @@ class RecordUpdateView(APIView):
                     "checked_by": record.checked_by,
                     "approved_by": record.approved_by,
                     'date': record.date,
+                     'notification_year': timezone.now().year ,
                     'document_url': record.upload_attachment.url if record.upload_attachment else None,
                     'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
                 }
@@ -2408,6 +2421,7 @@ class SubmitCorrectionRecordView(APIView):
                 "checked_by": record.checked_by,
                 "approved_by": record.approved_by,
                 'date': record.date,
+                 'notification_year': timezone.now().year ,
                 'document_url': record.upload_attachment.url if record.upload_attachment else None,
                 'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
             }
@@ -2570,6 +2584,7 @@ class RecordReviewView(APIView):
                             'checked_by': record.checked_by,
                             'approved_by': record.approved_by,
                             'date': record.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': record.upload_attachment.url if record.upload_attachment else None,
                             'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
                         }
@@ -2590,6 +2605,7 @@ class RecordReviewView(APIView):
                             'written_by': record.written_by,
                             'checked_by': record.checked_by,
                             'approved_by': record.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': record.date,
                             'document_url': record.upload_attachment.url if record.upload_attachment else None,
                             'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
@@ -2763,6 +2779,7 @@ class RecordPublishNotificationView(APIView):
             "written_by": record.written_by,
             "checked_by": record.checked_by,
             "approved_by": record.approved_by,
+             'notification_year': timezone.now().year ,
             'date': record.date,
             'publisher_name': publisher_name,
             'document_url': record.upload_attachment.url if record.upload_attachment else None,
@@ -3042,6 +3059,7 @@ class ProcedurePublishNotificationView(APIView):
             'section_number': procedure.no,
             'rivision': procedure.rivision,
             "written_by": procedure.written_by,
+             'notification_year': timezone.now().year ,
             "checked_by": procedure.checked_by,
             "approved_by": procedure.approved_by,
             'date': procedure.date,
@@ -3341,6 +3359,7 @@ class InterestedPartyCreateView(APIView):
                 'custom_legal_requirements': interested_party.custom_legal_requirements,
                 'user_first_name': interested_party.user.first_name if interested_party.user else '',
                 'user_last_name': interested_party.user.last_name if interested_party.user else '',
+                 'notification_year': timezone.now().year ,
             }
 
             print(f"Email context prepared: {context}")
@@ -3754,6 +3773,7 @@ class EditInterestedParty(APIView):
                 'custom_legal_requirements': interested_party.custom_legal_requirements,
                 'user_first_name': interested_party.user.first_name if interested_party.user else '',
                 'user_last_name': interested_party.user.last_name if interested_party.user else '',
+                 'notification_year': timezone.now().year 
             }
 
             html_message = render_to_string('qms/interested_party/intereste_party_edit.html', context)
@@ -4108,6 +4128,7 @@ class ProcessCreateAPIView(APIView):
             'process_type': process.type,
             'process_no': process.no,
             'process_remarks': process.custom_legal_requirements,
+             'notification_year': timezone.now().year ,
           
             'legal_requirements': ", ".join([
                 f"{lr.document_type or 'Unknown'} - {lr.no or 'No Number'}"
@@ -4130,13 +4151,13 @@ class ProcessCreateAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Attach process document if available - careful handling to avoid pickle errors
+         
             if process.file:
                 try:
                     file_name = process.file.name.rsplit('/', 1)[-1]
                     
             
-                    from django.core.files.storage import default_storage
+                    
                     file_path = process.file.name
                     
                     with default_storage.open(file_path, 'rb') as f:
@@ -4374,7 +4395,7 @@ class EditProcess(APIView):
             'process_type': process.type,
             'process_no': process.no,
             'process_remarks': process.custom_legal_requirements,
-          
+           'notification_year': timezone.now().year ,
             'legal_requirements': ", ".join([
                 f"{lr.document_type or 'Unknown'} - {lr.no or 'No Number'}"
                 for lr in process.legal_requirements.all()
@@ -4595,6 +4616,7 @@ class ComplianceCreateAPIView(APIView):
             'relate_business_process': compliance.relate_business_process,
             'relate_document': compliance.relate_document,
             'created_by': compliance.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -4736,6 +4758,7 @@ class EditsCompliance(APIView):
             'relate_business_process': compliance.relate_business_process,
             'relate_document': compliance.relate_document,
             'created_by': compliance.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -4902,6 +4925,7 @@ class LegalCreateAPIView(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -5028,6 +5052,7 @@ class EditsLegal(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -5176,6 +5201,7 @@ class EvaluationCreateView(APIView):
                         'checked_by': evaluation.checked_by,
                         'approved_by': evaluation.approved_by,
                         'date': evaluation.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
@@ -5333,6 +5359,7 @@ class EvaluationUpdateView(APIView):
                         'checked_by': evaluation.checked_by,
                         'approved_by': evaluation.approved_by,
                         'date': evaluation.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('evaluation/evaluation_update_to_checked_by.html', context)
@@ -5501,6 +5528,7 @@ class SubmitEvaluationCorrectionView(APIView):
                 'checked_by': evaluation.checked_by,
                 'approved_by': evaluation.approved_by,
                 'date': evaluation.date,
+                 'notification_year': timezone.now().year 
             }
 
             html_message = render_to_string(template_name, context)
@@ -5662,6 +5690,7 @@ class EvaluationReviewView(APIView):
                             'written_by': evaluation.written_by,
                             'checked_by': evaluation.checked_by,
                             'approved_by': evaluation.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': evaluation.date,
                             'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
                             'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
@@ -5684,6 +5713,7 @@ class EvaluationReviewView(APIView):
                             'checked_by': evaluation.checked_by,
                             'approved_by': evaluation.approved_by,
                             'date': evaluation.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
                             'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
                         }
@@ -5819,6 +5849,7 @@ class EvaluationPublishNotificationView(APIView):
                             'written_by': evaluation.written_by,
                             'checked_by': evaluation.checked_by,
                             'approved_by': evaluation.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': evaluation.date,
                             'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
                             'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
@@ -6103,6 +6134,7 @@ class ChangesCreateAPIView(APIView):
             'potential_cosequences': changes.potential_cosequences,
             'moc_remarks': changes.moc_remarks,
             'created_by': changes.user,
+             'notification_year': timezone.now().year 
         }
       
 
@@ -6254,6 +6286,7 @@ class EditsChanges(APIView):
             'moc_remarks': changes.moc_remarks,
             'created_by': changes.user,
             'recipient': recipient,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -6436,6 +6469,7 @@ class SustainabilityCreateView(APIView):
                         'checked_by': sustainability.checked_by,
                         'approved_by': sustainability.approved_by,
                         'date': sustainability.date,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/sustainability/sustainability_to_checked_by.html', context)
@@ -6614,6 +6648,7 @@ class SustainabilityUpdateView(APIView):
                         'checked_by': sustainability.checked_by,
                         'approved_by': sustainability.approved_by,
                         'date': sustainability.date,
+                         'notification_year': timezone.now().year 
                     }
 
             html_message = render_to_string(
@@ -6783,7 +6818,8 @@ class SubmitCorrectionSustainabilityView(APIView):
                 'approved_by': sustainability.approved_by,
                 'date': sustainability.date,
                 'correction_text': correction.correction,
-                'from_user_name': from_user.first_name
+                'from_user_name': from_user.first_name,
+                 'notification_year': timezone.now().year 
             }
 
             # Render email message
@@ -6947,7 +6983,9 @@ class SustainabilityReviewView(APIView):
                             'written_by': sustainability.written_by,
                             'checked_by': sustainability.checked_by,
                             'approved_by': sustainability.approved_by,
+                             'notification_year': timezone.now().year ,
                             'date': sustainability.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
                             'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
                         }
@@ -6969,6 +7007,7 @@ class SustainabilityReviewView(APIView):
                             'checked_by': sustainability.checked_by,
                             'approved_by': sustainability.approved_by,
                             'date': sustainability.date,
+                             'notification_year': timezone.now().year ,
                             'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
                             'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
                         }
@@ -7138,6 +7177,7 @@ class SustainabilityPublishNotificationView(APIView):
             "checked_by": sustainability.checked_by,
             "approved_by": sustainability.approved_by,
             'date': sustainability.date,
+             'notification_year': timezone.now().year ,
             'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
             'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
         }
@@ -7519,7 +7559,8 @@ class TrainingCreateAPIView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
-             'created_by': training.user
+             'created_by': training.user,
+              'notification_year': timezone.now().year 
         }
 
         html_message = render_to_string('qms/training/training_add.html', context)
@@ -7661,7 +7702,8 @@ class TrainingUpdateAPIView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
-             'created_by': training.user
+             'created_by': training.user,
+              'notification_year': timezone.now().year 
         }
 
         try:
@@ -7787,7 +7829,8 @@ class TrainingCompleteAndNotifyView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
-             'created_by': training.user
+             'created_by': training.user,
+              'notification_year': timezone.now().year 
         }
 
         try:
@@ -8645,7 +8688,8 @@ class MeetingCreateView(APIView):
             'agenda_item': meeting.agenda.all(),
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
-            'created_by': meeting.user
+            'created_by': meeting.user,
+             'notification_year': timezone.now().year 
         }
 
         html_message = render_to_string('qms/meeting/meeting_add.html', context)
@@ -8787,7 +8831,8 @@ class MeetingUpdateAPIView(APIView):
             'agenda_item': meeting.agenda.all(),
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
-            'created_by':meeting.user
+            'created_by':meeting.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -9531,7 +9576,8 @@ class CarNumberCreateAPIView(APIView):
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
             'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
-            'created_by': car_number.user
+            'created_by': car_number.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -9739,7 +9785,8 @@ class CarDraftUpdateAPIView(APIView):
             'action_or_corrections': car_number.action_or_corrections,
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
-            'created_by': car_number.user
+            'created_by': car_number.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -10106,6 +10153,7 @@ class ManualDraftEditView(APIView):
                         "checked_by": manual.checked_by,
                         "approved_by": manual.approved_by,
                         'date': manual.date,
+                         'notification_year': timezone.now().year ,
                         'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
                         'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
                     }
@@ -10902,6 +10950,7 @@ class ProcedureDraftEditView(APIView):
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
                         'date': procedure.date,
+                         'notification_year': timezone.now().year ,
                         'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                         'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
                     }
@@ -11034,6 +11083,7 @@ class EvaluationDraftEditView(APIView):
                         "written_by": procedure.written_by,
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
+                         'notification_year': timezone.now().year ,
                         'date': procedure.date,
                         'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
                         'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
@@ -11169,6 +11219,7 @@ class RecordraftEditView(APIView):
                         "checked_by": record.checked_by,
                         "approved_by": record.approved_by,
                         'date': record.date,
+                         'notification_year': timezone.now().year ,
                         'document_url': record.upload_attachment.url if record.upload_attachment else None,
                         'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
                     }
@@ -11390,7 +11441,8 @@ class ProcessDraftEditView(APIView):
                 'custom_legal_requirements': process.custom_legal_requirements,
                 'user_first_name': process.user.first_name if process.user else '',
                 'user_last_name': process.user.last_name if process.user else '',
-                'is_draft_published': True,  # Flag to indicate this is a draft being published
+                'is_draft_published': True, 
+                 'notification_year': timezone.now().year # Flag to indicate this is a draft being published
             }
 
             # Use the same template as process_update.html
@@ -11666,6 +11718,7 @@ class InterestedPartyEditDraftView(APIView):
                 'custom_legal_requirements': interested_party.custom_legal_requirements,
                 'user_first_name': interested_party.user.first_name if interested_party.user else '',
                 'user_last_name': interested_party.user.last_name if interested_party.user else '',
+                 'notification_year': timezone.now().year 
             }
 
             html_message = render_to_string('qms/interested_party/intereste_party_add.html', context)
@@ -11784,6 +11837,7 @@ class EditsDraftCompliance(APIView):
             'relate_business_process': compliance.relate_business_process,
             'relate_document': compliance.relate_document,
             'created_by': compliance.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -11921,6 +11975,7 @@ class EditsDraftManagementChanges(APIView):
             'potential_cosequences': change.potential_cosequences,
             'moc_remarks': change.moc_remarks,
             'created_by': change.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -12078,7 +12133,8 @@ class EditDraftTrainingAPIView(APIView):
             'venue': training.venue,
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
-            'created_by': training.user
+            'created_by': training.user,
+             'notification_year': timezone.now().year 
         }
 
         html_message = render_to_string('qms/training/training_add.html', context)
@@ -12189,7 +12245,8 @@ class MeetingUpdateDraftView(APIView):
             'agenda_item': meeting.agenda.all(),
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
-            'created_by':meeting.user
+            'created_by':meeting.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -12332,6 +12389,7 @@ class SustainabilityDraftEditView(APIView):
                         "checked_by": sustainability.checked_by,
                         "approved_by": sustainability.approved_by,
                         'date': sustainability.date,
+                         'notification_year': timezone.now().year ,
                         'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
                         'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
                     }
@@ -12439,6 +12497,7 @@ class EditDraftLegalAPIView(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -13261,6 +13320,7 @@ class PreventiveActionCreateAPIView(APIView):
             'status': preventive_action.status,
             'action': preventive_action.action,
             'created_by': preventive_action.user,
+             'notification_year': timezone.now().year 
         }
         
         logger.info(f"Email context prepared: {list(context.keys())}")
@@ -13506,6 +13566,7 @@ class PreventiveActionEditAPIView(APIView):
             'status': preventive_action.status,
             'action': preventive_action.action,
             'created_by': preventive_action.user,
+             'notification_year': timezone.now().year 
             
         }
         
@@ -13744,7 +13805,8 @@ class PreventiveDraftUpdateAPIView(APIView):
             'status': preventive_action.status,
             'action': preventive_action.action,
             'created_by': preventive_action.user,
-            'is_update': True,  # Template can use this to show different messaging
+            'is_update': True,  
+             'notification_year': timezone.now().year # Template can use this to show different messaging
         }
         
         logger.info(f"Email context prepared: {list(context.keys())}")
@@ -14216,7 +14278,8 @@ class ConformityCreateAPIView(APIView):
             'status': conformity_report.status,
             'root_cause': conformity_report.root_cause.title if conformity_report.root_cause else "N/A",
             'supplier': conformity_report.supplier.company_name if conformity_report.supplier else "N/A",
-            'created_by': conformity_report.user
+            'created_by': conformity_report.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -14396,7 +14459,8 @@ class ConformityDraftUpdateAPIView(APIView):
             'root_cause': report.root_cause.title if report.root_cause else "N/A",
             'supplier': report.supplier.company_name if report.supplier else "N/A",
             'created_by': report.user,
-            'executor': report.executor
+            'executor': report.executor,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -14509,7 +14573,8 @@ class ConformityEditAPIView(APIView):
             'status': conformity_report.status,
             'root_cause': conformity_report.root_cause.title if conformity_report.root_cause else "N/A",
             'supplier': conformity_report.supplier.company_name if conformity_report.supplier else "N/A",
-            'created_by': conformity_report.user
+            'created_by': conformity_report.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -14618,7 +14683,8 @@ class CarNumberEditAPIView(APIView):
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
             'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
-            'created_by': car_number.user
+            'created_by': car_number.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -14764,6 +14830,7 @@ class EnergyReviewCreateAPIView(APIView):
             'relate_business_process': energy_review.relate_business_process,
             'relate_document_process': energy_review.relate_document_process,
             'created_by': energy_review.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -14985,7 +15052,8 @@ class EnergyReviewEditAPIView(APIView):
             'date_raised': energy_review.date,
             'revision': energy_review.revision,
             'status': energy_review.is_draft,
-            'created_by': energy_review.user
+            'created_by': energy_review.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -15108,7 +15176,8 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             'date_raised': review.date,
             'revision': review.revision,
             'status': review.is_draft,
-            'created_by': review.user
+            'created_by': review.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -15641,6 +15710,7 @@ class SignificantEnergyCreateAPIView(APIView):
             'impact': significant_energy.impact,
             'action': significant_energy.action,
             'created_by': significant_energy.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -15919,6 +15989,7 @@ class SignificantEnergyEditAPIView(APIView):
             'impact': significant_energy.impact,
             'action': significant_energy.action,
             'created_by': significant_energy.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -16041,6 +16112,7 @@ class SignificantEnergyDraftUpdateAPIView(APIView):
             'impact': record.impact,
             'action': record.action,
             'created_by': record.user,
+             'notification_year': timezone.now().year 
         }
         try:
             # Prepare the email content
@@ -16316,6 +16388,7 @@ class EnvironmentalAspectCreateView(APIView):
                         'approved_by': aspect.approved_by,
                         'legal_requirement': aspect.legal_requirement or 'N/A',
                         'action': aspect.action or 'N/A',
+                         'notification_year': timezone.now().year 
                   
                     }
 
@@ -16461,6 +16534,7 @@ class EnvironmentalAspectUpdateView(APIView):
                         'approved_by': aspect.approved_by,
                         'legal_requirement': aspect.legal_requirement or 'N/A',
                         'action': aspect.action or 'N/A',
+                         'notification_year': timezone.now().year 
                   
                     }
 
@@ -16607,6 +16681,7 @@ class SubmitAspectCorrectionView(APIView):
                         'approved_by': aspect.approved_by,
                         'legal_requirement': aspect.legal_requirement or 'N/A',
                         'action': aspect.action or 'N/A',
+                         'notification_year': timezone.now().year 
                   
                     }
 
@@ -16757,6 +16832,7 @@ class AspectReviewView(APIView):
                             'approved_by': aspect.approved_by,
                             'legal_requirement': aspect.legal_requirement or 'N/A',
                             'action': aspect.action or 'N/A',
+                             'notification_year': timezone.now().year 
                     
                         }
                         html_message = render_to_string('qms/aspect/aspect_to_approved_by.html', context)
@@ -16778,6 +16854,7 @@ class AspectReviewView(APIView):
                             'approved_by': aspect.approved_by,
                             'legal_requirement': aspect.legal_requirement or 'N/A',
                             'action': aspect.action or 'N/A',
+                             'notification_year': timezone.now().year 
                     
                         }
                         html_message = render_to_string('qms/aspect/aspect_publish.html', context)
@@ -16927,6 +17004,7 @@ class AspectPublishNotificationView(APIView):
                             'approved_by': aspect.approved_by,
                             'legal_requirement': aspect.legal_requirement or 'N/A',
                             'action': aspect.action or 'N/A',
+                             'notification_year': timezone.now().year 
                     
                         }
 
@@ -17136,6 +17214,7 @@ class AspectDraftEditView(APIView):
                             'approved_by': aspect.approved_by,
                             'legal_requirement': aspect.legal_requirement or 'N/A',
                             'action': aspect.action or 'N/A',
+                             'notification_year': timezone.now().year 
                     
                         }
 
@@ -17250,6 +17329,7 @@ class ImpactCreateView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
@@ -17391,6 +17471,7 @@ class ImpactUpdateView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
                     }
 
                     html_message = render_to_string('qms/impact/impact_update_to_checked_by.html', context)
@@ -17547,6 +17628,7 @@ class SubmitImpactCorrectionView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
                     }
 
             html_message = render_to_string(template_name, context)
@@ -17713,6 +17795,7 @@ class ImpactReviewView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
                         }
                         html_message = render_to_string('qms/impact/impact_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -17731,6 +17814,7 @@ class ImpactReviewView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
                         }
                         html_message = render_to_string('qms/impact/impact_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -17877,6 +17961,7 @@ class ImpactPublishNotificationView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
                         }
 
         html_message = render_to_string('qms/impact/impact_published_notification.html', context)
@@ -18098,6 +18183,7 @@ class EnvironmentalImpactDraftEditView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
                         }
 
                     html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
@@ -18292,7 +18378,8 @@ class IncidentCreateAPIView(APIView):
             'action': incident.action,
             'remarks': incident.remarks,
             'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
-            'created_by': incident.user
+            'created_by': incident.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -18514,7 +18601,8 @@ class EnvironmentalIncidentEditAPIView(APIView):
             'action': incident.action,
             'remarks': incident.remarks,
             'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
-            'created_by': incident.user
+            'created_by': incident.user,
+             'notification_year': timezone.now().year 
         }
 
 
@@ -18631,7 +18719,8 @@ class EnvironmentalInciDraftUpdateAPIView(APIView):
             'action': incident.action,
             'remarks': incident.remarks,
             'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
-            'created_by': incident.user
+            'created_by': incident.user,
+             'notification_year': timezone.now().year 
         }
 
         try:
@@ -18748,6 +18837,7 @@ class EnvironmentalWasteCreateView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
 
@@ -18889,6 +18979,7 @@ class WasteUpdateView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
                     html_message = render_to_string('qms/waste/waste_update_to_checked_by.html', context)
@@ -19036,6 +19127,7 @@ class SubmitWasteCorrectionView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
             html_message = render_to_string(template_name, context)
@@ -19159,8 +19251,8 @@ class WasteReviewView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def send_email_notification(self, waste, recipients, action_type):
-        from decouple import config
-        from django.core.mail import EmailMultiAlternatives
+  
+ 
 
         for recipient in recipients:
             recipient_email = recipient.email if recipient else None
@@ -19188,6 +19280,7 @@ class WasteReviewView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
                         html_message = render_to_string('qms/waste/waste_to_approved_by.html', context)
@@ -19214,6 +19307,7 @@ class WasteReviewView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
                         html_message = render_to_string('qms/waste/waste_publish.html', context)
@@ -19355,6 +19449,7 @@ class WastePublishNotificationView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
 
@@ -19569,6 +19664,7 @@ class WasteDraftEditView(APIView):
                         'status': waste.status,
                         'created_by': waste.user,
                         "waste_quantity": waste.waste_quantity,
+                         'notification_year': timezone.now().year 
                            
                     }
 
@@ -19687,7 +19783,7 @@ class HealthDetailView(APIView):
         except HealthSafety.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = WasteGetSerializer(manual)
+        serializer = HealthSafetyGetSerializer(manual)
         return Response(serializer.data)
 
 
@@ -19782,7 +19878,7 @@ class HealthSafetyCreateView(APIView):
                         'approved_by': health.approved_by,
                         'date': health.date,
                         'written_at': health.written_at,
-                       
+                        'notification_year': timezone.now().year ,
                         'created_by': health.user,
                        'created_year': notification.created_at.year if notification else None,
 
@@ -19902,7 +19998,7 @@ class HealthUpdateView(APIView):
                         'approved_by': health.approved_by,
                         'date': health.date,
                         'written_at': health.written_at,
-                       
+                        'notification_year': timezone.now().year ,
                         'created_by': health.user,
                         'created_year': created_year
                     }
@@ -20046,6 +20142,7 @@ class SubmitHealthCorrectionView(APIView):
                         'date': health.date,
                         'written_at': health.written_at,                      
                         'created_by': health.user,
+                         'notification_year': timezone.now().year 
                      
                     }
             html_message = render_to_string(template_name, context)
@@ -20076,6 +20173,2004 @@ class HealthCorrectionsListView(generics.ListAPIView):
     serializer_class = CorrectionHealthGetQMSSerializer
 
     def get_queryset(self):
-        health_correction_id = self.kwargs.get("health_correction")
+        health_correction_id = self.kwargs.get("health_correction_id")
         print(f"Requested health_correction_id: {health_correction_id}")  
-        return CorrectionHealth.objects.filter(health_correction_id=health_correction_id)
+        return CorrectionHealth.objects.filter(health_correction__id=health_correction_id)
+
+ 
+
+class HealthReviewView(APIView):
+    def post(self, request):
+        logger.info("Received request for health review process.")
+        
+        try:
+            health_id = request.data.get('health_id')
+            current_user_id = request.data.get('current_user_id')
+
+            if not all([health_id, current_user_id]):
+                return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                health = HealthSafety.objects.get(id=health_id)
+                current_user = Users.objects.get(id=current_user_id)
+            except (HealthSafety.DoesNotExist, Users.DoesNotExist):
+                return Response({'error': 'Invalid health record or user'}, status=status.HTTP_404_NOT_FOUND)
+
+            with transaction.atomic():
+                if current_user == health.written_by and not health.written_at:
+                    health.written_at = now()
+                    health.save()
+
+                current_status = health.status
+
+                if current_status == 'Pending for Review/Checking' and current_user == health.checked_by:
+                    health.status = 'Reviewed,Pending for Approval'
+                    health.checked_at = now()
+                    health.save()
+
+                    if health.send_notification_to_approved_by:
+                        NotificationHealth.objects.create(
+                            user=health.approved_by,
+                            health=health,
+                            message=f"HealthSafety entry '{health.hazard_no}' is ready for approval."
+                        )
+
+                    if health.send_email_to_approved_by:
+                        self.send_email_notification(
+                            health=health,
+                            recipients=[health.approved_by],
+                            action_type="review"
+                        )
+
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == health.approved_by:
+                    health.status = 'Pending for Publish'
+                    health.approved_at = now()
+                    health.save()
+
+                    for user in [health.written_by, health.checked_by, health.approved_by]:
+                        if user:
+                            NotificationHealth.objects.create(
+                                user=user,
+                                health=health,
+                                message=f"HealthSafety entry '{health.hazard_no}' has been approved and is pending for publish."
+                            )
+
+                    self.send_email_notification(
+                        health=health,
+                        recipients=[u for u in [health.written_by, health.checked_by, health.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                elif current_status == 'Correction Requested' and current_user == health.written_by:
+                    health.status = 'Pending for Review/Checking'
+                    health.save()
+
+                else:
+                    return Response({
+                        'message': 'No action taken. User not authorized for current health status.'
+                    }, status=status.HTTP_200_OK)
+
+            return Response({
+                'status': 'success',
+                'message': 'Health record processed successfully',
+                'health_status': health.status
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error in health review process: {str(e)}")
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def send_email_notification(self, health, recipients, action_type):
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Health Record Submitted for Approval: {health.hazard_no}"
+                        context = {
+             
+                            'title': health.title,
+                            'hazard_source': health.hazard_source,
+                            'hazard_no': health.hazard_no,
+                            'process_activity': health.process_activity,
+                            'description': health.description,
+                            'level_of_risk': health.level_of_risk,
+                            'legal_requirement': health.legal_requirement,
+                            'action': health.action,
+                            'written_by': health.written_by,
+                            'checked_by': health.checked_by,
+                            'approved_by': health.approved_by,
+                            'date': health.date,
+                            'written_at': health.written_at,                      
+                            'created_by': health.user,
+                             'notification_year': timezone.now().year 
+                        
+                        }
+                        html_message = render_to_string('qms/health/health_to_approved_by.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    elif action_type == "approved":
+                        subject = f"Health Record Approved: {health.hazard_no}"
+                        context = {
+                
+                            'title': health.title,
+                            'hazard_source': health.hazard_source,
+                            'hazard_no': health.hazard_no,
+                            'process_activity': health.process_activity,
+                            'description': health.description,
+                            'level_of_risk': health.level_of_risk,
+                            'legal_requirement': health.legal_requirement,
+                            'action': health.action,
+                            'written_by': health.written_by,
+                            'checked_by': health.checked_by,
+                            'approved_by': health.approved_by,
+                            'date': health.date,
+                            'written_at': health.written_at,                      
+                            'created_by': health.user,
+                             'notification_year': timezone.now().year 
+                        
+                        }
+                        html_message = render_to_string('qms/health/health_publish.html', context)
+                        plain_message = strip_tags(html_message)
+
+                    else:
+                        logger.warning(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config('DEFAULT_FROM_EMAIL'),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+
+class HealthPublishNotificationView(APIView):
+    """
+    Endpoint to handle publishing a HealthSafety record and sending notifications to company users.
+    """
+
+    def post(self, request, health_id):
+        try:
+            health = HealthSafety.objects.get(id=health_id)
+            company_id = request.data.get('company_id')
+            published_by = request.data.get('published_by')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response({"error": "Company ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+            company = Company.objects.get(id=company_id)
+
+            with transaction.atomic():
+                # Update status and published info
+                health.status = 'Published'
+                health.published_at = now()
+
+                if published_by:
+                    try:
+                        publishing_user = Users.objects.get(id=published_by)
+                        health.published_user = publishing_user
+                    except Users.DoesNotExist:
+                        logger.warning(f"Publisher user ID {published_by} not found")
+
+                health.save()
+
+                if send_notification:
+                    company_users = Users.objects.filter(company=company)
+
+                    notifications = [
+                        NotificationHealth(
+                            user=user,
+                            health=health,
+                            title=f"Health Record Published: {health.hazard_no or 'No Hazard No'}",
+                            message=f"A new health and safety record '{health.title}' has been published."
+                        )
+                        for user in company_users
+                    ]
+
+                    if notifications:
+                        NotificationHealth.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for health {health_id}")
+
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_publish_email(health, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(
+                {
+                    "message": "Health record published successfully",
+                    "notification_sent": send_notification,
+                    "publisher_set": published_by is not None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except HealthSafety.DoesNotExist:
+            return Response({"error": "Health record not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error in health publish notification: {str(e)}")
+            return Response({"error": f"Failed to publish health record: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_publish_email(self, health, recipient):
+        publisher_name = "N/A"
+        if health.published_user:
+            publisher_name = f"{health.published_user.first_name} {health.published_user.last_name}"
+        elif health.approved_by:
+            publisher_name = f"{health.approved_by.first_name} {health.approved_by.last_name}"
+
+        subject = f"New Health Record Published: {health.hazard_no or 'No Hazard No'}"
+
+        context = {
+            'hazard_no': health.hazard_no,
+            'hazard_source': health.hazard_source,
+            'process_activity': health.process_activity.title if health.process_activity else '',
+            'description': health.description,
+            'date': health.date,
+            'written_by': health.written_by,
+            'checked_by': health.checked_by,
+            'approved_by': health.approved_by,
+            'level_of_risk': health.level_of_risk,
+            'title': health.title,
+            'legal_requirement': health.legal_requirement,
+            'action': health.action,
+            'status': health.status,
+            'written_at': health.written_at,
+            'created_by': health.user,
+             'notification_year': timezone.now().year 
+        }
+
+        html_message = render_to_string('qms/health/health_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+         
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+class EnvironmentalHealthDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        
+        data = request.data.copy()
+        
+    
+        data['is_draft'] = True
+
+        
+        serializer = HealthSafetySerializer(data=data)
+        if serializer.is_valid():
+            waste = serializer.save()
+            return Response({
+                "message": "Environmental Waste saved as draft",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class HealthDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        manuals = HealthSafety.objects.filter(user=user, is_draft=True)
+        serializer = HealthSafetyGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class DraftHealthcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        
+        draft_manuals = HealthSafety.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = HealthSafetySerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+
+class HealthNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationHealth.objects.filter(user=user ).order_by("-created_at")
+        serializer = HealthNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class HealthNotificationsQMS(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = NotificationHealth.objects.filter(user=user).order_by('-created_at')
+
+        serializer = HealthNotificationSerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class HealthUnreadNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationHealth.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
+class HealthMarkNotificationAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationHealth, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = HealthNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+
+class HealthDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received health edit request.")
+
+        try:
+            health = HealthSafety.objects.get(id=id)
+        except HealthSafety.DoesNotExist:
+            return Response({"error": "HealthSafety record not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = HealthSafetySerializer(health, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                health = serializer.save()
+                health.is_draft = False
+                health.written_at = now()
+                health.status = 'Pending for Review/Checking'
+
+         
+                health.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                health.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+                health.save()
+
+         
+                if health.checked_by:
+                    if health.send_notification_to_checked_by:
+                        try:
+                            NotificationHealth.objects.create(
+                                user=health.checked_by,
+                                health=health,
+                                title="HealthSafety Updated - Review Required",
+                                message=f"HealthSafety record '{health.hazard_no}' has been updated and requires your review."
+                            )
+                            logger.info(f"Notification created for checked_by user {health.checked_by.id}")
+                        except Exception as e:
+                            logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                    if health.send_email_to_checked_by and health.checked_by.email:
+                        self._send_email_notification(health, health.checked_by, action_type="review")
+
+                return Response(
+                    {"message": "HealthSafety updated successfully", "id": health.id},
+                    status=status.HTTP_200_OK
+                )
+        except Exception as e:
+            logger.error(f"Error during health update: {str(e)}")
+            return Response(
+                {"error": "An unexpected error occurred."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_notification(self, health, recipient, action_type):
+        if not recipient.email:
+            logger.warning("Recipient email is None. Skipping email send.")
+            return
+
+        if action_type == "review":
+            subject = f"HealthSafety Ready for Review: {health.hazard_no}"
+            template = 'qms/health/health_to_checked_by.html'
+        else:
+            logger.warning(f"Unknown action type '{action_type}' for email.")
+            return
+
+        context = {
+            'hazard_no': health.hazard_no,
+            'hazard_source': health.hazard_source,
+            'process_activity': health.process_activity.title if health.process_activity else '',
+            'description': health.description,
+            'date': health.date,
+            'written_by': health.written_by,
+            'checked_by': health.checked_by,
+            'approved_by': health.approved_by,
+            'level_of_risk': health.level_of_risk,
+            'title': health.title,
+            'legal_requirement': health.legal_requirement,
+            'action': health.action,
+            'status': health.status,
+            'written_at': health.written_at,
+            'created_by': health.user,
+             'notification_year': timezone.now().year 
+        }
+
+
+        html_message = render_to_string(template, context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient.email} for action: {action_type}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+class GetNextHazardNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+
+    
+            last_incident = HealthSafety.objects.filter(
+                company=company, hazard_no__startswith="HS-"
+            ).order_by('-id').first()
+
+   
+            next_hazard_no = "HS-1"
+            if last_incident and last_incident.hazard_no:
+                try:
+                    last_number = int(last_incident.hazard_no.split("-")[1])
+                    next_hazard_no = f"HS-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_hazard_no = "HS-1"
+
+            return Response({'next_hazard_no': next_hazard_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        
+class AssessmentAllList(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+        manuals = RiskAssessment.objects.filter(company=company, is_draft=False)
+        serializer = RiskAssessmentGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class AssessmentDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            manual = RiskAssessment.objects.get(pk=pk)
+        except RiskAssessment.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RiskAssessmentGetSerializer(manual)
+        return Response(serializer.data)
+
+
+    def delete(self, request, pk):
+        try:
+            manual = RiskAssessment.objects.get(pk=pk)
+        except RiskAssessment.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        manual.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class RiskAssessmentCreateView(APIView):
+    def post(self, request):
+        logger.info("Received risk assessment creation request.")
+        serializer = RiskAssessmentSerializer(data=request.data)
+
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    assessment = serializer.save()
+                    assessment.written_at = now()
+                    assessment.is_draft = False
+
+                    assessment.send_notification_to_checked_by = parse_bool(
+                        request.data.get('send_notification_to_checked_by')
+                    )
+                    assessment.send_email_to_checked_by = parse_bool(
+                        request.data.get('send_email_to_checked_by')
+                    )
+
+                    assessment.save()
+                    logger.info(f"Risk assessment created successfully with ID: {assessment.id}")
+
+                
+                    if assessment.checked_by:
+                        if assessment.send_notification_to_checked_by:
+                            try:
+                                NotificationAssessments.objects.create(
+                                    user=assessment.checked_by,
+                                    assessment=assessment,
+                                    title="Notification for Checking/Review",
+                                    message="A risk assessment record has been created for your review."
+                                )
+                                logger.info(f"Notification created for checked_by user {assessment.checked_by.id}")
+                            except Exception as e:
+                                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+                        if assessment.send_email_to_checked_by and assessment.checked_by.email:
+                            self.send_email_notification(assessment, assessment.checked_by, "review")
+                        else:
+                            logger.warning("Email to checked_by skipped: flag disabled or email missing.")
+                    else:
+                        logger.warning("No checked_by user assigned.")
+
+                    return Response(
+                        {"message": "Risk assessment record created successfully", "id": assessment.id},
+                        status=status.HTTP_201_CREATED
+                    )
+
+            except Exception as e:
+                logger.error(f"Error during risk assessment creation: {str(e)}")
+                return Response(
+                    {"error": "An unexpected error occurred."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        logger.error(f"Risk assessment creation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def send_email_notification(self, assessment, recipient, action_type, notification=None):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Risk Assessment Record Ready for Review: {assessment.title}"
+
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': assessment.title,
+                        'assessment_no': assessment.assessment_no,
+                        'related_record_format': assessment.related_record_format,
+                        'document_type': assessment.document_type,
+                        'rivision': assessment.rivision,
+                        'written_by': assessment.written_by,
+                        'checked_by': assessment.checked_by,
+                        'approved_by': assessment.approved_by,
+                        'date': assessment.date,
+                        'written_at': assessment.written_at,
+                        'created_by': assessment.user,
+                        'review_frequency_year': assessment.review_frequency_year or 0,
+                        'review_frequency_month': assessment.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
+                        
+                    }
+
+                    html_message = render_to_string('qms/assessment/assessment_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach document if available
+                    if assessment.upload_attachment:
+                        try:
+                            file_name = assessment.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = assessment.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached assessment document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching assessment file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+
+ 
+class RiskAssessmentUpdateView(APIView):
+    def put(self, request, pk):
+        print("Request data:", request.data)
+        try:
+            with transaction.atomic():
+     
+                risk_assessment = RiskAssessment.objects.get(pk=pk)
+
+   
+                serializer = RiskAssessmentUpdateSerializer(risk_assessment, data=request.data, partial=True)
+
+                if serializer.is_valid():
+                    updated_assessment = serializer.save()
+
+             
+                    updated_assessment.written_at = now()
+                    updated_assessment.is_draft = False
+                    updated_assessment.status = 'Pending for Review/Checking'
+
+                  
+                    updated_assessment.send_notification_to_checked_by = parse_bool(request.data.get('send_notification_to_checked_by'))
+                    updated_assessment.send_email_to_checked_by = parse_bool(request.data.get('send_email_to_checked_by'))
+                    updated_assessment.save()
+
+                    # Handle notification/email to checked_by
+                    if updated_assessment.checked_by:
+                        if updated_assessment.send_notification_to_checked_by:
+                            try:
+                                NotificationAssessments.objects.create(
+                                    user=updated_assessment.checked_by,
+                                    assessment=updated_assessment,
+                                    title="Risk Assessment Updated - Review Required",
+                                    message=f"Risk Assessment '{updated_assessment.title}' has been updated and requires your review."
+                                )
+                            except Exception as e:
+                                logger.error(f"Notification error for checked_by: {str(e)}")
+
+                        if updated_assessment.send_email_to_checked_by and updated_assessment.checked_by.email:
+                            self.send_email_notification(updated_assessment, updated_assessment.checked_by, "review")
+
+                    return Response({"message": "Risk assessment updated successfully"}, status=status.HTTP_200_OK)
+
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except RiskAssessment.DoesNotExist:
+            return Response({"error": "Risk assessment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def send_email_notification(self, assessment, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Risk Assessment Update: {assessment.title}"
+
+               
+                    context = {
+                        'recipient_name': recipient.first_name,
+                        'title': assessment.title,
+                        'assessment_no': assessment.assessment_no,
+                        'related_record_format': assessment.related_record_format,
+                        'document_type': assessment.document_type,
+                        'rivision': assessment.rivision,
+                        'written_by': assessment.written_by,
+                        'checked_by': assessment.checked_by,
+                        'approved_by': assessment.approved_by,
+                        'date': assessment.date,
+                        'written_at': assessment.written_at,
+                        'created_by': assessment.user,
+                        'review_frequency_year': assessment.review_frequency_year or 0,
+                        'review_frequency_month': assessment.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
+                        
+                    }
+                    html_message = render_to_string('qms/assessment/assessment_update_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    # Attach the assessment file if available
+                    if assessment.upload_attachment:
+                        try:
+                            file_name = assessment.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = assessment.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached assessment file {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching file: {str(attachment_error)}")
+
+           
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email with attachment successfully sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+ 
+
+class RiskAssessmentCorrectionView(APIView):
+    def post(self, request):
+        try:
+      
+            assessment_id = request.data.get('assessment_id')
+            correction_text = request.data.get('correction')
+            from_user_id = request.data.get('from_user')
+
+          
+            if not all([assessment_id, correction_text, from_user_id]):
+                return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+    
+            try:
+                assessment = RiskAssessment.objects.get(id=assessment_id)
+            except RiskAssessment.DoesNotExist:
+                return Response({'error': 'Risk Assessment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+      
+            try:
+                from_user = Users.objects.get(id=from_user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+     
+            if from_user == assessment.checked_by:
+                to_user = assessment.written_by
+            elif from_user == assessment.approved_by:
+                to_user = assessment.checked_by
+            else:
+                return Response({'error': 'Invalid user role for correction'}, status=status.HTTP_400_BAD_REQUEST)
+
+           
+            correction = CorrectionAssessments.objects.create(
+                assessment_correction=assessment,
+                to_user=to_user,
+                from_user=from_user,
+                correction=correction_text
+            )
+
+        
+            assessment.status = 'Correction Requested'
+            assessment.save()
+
+       
+            self.create_correction_notification(correction)
+            self.send_correction_email_notification(correction)
+
+      
+            serializer = CorrectionAssessmentsSerializer(correction)
+            return Response(
+                {'message': 'Correction submitted successfully', 'correction': serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            print(f"Error occurred in submit correction: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create_correction_notification(self, correction):
+        try:
+            assessment = correction.assessment_correction
+            to_user = correction.to_user
+            from_user = correction.from_user
+
+        
+            if from_user == assessment.approved_by and to_user == assessment.checked_by:
+                should_send = assessment.send_notification_to_checked_by
+            elif from_user == assessment.checked_by and to_user == assessment.written_by:
+                should_send = True
+            else:
+                should_send = False
+
+            if should_send:
+                message = (
+                    f"Correction Request from {from_user.first_name} "
+                    f"to {to_user.first_name} for Risk Assessment: {assessment.title}"
+                )
+                notification = NotificationAssessments.objects.create(
+                    user=to_user,
+                    assessment=assessment,
+                    message=message
+                )
+                print(f"Correction Notification created successfully: {notification.id}")
+            else:
+                print("Notification not sent due to permission flags or invalid role flow.")
+        except Exception as e:
+            print(f"Failed to create correction notification: {str(e)}")
+
+    def send_correction_email_notification(self, correction):
+        try:
+            assessment = correction.assessment_correction
+            from_user = correction.from_user
+            to_user = correction.to_user
+            recipient_email = to_user.email if to_user else None
+
+      
+            if from_user == assessment.checked_by and to_user == assessment.written_by:
+                template_name = 'qms/assessment/assessment_correction_to_writer.html'
+                subject = f"Correction Requested on '{assessment.title}'"
+                should_send = True
+            elif from_user == assessment.approved_by and to_user == assessment.checked_by:
+                template_name = 'qms/assessment/assessment_correction_to_checker.html'
+                subject = f"Correction Requested on '{assessment.title}'"
+                should_send = assessment.send_email_to_checked_by
+            else:
+                return  
+
+           
+            if not recipient_email or not should_send:
+                return
+
+        
+            context = {
+              
+                        'title': assessment.title,
+                        'assessment_no': assessment.assessment_no,
+                        'related_record_format': assessment.related_record_format,
+                        'document_type': assessment.document_type,
+                        'rivision': assessment.rivision,
+                        'written_by': assessment.written_by,
+                        'checked_by': assessment.checked_by,
+                        'approved_by': assessment.approved_by,
+                        'date': assessment.date,
+                        'written_at': assessment.written_at,
+                        'created_by': assessment.user,
+                        'review_frequency_year': assessment.review_frequency_year or 0,
+                        'review_frequency_month': assessment.review_frequency_month or 0,
+                         'notification_year': timezone.now().year 
+                        
+                    }
+
+       
+            html_message = render_to_string(template_name, context)
+            plain_message = strip_tags(html_message)
+
+      
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+          
+            if assessment.upload_attachment:
+                try:
+                    file_name = assessment.upload_attachment.name.rsplit('/', 1)[-1]
+                    file_content = assessment.upload_attachment.read()
+                    email.attach(file_name, file_content)
+                    print(f"Attached file {file_name} to correction email.")
+                except Exception as attachment_error:
+                    print(f"Failed to attach file: {str(attachment_error)}")
+
+      
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            print(f"Correction email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending correction email: {str(e)}")
+
+
+class AssessmentCorrectionsListView(generics.ListAPIView):
+    serializer_class = CorrectionAssessmentGetQMSSerializer
+
+    def get_queryset(self):
+        assessment_correction_id = self.kwargs.get("assessment_correction_id")
+        print(f"Requested assessment_correction_id: {assessment_correction_id}")  
+        return CorrectionAssessments.objects.filter(assessment_correction__id=assessment_correction_id)
+
+
+
+class AssessmentReviewView(APIView):
+    def post(self, request):
+        print("Received request for risk assessment review process.")
+        
+        try:
+            assessment_id = request.data.get('assessment_id')
+            current_user_id = request.data.get('current_user_id')
+
+            if not all([assessment_id, current_user_id]):
+                return Response({'error': 'Missing required parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            print(f"Received assessment_id: {assessment_id}, current_user_id: {current_user_id}")
+
+            try:
+                assessment = RiskAssessment.objects.get(id=assessment_id)
+                current_user = Users.objects.get(id=current_user_id)
+            except (RiskAssessment.DoesNotExist, Users.DoesNotExist):
+                return Response({'error': 'Invalid assessment or user'}, status=status.HTTP_404_NOT_FOUND)
+
+            print(f"Fetched RiskAssessment: {assessment}")
+            print(f"Fetched User: {current_user}")
+
+            with transaction.atomic():
+                current_status = assessment.status
+                print(f"Current assessment status: {current_status}")
+
+                if current_status == 'Pending for Review/Checking' and current_user == assessment.checked_by:
+                    print("Changing status to 'Reviewed, Pending for Approval'")
+                    assessment.status = 'Reviewed,Pending for Approval'
+                    assessment.checked_at = now()
+                    assessment.save()
+
+                    if assessment.send_notification_to_approved_by:
+                        NotificationAssessments.objects.create(
+                            user=assessment.approved_by,
+                            assessment=assessment,
+                            message=f"Assessment '{assessment.title}' is ready for approval."
+                        )
+                        print(f"Creating notification for {assessment.approved_by} regarding assessment '{assessment.title}'")
+
+                    if assessment.send_email_to_approved_by:
+                        self.send_email_notification(
+                            assessment=assessment,
+                            recipients=[assessment.approved_by],
+                            action_type="review"
+                        )
+
+                elif current_status == 'Reviewed,Pending for Approval' and current_user == assessment.approved_by:
+                    print("Changing status to 'Pending for Publish'")
+                    assessment.status = 'Pending for Publish'
+                    assessment.approved_at = now()
+                    assessment.save()
+
+                    for user in [assessment.written_by, assessment.checked_by, assessment.approved_by]:
+                        if user:
+                            NotificationAssessments.objects.create(
+                                user=user,
+                                assessment=assessment,
+                                message=f"Assessment '{assessment.title}' has been approved and is pending for publish."
+                            )
+                            print(f"Creating notification for {user} regarding assessment '{assessment.title}'")
+
+                    self.send_email_notification(
+                        assessment=assessment,
+                        recipients=[u for u in [assessment.written_by, assessment.checked_by, assessment.approved_by] if u],
+                        action_type="approved"
+                    )
+
+                elif current_status == 'Correction Requested' and current_user == assessment.written_by:
+                    print("Changing status to 'Pending for Review/Checking'")
+                    assessment.status = 'Pending for Review/Checking'
+                    assessment.save()
+
+                else:
+                    print("No status change - action not authorized")
+
+            return Response({
+                'status': 'success',
+                'message': 'Risk assessment processed successfully',
+                'assessment_status': assessment.status
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Error in risk assessment review process: {str(e)}")
+            return Response({
+                'error': 'An unexpected error occurred',
+                'details': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def send_email_notification(self, assessment, recipients, action_type):
+        for recipient in recipients:
+            recipient_email = recipient.email if recipient else None
+            print(f"Sending email to: {recipient_email}")
+
+            if recipient_email:
+                try:
+                    if action_type == "review":
+                        subject = f"Assessment Submitted for Approval: {assessment.title}"
+                        context = {
+                            'title': assessment.title,
+                            'assessment_no': assessment.assessment_no,
+                            'related_record_format': assessment.related_record_format,
+                            'document_type': assessment.document_type,
+                            'rivision': assessment.rivision,
+                            'written_by': assessment.written_by,
+                            'checked_by': assessment.checked_by,
+                            'approved_by': assessment.approved_by,
+                            'date': assessment.date,
+                            'written_at': assessment.written_at,
+                            'created_by': assessment.user,
+                            'review_frequency_year': assessment.review_frequency_year or 0,
+                            'review_frequency_month': assessment.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
+                        }
+                        print(f"Review email subject: {subject}")
+                        print(f"Review email context: {context}")
+
+                    elif action_type == "approved":
+                        subject = f"Assessment Approved: {assessment.title}"
+                        context = {
+                            'title': assessment.title,
+                            'assessment_no': assessment.assessment_no,
+                            'related_record_format': assessment.related_record_format,
+                            'document_type': assessment.document_type,
+                            'rivision': assessment.rivision,
+                            'written_by': assessment.written_by,
+                            'checked_by': assessment.checked_by,
+                            'approved_by': assessment.approved_by,
+                            'date': assessment.date,
+                            'written_at': assessment.written_at,
+                            'created_by': assessment.user,
+                            'review_frequency_year': assessment.review_frequency_year or 0,
+                            'review_frequency_month': assessment.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
+                        }
+                        print(f"Approved email subject: {subject}")
+                        print(f"Approved email context: {context}")
+
+                    else:
+                        print(f"Unknown action type '{action_type}' for email notification.")
+                        continue
+
+                    # Simulate email send
+                    print(f"Email successfully sent to {recipient_email} for action: {action_type}")
+
+                except Exception as e:
+                    print(f"Failed to send email to {recipient_email}: {str(e)}")
+            else:
+                print("Recipient email is None. Skipping email send.")
+
+
+
+ 
+
+class AssessmentPublishNotificationView(APIView):
+    """
+    Endpoint to handle publishing an assessment and sending notifications to company users.
+    """
+
+    def post(self, request, assessment_id):
+        try:
+            # Fetch the RiskAssessment object by ID
+            assessment = RiskAssessment.objects.get(id=assessment_id)
+            company_id = request.data.get('company_id')
+            published_by = request.data.get('published_by')  
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Fetch the company
+            company = Company.objects.get(id=company_id)
+
+            with transaction.atomic():
+                # Update assessment status and published information
+                assessment.status = 'Published'
+                assessment.published_at = now()
+
+                # Set the published_user if the ID was provided
+                if published_by:
+                    try:
+                        publishing_user = Users.objects.get(id=published_by)
+                        assessment.published_user = publishing_user
+                    except Users.DoesNotExist:
+                        logger.warning(f"Publisher user ID {published_by} not found")
+
+                # Only send notifications if requested
+                assessment.send_notification_to_checked_by = send_notification
+                assessment.send_email_to_checked_by = send_notification
+                assessment.save()
+
+                # Only proceed with notifications if send_notification is True
+                if send_notification:
+                    # Get all users in the company
+                    company_users = Users.objects.filter(company=company)
+
+                    # Create notifications for each user
+                    notifications = [
+                        NotificationAssessments(
+                            user=user,
+                            assessment=assessment,
+                            title=f"Assessment Published: {assessment.title}",
+                            message=f"A new assessment '{assessment.title}' has been published."
+                        )
+                        for user in company_users
+                    ]
+
+                    # Bulk create all notifications
+                    if notifications:
+                        NotificationAssessments.objects.bulk_create(notifications)
+                        logger.info(f"Created {len(notifications)} notifications for assessment {assessment_id}")
+
+                    # Send emails to users
+                    for user in company_users:
+                        if user.email:
+                            try:
+                                self._send_publish_email(assessment, user)
+                            except Exception as e:
+                                logger.error(f"Failed to send email to {user.email}: {str(e)}")
+
+            return Response(
+                {
+                    "message": "Assessment published successfully",
+                    "notification_sent": send_notification,
+                    "publisher_set": published_by is not None
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except RiskAssessment.DoesNotExist:
+            return Response(
+                {"error": "Assessment not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error in publish notification: {str(e)}")
+            return Response(
+                {"error": f"Failed to publish assessment: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+  
+
+    def _send_publish_email(self, assessment, recipient):
+        """Helper method to send email notifications with template and attach assessment document"""
+      
+
+        publisher_name = "N/A"
+        if assessment.published_user:
+            publisher_name = f"{assessment.published_user.first_name} {assessment.published_user.last_name}"
+        elif assessment.approved_by:
+            publisher_name = f"{assessment.approved_by.first_name} {assessment.approved_by.last_name}"
+
+        subject = f"New Assessment Published: {assessment.title}"
+
+        context = {
+                            'title': assessment.title,
+                            'assessment_no': assessment.assessment_no,
+                            'related_record_format': assessment.related_record_format,
+                            'document_type': assessment.document_type,
+                            'rivision': assessment.rivision,
+                            'written_by': assessment.written_by,
+                            'checked_by': assessment.checked_by,
+                            'approved_by': assessment.approved_by,
+                            'date': assessment.date,
+                            'written_at': assessment.written_at,
+                            'created_by': assessment.user,
+                            'review_frequency_year': assessment.review_frequency_year or 0,
+                            'review_frequency_month': assessment.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
+                        }
+        html_message = render_to_string('qms/assessment/assessment_published_notification.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        if assessment.upload_attachment:
+            try:
+                file_name = assessment.upload_attachment.name.rsplit('/', 1)[-1]
+                file_content = assessment.upload_attachment.read()
+                email.attach(file_name, file_content)
+                logger.info(f"Attached assessment file {file_name} to email")
+            except Exception as attachment_error:
+                logger.error(f"Error attaching file: {str(attachment_error)}")
+
+       
+        try:
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"HTML Email sent to {recipient.email}")
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient.email}: {str(e)}")
+
+
+
+class AssessmentlDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+      
+        data = {}
+    
+        for key in request.data:
+            if key != 'upload_attachment':
+                data[key] = request.data[key]
+
+        data['is_draft'] = True
+        
+  
+        file_obj = request.FILES.get('upload_attachment')
+        
+        serializer = RiskAssessmentSerializer(data=data)
+        if serializer.is_valid():
+            manual = serializer.save()
+            
+ 
+            if file_obj:
+                manual.upload_attachment = file_obj
+                manual.save()
+                
+            return Response({"message": "Manual saved as draft", "data": serializer.data}, 
+                           status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+class AssessmentDraftAllList(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        manuals = RiskAssessment.objects.filter(user=user, is_draft=True)
+        serializer = AssessmentGetSerializer(manuals, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AssessmentcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        
+        draft_manuals = RiskAssessment.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = RiskAssessmentSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class AssessmentNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationAssessments.objects.filter(user=user ).order_by("-created_at")
+        serializer = AssessmentNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class AssessmentNotificationsQMS(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = NotificationAssessments.objects.filter(user=user).order_by('-created_at')
+
+        serializer = AssessmentNotificationSerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class AssessmentUnreadNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationAssessments.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AssessmentMarkNotificationAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationAssessments, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = AssessmentNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+ 
+
+class AssessmentDraftEditView(APIView):
+    def put(self, request, id):
+        logger.info("Received assessment edit request.")
+
+        try:
+            assessment = RiskAssessment.objects.get(id=id)
+
+            serializer = RiskAssessmentSerializer(assessment, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                try:
+                    with transaction.atomic():
+                        assessment = serializer.save()
+
+                        # Mark as not a draft
+                        assessment.is_draft = False
+                        assessment.save()
+
+                        logger.info(f"Assessment updated successfully with ID: {assessment.id}")
+
+                        if assessment.checked_by:
+                            if assessment.send_notification_to_checked_by:
+                                self._send_notifications(assessment)
+
+                            if assessment.send_email_to_checked_by and assessment.checked_by.email:
+                                self.send_email_notification(assessment, assessment.checked_by, "review")
+
+                        return Response(
+                            {"message": "Assessment updated successfully", "id": assessment.id},
+                            status=status.HTTP_200_OK
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error during assessment update: {str(e)}")
+                    return Response({"error": "An unexpected error occurred."},
+                                    status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except RiskAssessment.DoesNotExist:
+            return Response({"error": "Assessment not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    def _send_notifications(self, assessment):
+        if assessment.checked_by:
+            try:
+                NotificationAssessments.objects.create(
+                    user=assessment.checked_by,
+                    assessment=assessment,
+                    title="Notification for Checking/Review",
+                    message="An assessment has been created/updated for your review."
+                )
+                logger.info(f"Notification created for checked_by user {assessment.checked_by.id}")
+            except Exception as e:
+                logger.error(f"Error creating notification for checked_by: {str(e)}")
+
+    def send_email_notification(self, assessment, recipient, action_type):
+        recipient_email = recipient.email if recipient else None
+
+        if recipient_email:
+            try:
+                if action_type == "review":
+                    subject = f"Assessment Ready for Review: {assessment.title}"
+
+                    context = {
+                            'title': assessment.title,
+                            'assessment_no': assessment.assessment_no,
+                            'related_record_format': assessment.related_record_format,
+                            'document_type': assessment.document_type,
+                            'rivision': assessment.rivision,
+                            'written_by': assessment.written_by,
+                            'checked_by': assessment.checked_by,
+                            'approved_by': assessment.approved_by,
+                            'date': assessment.date,
+                            'written_at': assessment.written_at,
+                            'created_by': assessment.user,
+                            'review_frequency_year': assessment.review_frequency_year or 0,
+                            'review_frequency_month': assessment.review_frequency_month or 0,
+                             'notification_year': timezone.now().year 
+                        }
+
+                    html_message = render_to_string('qms/assessment/assessment_to_checked_by.html', context)
+                    plain_message = strip_tags(html_message)
+
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=plain_message,
+                        from_email=config("DEFAULT_FROM_EMAIL"),
+                        to=[recipient_email]
+                    )
+                    email.attach_alternative(html_message, "text/html")
+
+                    if assessment.upload_attachment:
+                        try:
+                            file_name = assessment.upload_attachment.name.rsplit('/', 1)[-1]
+                            file_content = assessment.upload_attachment.read()
+                            email.attach(file_name, file_content)
+                            logger.info(f"Attached assessment document {file_name} to email")
+                        except Exception as attachment_error:
+                            logger.error(f"Error attaching assessment file: {str(attachment_error)}")
+
+                    connection = CertifiEmailBackend(
+                        host=config('EMAIL_HOST'),
+                        port=config('EMAIL_PORT'),
+                        username=config('EMAIL_HOST_USER'),
+                        password=config('EMAIL_HOST_PASSWORD'),
+                        use_tls=True
+                    )
+                    email.connection = connection
+                    email.send(fail_silently=False)
+
+                    logger.info(f"Email sent to {recipient_email} for action: {action_type}")
+                else:
+                    logger.warning("Unknown action type provided for email.")
+            except Exception as e:
+                logger.error(f"Failed to send email to {recipient_email}: {str(e)}")
+        else:
+            logger.warning("Recipient email is None. Skipping email send.")
+
+
+class  SafetyRoothView(APIView):
+    def post(self, request):  
+        serializer = SafetyRootCauseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+ 
+class SafetyRootDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            root_cause = HealthRootCause.objects.get(pk=pk)
+        except HealthRootCause.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = SafetyRootCauseSerializer(root_cause)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        try:
+            root_cause = HealthRootCause.objects.get(pk=pk)
+        except HealthRootCause.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        root_cause.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SafetyRootCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = HealthRootCause.objects.filter(company_id=company_id)
+        serializer = SafetyRootCauseSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+ 
+
+class HealthIncidentCreateAPIView(APIView):
+    """
+    Endpoint to handle creation of Health (Safety) Incidents and send notifications.
+    """
+
+    def post(self, request):
+        print("Received Data:", request.data)
+        try:
+            company_id = request.data.get('company')
+            send_notification = request.data.get('send_notification', False)
+
+            if not company_id:
+                return Response(
+                    {"error": "Company ID is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            company = Company.objects.get(id=company_id)
+            serializer = HealthIncidentsSerializer(data=request.data)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    health_incident = serializer.save()
+                    logger.info(f"Health Incident created: {health_incident.title}")
+
+                    if send_notification:
+                        company_users = Users.objects.filter(company=company)
+                        logger.info(f"Sending notifications to {company_users.count()} users.")
+
+                        for user in company_users:
+                            NotificationHealthIncidents.objects.create(
+                                user=user,
+                                safety=health_incident,
+                                title=f"New Health Incident: {health_incident.title}",
+                                message=f"A new health incident '{health_incident.title}' has been reported."
+                            )
+                            logger.info(f"Notification created for user {user.id}")
+
+                            if user.email:
+                                self._send_email_async(health_incident, user)
+
+                return Response(
+                    {
+                        "message": "Health Incident created successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                logger.warning(f"Validation error: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error creating Health Incident: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, incident, recipient):
+        threading.Thread(target=self._send_notification_email, args=(incident, recipient)).start()
+
+    def _send_notification_email(self, incident, recipient):
+        subject = f"Health Incident Notification: {incident.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': incident.title,
+            'source': incident.source,
+            'description': incident.description,
+            'incident_no': incident.incident_no,
+            'date_raised': incident.date_raised,
+            'date_completed': incident.date_completed,
+            'action': incident.action,
+            'status': incident.status,
+            'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
+            'created_by': incident.user,
+            'remarks': incident.remarks,
+            'reported_by': incident.reported_by,
+             'notification_year': timezone.now().year 
+        }
+
+        try:
+            html_message = render_to_string('qms/safety_incidents/safety_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Email successfully sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Health Incident email to {recipient_email}: {e}")
+
+
+class HealthIncidentDetailView(APIView):
+   
+    def get_object(self, pk):
+        try:
+            return HealthIncidents.objects.get(pk=pk)
+        except HealthIncidents.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "CarNumber not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = HealthIncidentsGetSerializer(car_number)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    def delete(self, request, pk):
+        car_number = self.get_object(pk)
+        if not car_number:
+            return Response({"error": "CarNumber not found."}, status=status.HTTP_404_NOT_FOUND)
+        car_number.delete()
+        return Response({"message": "CarNumber deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+ 
+
+class HealthIncidentDraftAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        data = {}
+
+        
+        for key in request.data:
+            data[key] = request.data[key]
+
+       
+        data['is_draft'] = True
+
+       
+        serializer = HealthIncidentsSerializer(data=data)
+        
+        if serializer.is_valid():
+            
+            with transaction.atomic():
+                health_incident = serializer.save()
+
+            
+            return Response(
+                {"message": "Health Incident saved as draft", "data": serializer.data}, 
+                status=status.HTTP_201_CREATED
+            )
+        
+      
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HealthIncidentCompanyView(APIView):
+    def get(self, request, company_id):
+        agendas = HealthIncidents.objects.filter(company_id=company_id,is_draft=False)
+        serializer = HealthIncidentsGetSerializer(agendas, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class HealthIncidentDrafteView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        record = HealthIncidents.objects.filter(user=user, is_draft=True)
+        serializer =HealthIncidentsGetSerializer(record, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class GetNextIncidentNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+ 
+            company = Company.objects.get(id=company_id)
+ 
+            last_incident = HealthIncidents.objects.filter(company=company).order_by('-incident_no').first()
+ 
+            if not last_incident or not last_incident.incident_no:
+                next_incident_no = "HSI-1" 
+            else:
+                try:
+       
+                    last_number = int(last_incident.incident_no.split("-")[1])
+                    next_incident_no = f"HSI-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_incident_no = "HSI-1" 
+            
+           
+            return Response({'next_incident_no': next_incident_no}, status=status.HTTP_200_OK)
+        
+        except Company.DoesNotExist:
+ 
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        
+class HealthIncidentEditAPIView(APIView):
+    """
+    Endpoint to edit an existing (non-draft) Health Incident and send notifications to all company users.
+    """
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
+        try:
+            send_notification = request.data.get('send_notification', False)
+
+            try:
+                health_incident = HealthIncidents.objects.get(id=pk, is_draft=False)
+            except HealthIncidents.DoesNotExist:
+                return Response(
+                    {"error": "Finalized Health Incident not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = HealthIncidentsSerializer(health_incident, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    health_incident = serializer.save()
+                    logger.info(f"Health Incident updated: {health_incident.title}")
+
+                    if send_notification and health_incident.company:
+                        users = Users.objects.filter(company=health_incident.company)
+
+                        for user in users:
+                            NotificationHealthIncidents.objects.create(
+                                user=user,
+                                safety=health_incident,
+                                title=f"Health Incident Updated: {health_incident.title}",
+                                message=f"The health incident '{health_incident.title}' has been updated."
+                            )
+
+                            if user.email:
+                                self._send_email_async(health_incident, user)
+
+                return Response(
+                    {
+                        "message": "Health Incident updated successfully",
+                        "notification_sent": send_notification
+                    },
+                    status=status.HTTP_200_OK
+                )
+            else:
+                logger.warning(f"Validation error on update: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Error updating Health Incident: {str(e)}")
+            return Response(
+                {"error": "Internal Server Error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, health_incident, recipient):
+        threading.Thread(target=self._send_notification_email, args=(health_incident, recipient)).start()
+
+    def _send_notification_email(self, health_incident, recipient):
+        subject = f"Health Incident Updated: {health_incident.title or f'Incident #{health_incident.incident_no}'}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': health_incident.title,
+            'source': health_incident.source,
+            'description': health_incident.description,
+            'incident_no': health_incident.incident_no,
+            'date_raised': health_incident.date_raised,
+            'date_completed': health_incident.date_completed,
+            'action': health_incident.action,
+            'status': health_incident.status,
+            'root_cause': health_incident.root_cause.title if health_incident.root_cause else "N/A",
+            'created_by': health_incident.user,
+            'remarks': health_incident.remarks,
+            'reported_by': health_incident.reported_by,
+             'notification_year': timezone.now().year 
+        }
+        try:
+            html_message = render_to_string('qms/safety_incidents/incident_edit_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Update email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending update email to {recipient_email}: {e}")
+
+
+class HealthIncidentDraftUpdateAPIView(APIView):
+ 
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            health_draft = get_object_or_404(HealthIncidents, pk=pk, is_draft=True)
+
+            data = request.data.copy()
+            data['is_draft'] = False  
+
+            serializer = HealthIncidentsSerializer(health_draft, data=data, partial=True)
+            if serializer.is_valid():
+                health_incident = serializer.save()
+
+              
+                send_notification = data.get('send_notification', False)
+                reporter_id = data.get('reported_by')
+
+                if send_notification and reporter_id:
+                    try:
+                        reporter = Users.objects.get(id=reporter_id)
+                        company_users = Users.objects.filter(company=reporter.company)
+
+                        for user in company_users:
+                            NotificationHealthIncidents.objects.create(
+                                user=user,
+                                safety=health_incident,
+                                title=f"New Health Incident: {health_incident.title}",
+                                message=f"Health Incident '{health_incident.title}' has been finalized."
+                            )
+                            if user.email:
+                                self._send_email_async(health_incident, user)
+
+                    except Users.DoesNotExist:
+                        logger.warning(f"Reporter with ID {reporter_id} not found")
+
+                return Response(
+                    {"message": "Draft HealthIncident finalized and notifications sent", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except HealthIncidents.DoesNotExist:
+            return Response(
+                {"error": "Draft HealthIncident not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error finalizing Health Incident draft: {str(e)}")
+            return Response(
+                {"error": f"Internal Server Error: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _send_email_async(self, incident, recipient):
+        threading.Thread(target=self._send_notification_email, args=(incident, recipient)).start()
+
+    def _send_notification_email(self, incident, recipient):
+        subject = f"Health Incident Report: {incident.title}"
+        recipient_email = recipient.email
+
+        context = {
+            'title': incident.title,
+            'source': incident.source,
+            'description': incident.description,
+            'incident_no': incident.incident_no,
+            'date_raised': incident.date_raised,
+            'date_completed': incident.date_completed,
+            'action': incident.action,
+            'status': incident.status,
+            'root_cause': incident.root_cause.title if incident.root_cause else "N/A",
+            'created_by': incident.user,
+            'remarks': incident.remarks,
+            'reported_by': incident.reported_by,
+             'notification_year': timezone.now().year 
+        }
+
+        try:
+            html_message = render_to_string('qms/safety_incidents/safety_add_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+
+            logger.info(f"Health Incident email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending Health Incident email to {recipient_email}: {e}")

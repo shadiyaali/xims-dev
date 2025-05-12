@@ -992,7 +992,7 @@ class CarNumber(models.Model):
     executor = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True)
     action_no = models.IntegerField(blank=True, null=True)
     action_or_corrections = models.TextField(blank=True, null=True)
-    send_notification = models.BooleanField(default=False)
+ 
     is_draft = models.BooleanField(default=False)
     send_notification = models.BooleanField(default=False)
 
@@ -2123,3 +2123,151 @@ class CorrectionHealth(models.Model):
     
     def __str__(self):
         return f"Correction for {self.to_user.email}"
+    
+    
+    
+class RiskAssessment(models.Model):
+    STATUS_CHOICES = [
+        ('Pending for Review/Checking', 'Pending for Review/Checking'),
+        ('Reviewed,Pending for Approval', 'Reviewed,Pending for Approval'),
+        ('Pending for Publish', 'Pending for Publish'),
+        ('Correction Requested', 'Correction Requested'),
+        ('Published', 'Published'),
+    ]
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="assess_user", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='assess_lst', null=True, blank=True)
+    assessment_no = models.CharField(max_length=50, blank=True, null=True)
+    related_record_format = models.CharField(max_length=50, blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+    written_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="written_assessment"
+    )
+    approved_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_assessment"
+    )
+    checked_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="checked_assessment"
+    )
+    document_type = models.CharField(
+        max_length=255,blank = True, null =True,
+        choices=[
+            ('System', 'System'),
+            ('Paper', 'Paper'),
+            ('External','External'),
+            ('Work Instruction','Work Instruction')
+  
+        ]
+    )
+    title = models.CharField(max_length=50, blank=True, null=True)
+    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)   
+    rivision = models.CharField(max_length=50, blank=True, null=True)
+    written_at = models.DateTimeField(null=True, blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    is_draft = models.BooleanField(default=False)
+    send_notification_to_checked_by = models.BooleanField(default=False)
+    send_email_to_checked_by = models.BooleanField(default=False)
+    send_notification_to_approved_by = models.BooleanField(default=False)
+    send_email_to_approved_by = models.BooleanField(default=False)
+    review_frequency_year = models.TextField(blank=True, null=True)
+    review_frequency_month = models.TextField(blank=True, null=True)
+
+    published_user = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, blank=True, related_name="assess_publish"
+    )
+
+    status = models.CharField(
+        max_length=100, choices=STATUS_CHOICES, default='Pending for Review/Checking'
+    )
+    
+    def __str__(self):
+         return self.title or "Risk Record"
+     
+     
+class NotificationAssessments(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_assess")
+    assessment = models.ForeignKey(RiskAssessment, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"
+   
+    
+class CorrectionAssessments(models.Model):
+    assessment_correction = models.ForeignKey(RiskAssessment, on_delete=models.CASCADE, null=True, blank=True)
+    to_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="corrections_assess", null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="assess_from", null=True, blank=True)
+    correction = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Correction for {self.to_user.email}"
+    
+    
+class HealthRootCause(models.Model):
+    title = models.CharField(max_length=50, blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='heal_lst', null=True, blank=True)
+
+    def __str__(self):
+        return self.title  
+    
+class HealthIncidents(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="healinc_user", blank=True, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='healinc_lst', null=True, blank=True)
+    source = models.CharField(max_length=50, blank=True, null=True)
+    incident_no = models.CharField(max_length=50, blank=True, null=True)
+    root_cause = models.ForeignKey(HealthRootCause, on_delete=models.SET_NULL, null=True )
+    description = models.TextField(blank=True, null=True)
+    date_raised = models.DateField(blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Completed', 'Completed'),
+        ('Deleted', 'Deleted')        
+    ] 
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+
+    reported_by = models.ForeignKey(
+        Users, on_delete=models.SET_NULL, null=True, related_name="approved_health_incidents"
+    )
+    action =  models.TextField(blank=True, null=True)
+    date_completed = models.DateField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
+    send_notification = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.incident_no and self.company:
+            last_incident = HealthIncidents.objects.filter(
+                company=self.company, incident_no__startswith="HSI-"
+            ).order_by('-id').first()
+            if last_incident and last_incident.incident_no:
+                try:
+                    last_number = int(last_incident.incident_no.split("-")[1])
+                    self.incident_no = f"HSI-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.incident_no = "HSI-1"
+            else:
+                self.incident_no = "HSI-1"
+        super().save(*args, **kwargs)
+
+
+    def __str__(self):
+        return self.title or "Not ittle"
+    
+    
+class NotificationHealthIncidents(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="notifications_safety")
+    safety = models.ForeignKey(HealthIncidents, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.TextField(blank=True,null=True)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.user.email} - {self.message}"

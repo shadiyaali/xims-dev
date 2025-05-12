@@ -1569,3 +1569,128 @@ class CorrectionHealthGetQMSSerializer(serializers.ModelSerializer):
             'correction', 
             'created_at'
         ]
+
+class HealthViewAllSerializer(serializers.ModelSerializer):
+    written_by = UserSerializer()
+    approved_by = UserSerializer()
+    checked_by = UserSerializer()
+    published_user = UserSerializer()
+
+    class Meta:
+        model = HealthSafety
+        fields = '__all__'    
+        
+class HealthNotificationSerializer(serializers.ModelSerializer):
+     health = HealthViewAllSerializer()  
+     class Meta:
+        model = NotificationHealth
+        fields = "__all__"
+        
+        
+class RiskAssessmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskAssessment
+        fields = '__all__'
+        
+        
+
+class RiskAssessmentGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    
+    
+    class Meta:
+        model = RiskAssessment
+        fields = '__all__'
+        
+        
+class RiskAssessmentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RiskAssessment
+        fields = '__all__'
+        extra_kwargs = {
+          
+            'written_at': {'read_only': True},
+            'checked_at': {'read_only': True},
+            'approved_at': {'read_only': True},
+            'updated_at': {'read_only': True}
+        }
+    
+
+    def update(self, instance, validated_data):
+      
+        validated_data['status'] = 'Pending for Review/Checking'       
+        return super().update(instance, validated_data)
+
+
+
+class CorrectionAssessmentGetQMSSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(read_only=True) 
+    from_user= UserSerializer(read_only=True) 
+    assessment_correction_title = serializers.CharField(source='assessment_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionAssessments
+        fields = [
+            'id', 
+            'assessment_correction', 
+            'assessment_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]
+        
+
+class AssessmentGetSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(write_only=True, required=True)
+    approved_by = UserSerializer(read_only=True) 
+    written_by = UserSerializer(read_only=True) 
+    checked_by =UserSerializer(read_only=True) 
+    
+    
+    class Meta:
+        model = RiskAssessment
+        fields = '__all__'
+
+
+
+class AssessmentViewAllSerializer(serializers.ModelSerializer):
+    written_by = UserSerializer()
+    approved_by = UserSerializer()
+    checked_by = UserSerializer()
+    published_user = UserSerializer()
+
+    class Meta:
+        model = RiskAssessment
+        fields = '__all__'   
+        
+class AssessmentNotificationSerializer(serializers.ModelSerializer):
+     assessment = AssessmentViewAllSerializer()  
+     class Meta:
+        model = NotificationAssessments
+        fields = "__all__"
+
+
+class SafetyRootCauseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthRootCause
+        fields = '__all__'
+
+class HealthIncidentsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HealthIncidents
+        fields = '__all__'
+
+
+class HealthIncidentsGetSerializer(serializers.ModelSerializer):
+    reported_by = UserSerializer()
+    root_cause = SafetyRootCauseSerializer()
+    
+    class Meta:
+        model = HealthIncidents
+        fields = '__all__'

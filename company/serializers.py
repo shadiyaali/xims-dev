@@ -169,20 +169,7 @@ class UserGETSerializer(serializers.ModelSerializer):
 
 
  
-class RiskAssessmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RiskAssessment
-        fields = '__all__'
 
-class HealthRootCauseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = HealthRootCause
-        fields = '__all__'
-
-class HealthIncidentsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = HealthIncidents
-        fields = '__all__'
 
 class BusinessRiskSerializer(serializers.ModelSerializer):
     class Meta:

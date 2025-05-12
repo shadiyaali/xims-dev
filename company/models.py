@@ -144,68 +144,9 @@ def generate_unique_filename_audit(instance, filename):
     
 
     
-class RiskAssessment(models.Model):
-    assessment_no = models.CharField(max_length=50, blank=True, null=True)
-    related_record_format = models.CharField(max_length=50, blank=True, null=True)
-    date = models.DateField(blank=True, null=True)
-    written_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="written_assessment"
-    )
-    approved_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_assessment"
-    )
-    checked_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="checked_assessment"
-    )
-    document_type = models.CharField(
-        max_length=255,blank = True, null =True,
-        choices=[
-            ('System', 'System'),
-            ('Paper', 'Paper'),
-            ('External','External'),
-            ('Work Instruction','Work Instruction')
-  
-        ]
-    )
-    assessment_name = models.CharField(max_length=50, blank=True, null=True)
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)   
-    rivision = models.CharField(max_length=50, blank=True, null=True)
-    send_notification = models.BooleanField(default=False)
-    public = models.BooleanField(default=False)
-    
-    def __str__(self):
-        return self.assessment_name
 
-class HealthRootCause(models.Model):
-    title = models.CharField(max_length=50, blank=True, null=True)
 
-    def __str__(self):
-        return self.title  
-    
-class HealthIncidents(models.Model):
-    source = models.CharField(max_length=50, blank=True, null=True)
-    incident = models.CharField(max_length=50, blank=True, null=True)
-    root_cause = models.ForeignKey(HealthRootCause, on_delete=models.SET_NULL, null=True )
-    description = models.TextField(blank=True, null=True)
-    date_raised = models.DateField(blank=True, null=True)
-    remarks = models.TextField(blank=True, null=True)
-    title = models.CharField(max_length=50, blank=True, null=True)
-    STATUS_CHOICES = [
-        ('Pending', 'Pending'),
-        ('Completed', 'Completed'),
-        ('Deleted', 'Deleted')        
-    ] 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
 
-    reported_by = models.ForeignKey(
-        Users, on_delete=models.SET_NULL, null=True, related_name="approved_health_incidents"
-    )
-    action =  models.TextField(blank=True, null=True)
-    date_completed = models.DateField(blank=True, null=True)
-    send_notification = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.source  
     
 
 class BusinessRisk(models.Model):
