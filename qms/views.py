@@ -19755,7 +19755,7 @@ class HealthSafetyCreateView(APIView):
         logger.error(f"Health creation failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def send_email_notification(self, health, recipient, action_type):
+    def send_email_notification(self, health, recipient, action_type, notification=None):
         recipient_email = recipient.email if recipient else None
 
         if recipient_email:
@@ -19780,6 +19780,8 @@ class HealthSafetyCreateView(APIView):
                         'written_at': health.written_at,
                         'status': health.status,
                         'created_by': health.user,
+                       'created_year': notification.created_at.year if notification else None,
+
                     }
 
                     html_message = render_to_string('qms/health/health_to_checked_by.html', context)
