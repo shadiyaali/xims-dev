@@ -937,7 +937,7 @@ class TargetsGetSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     class Meta:
         model = Targets
-        fields = ['title']
+        fields = '__all__'
 
 class TargetSerializer(serializers.ModelSerializer):
     programs = ProgramSerializer(many=True, required=False)
