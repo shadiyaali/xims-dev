@@ -1498,7 +1498,7 @@ class EnergyImprovement(models.Model):
     company = models.ForeignKey(
         Company, on_delete=models.CASCADE, related_name='ene_cus', null=True, blank=True
     )
-    eio = models.IntegerField(blank=True, null=True)  
+    eio =  models.CharField(max_length=50, blank=True, null=True)
     target = models.CharField(max_length=50, blank=True, null=True)
     results = models.TextField(blank=True, null=True)
     date = models.DateField(blank=True, null=True)
