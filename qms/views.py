@@ -15426,7 +15426,7 @@ class EnergyImprovementsDetailAPIView(APIView):
         except EnergyImprovement.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = EnergyImprovementsSerializer(energy_improvement)
+        serializer = EnergyImprovementsGetSerializer(energy_improvement)
         return Response(serializer.data)
 
     def put(self, request, pk):
