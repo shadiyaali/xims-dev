@@ -15452,7 +15452,7 @@ class EnergyImprovementsDetailAPIView(APIView):
 
 class EnergyImprovementsCompanyView(APIView):
     def get(self, request, company_id):
-        agendas = EnergyImprovement.objects.filter(company_id=company_id)
+        agendas = EnergyImprovement.objects.filter(company_id=company_id,is_draft=False)
         serializer = EnergyImprovementsGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
