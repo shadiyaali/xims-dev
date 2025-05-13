@@ -22171,3 +22171,55 @@ class HealthIncidentDraftUpdateAPIView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending Health Incident email to {recipient_email}: {e}")
+
+
+ 
+
+class GetNextEnergyImprovementEIO(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        last_eio_record = EnergyImprovement.objects.filter(
+            company=company,
+            eio__startswith="EIO-"
+        ).order_by('-id').first()
+
+        if last_eio_record and isinstance(last_eio_record.eio, str):
+            try:
+                last_number = int(last_eio_record.eio.split("-")[1])
+                next_eio_no = last_number + 1
+            except (IndexError, ValueError):
+                next_eio_no = 1
+        else:
+            next_eio_no = 1
+
+        next_eio_value = f"EIO-{next_eio_no}"
+        return Response({'next_eio': next_eio_value}, status=status.HTTP_200_OK)
+ 
+
+class GetNextEnergyActionPlan(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        last_action = EnergyAction.objects.filter(
+            company=company,
+            action_plan__startswith="EAP-"
+        ).order_by('-id').first()
+
+        if last_action and isinstance(last_action.action_plan, str):
+            try:
+                last_number = int(last_action.action_plan.split("-")[1])
+                next_action_no = last_number + 1
+            except (IndexError, ValueError):
+                next_action_no = 1
+        else:
+            next_action_no = 1
+
+        next_action_value = f"EAP-{next_action_no}"
+        return Response({'next_action_plan': next_action_value}, status=status.HTTP_200_OK)

@@ -477,6 +477,7 @@ urlpatterns = [
     path('energy-improvements/draft-create/', EnergyImprovementsDraftAPIView.as_view(), name='manual-create'),  
     path('energy-improvements-draft/<int:user_id>/', EnergyImprovementsDraftAllList.as_view(), name='manual-list'),
     path('energy-improvements/drafts-count/<int:user_id>/',  EnergyImprovementsView.as_view(), name='draft-manuals'),
+    path('energy-improvements/next-action/<int:company_id>/', GetNextEnergyImprovementEIO.as_view(), name='get-next-action-number'),
     
     # Energy Action
     path('energy-action/create/', EnergyActionView.as_view(), name='baseline-list-create'),
@@ -485,7 +486,7 @@ urlpatterns = [
     path('energy-action/draft-create/', EnergyActionDraftAPIView.as_view(), name='manual-create'),  
     path('energy-action-draft/<int:user_id>/', EnergyActionDraftAllList.as_view(), name='manual-list'),
     path('energy-action/drafts-count/<int:user_id>/',  EnergyActionView.as_view(), name='draft-manuals'),
-       
+    path('energy-action/next-action/<int:company_id>/', GetNextEnergyActionPlan.as_view(), name='get-next-action-number'),    
     # Source type
     path('source-type/create/', EnergySourceView.as_view(), name='root-cause-list-create'),   
     path('source-type/company/<int:company_id>/', EnergySourceReviewTypeCompanyView.as_view(), name='company-agendas'), 
