@@ -25,7 +25,7 @@ from django.core.mail import EmailMultiAlternatives
 from rest_framework.exceptions import NotFound
 from ximspro.utils.email_backend import CertifiEmailBackend
 import smtplib
-
+from django.core.files.storage import default_storage
 
 
  
@@ -15094,6 +15094,7 @@ class EnergyReviewEditAPIView(APIView):
 
  
 
+ 
 
 class EnergyReviewDraftUpdateAPIView(APIView):
     """
@@ -15102,42 +15103,32 @@ class EnergyReviewDraftUpdateAPIView(APIView):
 
     def put(self, request, pk, *args, **kwargs):
         try:
-            # Fetch the EnergyReview instance by pk
             energy_review = get_object_or_404(EnergyReview, pk=pk)
 
-           
-            # Explicitly set 'is_draft' to False before saving
-            data = request.data.copy() 
-            data['is_draft'] = False  # Ensure that the review is not a draft
+            data = request.data.copy()  # Make mutable copy
+            data['is_draft'] = False  # Ensure it's not a draft
 
-            # Serialize and validate the incoming data
             serializer = EnergyReviewSerializer(energy_review, data=data, partial=True)
             if serializer.is_valid():
-                # Save the updated review
                 updated_review = serializer.save()
 
-                # Handle file attachment if provided
                 if 'upload_attachment' in request.FILES:
                     updated_review.upload_attachment = request.FILES['upload_attachment']
                     updated_review.save()
                     logger.info(f"Attachment uploaded: {updated_review.upload_attachment.name}")
 
-                # Send notifications and emails if 'send_notification' is True
                 send_notification = request.data.get('send_notification', False)
                 if send_notification:
                     company_users = Users.objects.filter(company=updated_review.company)
 
                     for user in company_users:
-                        # Create notification
-                        notification = EnergyReviewNotification(
+                        EnergyReviewNotification.objects.create(
                             user=user,
                             energy_review=updated_review,
                             title=f"create Energy Review: {updated_review.energy_name}",
                             message=f"The energy review '{updated_review.energy_name}' has been updated."
                         )
-                        notification.save()
 
-                        # Send email if user has email
                         if user.email:
                             self._send_email_async(updated_review, user)
 
@@ -15149,19 +15140,12 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         except EnergyReview.DoesNotExist:
-            return Response(
-                {"error": "Energy Review not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Energy Review not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Error updating Energy Review: {str(e)}")
-            return Response(
-                {"error": f"Internal Server Error: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"error": f"Internal Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _send_email_async(self, review, recipient):
-        # Run the email sending function in a separate thread
         threading.Thread(target=self._send_notification_email, args=(review, recipient)).start()
 
     def _send_notification_email(self, review, recipient):
@@ -15170,22 +15154,20 @@ class EnergyReviewDraftUpdateAPIView(APIView):
 
         context = {
             'energy_name': review.energy_name,
-            'review_no':review.review_no,
+            'review_no': review.review_no,
             'source': review.relate_business_process,
             'remarks': review.remarks,
             'date_raised': review.date,
             'revision': review.revision,
             'status': review.is_draft,
             'created_by': review.user,
-             'notification_year': timezone.now().year 
+            'notification_year': timezone.now().year
         }
 
         try:
-            # Prepare the email content
             html_message = render_to_string('qms/energy_review/energy_review_add.html', context)
             plain_message = strip_tags(html_message)
 
-            # Set up the email
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=plain_message,
@@ -15194,32 +15176,31 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Attach file if exists
+            # Stream file safely
             if review.upload_attachment:
                 try:
-                    file_name = review.upload_attachment.name.rsplit('/', 1)[-1]
-                    file_content = review.upload_attachment.read()
-                    email.attach(file_name, file_content)
-                    logger.info(f"Attached energy review document: {file_name}")
+                    file_name = os.path.basename(review.upload_attachment.name)
+                    file_path = review.upload_attachment.name  # stored path in storage
+                    with default_storage.open(file_path, 'rb') as f:
+                        email.attach(file_name, f.read())
+                        logger.info(f"Attached energy review document: {file_name}")
                 except Exception as attachment_error:
                     logger.error(f"Error attaching energy review file: {str(attachment_error)}")
-                    
-          
+
             connection = CertifiEmailBackend(
                 host=settings.EMAIL_HOST,
                 port=settings.EMAIL_PORT,
                 username=settings.EMAIL_HOST_USER,
                 password=settings.EMAIL_HOST_PASSWORD,
                 use_tls=True,
-                 
             )
             email.connection = connection
             email.send(fail_silently=False)
-
             logger.info(f"Email successfully sent to {recipient_email}")
 
         except Exception as e:
             logger.error(f"Error sending Energy Review email to {recipient_email}: {e}")
+
 
     
 class conformityView(APIView):
@@ -15403,13 +15384,7 @@ class BaselineView(APIView):
             "draft_records": serializer.data
         }, status=status.HTTP_200_OK)
         
-    def post(self, request):
-  
-        serializer = BaselineSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)   
+        
         
 class EnergyImprovementsListCreateAPIView(APIView):
      
