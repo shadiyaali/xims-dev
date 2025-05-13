@@ -15881,23 +15881,24 @@ class GetNextsignificantReviewEnergy(APIView):
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
 
  
-        last_review = SignificantEnergy.objects.filter(company=company).order_by('-id').first()
-        
- 
+        last_review = SignificantEnergy.objects.filter(
+            company=company,
+            significant__startswith="SEU-"
+        ).order_by('-id').first()
+
         if last_review and last_review.significant:
             try:
-                
                 last_number = int(last_review.significant.split("-")[1])
                 next_review_no = last_number + 1
             except (IndexError, ValueError):
-             
                 next_review_no = 1
         else:
- 
             next_review_no = 1
 
-        
-        return Response({'next_review_no': next_review_no}, status=status.HTTP_200_OK)
+        # Return the complete next significant value (e.g., "SEU-5")
+        next_significant_value = f"SEU-{next_review_no}"
+
+        return Response({'next_significant': next_significant_value}, status=status.HTTP_200_OK)
 
 
 
