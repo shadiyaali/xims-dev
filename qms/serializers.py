@@ -1057,6 +1057,7 @@ class BaselineSerializer(serializers.ModelSerializer):
         instance.energy_review = validated_data.get('energy_review', instance.energy_review)
         instance.date = validated_data.get('date', instance.date)
         instance.responsible = validated_data.get('responsible', instance.responsible)
+        instance.is_draft = validated_data.get('is_draft', instance.is_draft)
         instance.save()
 
         
