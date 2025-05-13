@@ -15311,7 +15311,7 @@ class BaselineDetailView(APIView):
             baseline = Baseline.objects.prefetch_related('enpis').get(pk=pk)
         except Baseline.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = BaselineSerializer(baseline)
+        serializer = BaselineGetSerializer(baseline)
         return Response(serializer.data)
 
     def put(self, request, pk):
