@@ -15107,7 +15107,7 @@ class EnergyReviewDraftUpdateAPIView(APIView):
 
            
             # Explicitly set 'is_draft' to False before saving
-            data = request.data
+            data = request.data.copy() 
             data['is_draft'] = False  # Ensure that the review is not a draft
 
             # Serialize and validate the incoming data
