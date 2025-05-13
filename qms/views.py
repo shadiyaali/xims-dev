@@ -15322,6 +15322,7 @@ class BaselineDetailView(APIView):
 
         serializer = BaselineSerializer(baseline, data=request.data)
         if serializer.is_valid():
+            serializer.save(is_draft=False)
             serializer.save()
             serializer.save(is_draft=False)
             return Response(serializer.data)
