@@ -468,7 +468,7 @@ urlpatterns = [
     path('baselines/<int:pk>/', BaselineDetailView.as_view(), name='baseline-detail'),
     path('baselines/draft-create/', BaselineDraftAPIView.as_view(), name='manual-create'),  
     path('baselines-draft/<int:user_id>/', BaselineDraftAllList.as_view(), name='manual-list'),
-    path('baselines/drafts-count/<int:user_id>/',  BaselineView.as_view(), name='draft-manuals'),
+    path('baselines/drafts-count/<int:user_id>/',  BaselineDraftView.as_view(), name='draft-manuals'),
     
     # Energy Improvement Performance
     path('energy-improvements/create/', EnergyImprovementsListCreateAPIView.as_view(), name='energy-improvements-list-create'),
