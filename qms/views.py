@@ -14143,7 +14143,7 @@ class TargetsDraftAllList(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         
         record = Targets.objects.filter(user=user, is_draft=True)
-        serializer =TargetSerializer(record, many=True)
+        serializer =TargetsGetSerializer(record, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
     
