@@ -15319,13 +15319,13 @@ class BaselineDetailView(APIView):
             baseline = Baseline.objects.get(pk=pk)
         except Baseline.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        request.data['is_draft'] = False
         serializer = BaselineSerializer(baseline, data=request.data)
         if serializer.is_valid():
-            serializer.save(is_draft=False)
+           
             serializer.save()
             serializer.save(is_draft=False)
-            return Response(serializer.data)
+       
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
