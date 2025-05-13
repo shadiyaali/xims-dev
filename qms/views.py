@@ -15323,6 +15323,7 @@ class BaselineDetailView(APIView):
         serializer = BaselineSerializer(baseline, data=request.data)
         if serializer.is_valid():
             serializer.save()
+            serializer.save(is_draft=False)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
