@@ -15561,7 +15561,7 @@ class EnergyActionDetailView(APIView):
     
 class EnergyActionCompanyView(APIView):
     def get(self, request, company_id):
-        agendas = EnergyAction.objects.filter(company_id=company_id)
+        agendas = EnergyAction.objects.filter(company_id=company_id,is_draft=False)
         serializer = EnergyActionGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
