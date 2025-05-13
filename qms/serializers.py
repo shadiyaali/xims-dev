@@ -1026,6 +1026,8 @@ class BaselineGetSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     responsible = UserSerializer()
     energy_review = BaselineReviewSerializer()
+    enpis = EnpisSerializer(many=True, required=False)  
+ 
     
     class Meta:
         model = Baseline
