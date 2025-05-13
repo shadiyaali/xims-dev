@@ -14019,7 +14019,7 @@ class TargetsList(APIView):
 
       
         cpmpliance = Targets.objects.filter(company=company,is_draft=False)
-        serializer = TargetSerializer(cpmpliance, many=True)
+        serializer = TargetsGetSerializer(cpmpliance, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -14031,7 +14031,7 @@ class TargetView(APIView):
         if pk:
        
             target = get_object_or_404(Targets, pk=pk)
-            serializer = TargetSerializer(target)
+            serializer = TargetsGetSerializer(target)
             return Response(
                 {
                     "success": True,

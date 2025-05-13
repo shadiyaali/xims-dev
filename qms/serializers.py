@@ -930,6 +930,15 @@ class ProgramSerializer(serializers.ModelSerializer):
         model = Programs
         fields = ['title']
 
+
+class TargetsGetSerializer(serializers.ModelSerializer):
+    programs = ProgramSerializer(many=True, required=False)
+    responsible = UserSerializer()
+    user = UserSerializer()
+    class Meta:
+        model = Targets
+        fields = ['title']
+
 class TargetSerializer(serializers.ModelSerializer):
     programs = ProgramSerializer(many=True, required=False)
 
