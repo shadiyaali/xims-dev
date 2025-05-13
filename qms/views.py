@@ -15376,7 +15376,7 @@ class BaselineDraftAllList(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         
         record = Baseline.objects.filter(user=user, is_draft=True)
-        serializer =BaselineSerializer(record, many=True)
+        serializer =BaselineGetSerializer(record, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
