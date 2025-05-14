@@ -15623,6 +15623,14 @@ class EnergyActionView(APIView):
             "draft_records": serializer.data
         }, status=status.HTTP_200_OK)
         
+    def post(self, request):
+  
+        serializer = EnergyActionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class SignificantEnergyCreateAPIView(APIView):
     """
     Endpoint to create a Significant Energy record and optionally send notifications to users of a company.
