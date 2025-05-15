@@ -394,8 +394,7 @@ urlpatterns = [
     path('messages/trash/<int:user_id>/', UserTrashMessageListView.as_view(), name='user-inbox'), 
     path('messages/replay-trash/<int:user_id>/', UserTrashReplyMessageListView.as_view(), name='user-inbox'), 
     path('messages/forward-trash/<int:user_id>/', UserTrashForwardMessageListView.as_view(), name='user-inbox'), 
-    path('messages-replay/<int:id>/', ReplayMessageDetailView.as_view(), name='message-detail'),
-    path('messages-forward/<int:id>/', ForwardMessageDetailView.as_view(), name='message-detail'),
+
     
     
     # Preventive Action

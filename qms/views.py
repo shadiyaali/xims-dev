@@ -12877,32 +12877,7 @@ class MessageDetailView(generics.RetrieveAPIView):
         
 
     
-class ReplayMessageDetailView(generics.RetrieveAPIView):
-    queryset = ReplayMessage.objects.all()
-    serializer_class = ReplayMessageListSerializer
  
-    lookup_field = 'id'
-
-    def get_object(self):
-        try:
-            return ReplayMessage.objects.get(id=self.kwargs['id'])
-        except ReplayMessage.DoesNotExist:
-            raise NotFound("Message not found.")
-        
-
-
-    
-class ForwardMessageDetailView(generics.RetrieveAPIView):
-    queryset = ForwardMessage.objects.all()
-    serializer_class = ForwardMessageListSerializer
- 
-    lookup_field = 'id'
-
-    def get_object(self):
-        try:
-            return ForwardMessage.objects.get(id=self.kwargs['id'])
-        except ForwardMessage.DoesNotExist:
-            raise NotFound("Message not found.") 
 
 class ReplyMessageCreateAPIView(APIView):
     def post(self, request, format=None):
