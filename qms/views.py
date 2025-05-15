@@ -8928,14 +8928,75 @@ class MeetingDraftAllList(APIView):
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+ 
 
 class MessageCreateAPIView(APIView):
     def post(self, request, format=None):
         serializer = MessageSerializer(data=request.data)
+
         if serializer.is_valid():
-            serializer.save()
+            message_instance = serializer.save()
+
+     
+            for user in message_instance.to_user.all():
+                if user.email:
+                    threading.Thread(
+                        target=self._send_notification_email,
+                        args=(message_instance, user)
+                    ).start()
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+   
+            if message.file:
+                try:
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+           
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
 
  
 
@@ -12792,8 +12853,6 @@ class TrainingUsersNotSubmittedAnswersView(APIView):
             
 class UserInboxMessageListView(generics.ListAPIView):
     serializer_class = MessageListSerializer
-  
-
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
         try:
@@ -12818,22 +12877,141 @@ class MessageDetailView(generics.RetrieveAPIView):
         
 
 
-class SendReplayMessageView(APIView):
-    def post(self, request):
-        serializer = ReplayMessageSerializer(data=request.data)
+ 
+
+class ReplyMessageCreateAPIView(APIView):
+    def post(self, request, format=None):
+        serializer = ReplayMessageSerializer(data=request.data)  
+
         if serializer.is_valid():
-            replay_message = serializer.save()
-            return Response(ReplayMessageSerializer(replay_message).data, status=status.HTTP_201_CREATED)
+            reply_message_instance = serializer.save()
+
+            for user in reply_message_instance.to_users.all():
+                if user.email:
+                    threading.Thread(
+                        target=self._send_notification_email,
+                        args=(reply_message_instance, user)
+                    ).start()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/replay_message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if message.file:
+                try:
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+ 
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
     
     
-class SendForwardMessageView(APIView):
-    def post(self, request):
-        serializer = ForwardMessageSerializer(data=request.data)
+ 
+class ForwardMessageCreateAPIView(APIView):
+    def post(self, request, format=None):
+        serializer = ForwardMessageSerializer(data=request.data)   
+
         if serializer.is_valid():
-            replay_message = serializer.save()
-            return Response(ForwardMessageSerializer(replay_message).data, status=status.HTTP_201_CREATED)
+            forward_message_instance = serializer.save()
+
+            for user in forward_message_instance.to_users.all():
+                if user.email:
+                    threading.Thread(
+                        target=self._send_notification_email,
+                        args=(forward_message_instance, user)
+                    ).start()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/froward_message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if message.file:
+                try:
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+ 
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
     
     
 class UserOutboxMessageListView(generics.ListAPIView):
@@ -12916,7 +13094,7 @@ class UserInboxReplayListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(to_user=user, is_trash=False).order_by('-created_at')
+        return ReplayMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
     
     
 class UserInboxForwardListView(generics.ListAPIView):
@@ -12930,7 +13108,7 @@ class UserInboxForwardListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(to_user=user, is_trash=False).order_by('-created_at')
+        return ForwardMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
     
     
 class MarkReplayMessageAsTrashView(APIView):
