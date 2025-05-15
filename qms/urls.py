@@ -545,7 +545,7 @@ urlpatterns = [
     path("notifications/impact/<int:user_id>/", ImpactNotificationsQMS.as_view(), name="notifications_by_user"),
     path('impact/count-notifications/<int:user_id>/', ImpactUnreadNotificationsAPIView.as_view(), name='unread-notifications'),
     path('impact/notifications/<int:notification_id>/read/', ImpactMarkNotificationReadAPIView.as_view(), name='mark-notification-read'),
-    path('manual/create/<int:id>/', ManualDraftEditView.as_view(), name='manual-update'),
+    path('impact/create/<int:id>/', EnvironmentalImpactDraftEditView.as_view(), name='manual-update'),
     
     #  Environment Incident Root Cause
     path('incident-root/create/', IncidentRootActivityView.as_view(), name='root-cause-list-create'),   
