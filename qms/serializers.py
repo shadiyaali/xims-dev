@@ -876,7 +876,7 @@ class ReplayMessageSerializer(serializers.ModelSerializer):
         
 class ReplayMessageListSerializer(serializers.ModelSerializer):
     from_user = UserSerializer()  
-    to_user = UserSerializer(many=True)
+    to_users = UserSerializer(many=True)
     class Meta:
         model = ReplayMessage
         fields = '__all__'
@@ -890,7 +890,7 @@ class ForwardMessageSerializer(serializers.ModelSerializer):
 
 class ForwardMessageListSerializer(serializers.ModelSerializer):
     from_user = UserSerializer()  
-    to_user = UserSerializer(many=True)
+    to_users = UserSerializer(many=True)
     class Meta:
         model = ForwardMessage
         fields = '__all__'
