@@ -18,7 +18,7 @@ def generate_unique_filename(instance, filename):
 
 class PolicyDocumentation(models.Model):  
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="policy_documents",null=True, blank=True)
-    title = models.CharField(max_length=50, blank=True, null=True,unique=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
     energy_policy = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True,null=True, blank=True)
@@ -785,7 +785,7 @@ class SurveyQuestions(models.Model):
     
 class Scope(models.Model):  
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="scope",null=True, blank=True)
-    title = models.CharField(max_length=50, blank=True, null=True,unique=True)
+    title = models.CharField(max_length=50, blank=True, null=True)
     text = models.TextField(blank=True, null=True)
     energy_policy = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True,null=True, blank=True)

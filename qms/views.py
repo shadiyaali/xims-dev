@@ -12852,28 +12852,37 @@ class UserOutboxMessageListView(generics.ListAPIView):
     
     
 class MarkMessageAsTrashView(APIView):
-
     def put(self, request, *args, **kwargs):
+        print("rrrrrrrr", request.data)
         message_id = self.kwargs.get('id')
+
         try:
-         
             message = Message.objects.get(id=message_id)
-            
-     
-            message.is_trash = True
-            message.trash_user = request.user  
+
+            user_id = request.data.get('trash_user')
+            if not user_id:
+                return Response({'error': 'trash_user is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                user = Users.objects.get(id=user_id)
+            except Users.DoesNotExist:
+                return Response({'error': 'Invalid user ID provided.'}, status=status.HTTP_404_NOT_FOUND)
+
+            message.is_trash = request.data.get('is_trash', True)
+            message.trash_user = user
             message.save()
 
             return Response({
                 'status': 'success',
                 'message': 'Message marked as trash.'
             }, status=status.HTTP_200_OK)
-        
+
         except Message.DoesNotExist:
             return Response({
                 'status': 'error',
                 'message': 'Message not found or invalid request.'
             }, status=status.HTTP_404_NOT_FOUND)
+
 
 class MarkRestoreAsTrashView(APIView):
 
