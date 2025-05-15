@@ -453,7 +453,7 @@ class UserUpdateView(UpdateAPIView):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
 
-        # 🛠️ Preprocess data: convert "" to None for nullable fields
+     
         data = request.data.copy()
         if data.get('date_of_birth') == '':
             data['date_of_birth'] = None

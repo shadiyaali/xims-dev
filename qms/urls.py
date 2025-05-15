@@ -185,6 +185,7 @@ urlpatterns = [
     path('training/by-attendee/<int:user_id>/', TrainingsByAttendeeAPIView.as_view(), name='training-by-attendee'),
     path('training/evaluated-by/<int:user_id>/', TrainingsEvaluatedByUserAPIView.as_view(), name='trainings-evaluated-by-user'),
     path('training/create/<int:pk>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
+    path('training/<int:pk>/cancel/', TrainingCancelAPIView.as_view(), name='training-cancel'),
     
     
     # Performance Evaluation

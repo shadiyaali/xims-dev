@@ -15609,27 +15609,7 @@ class EnergyActionDraftAllList(APIView):
         serializer =EnergyActionGetSerializer(record, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class EnergyActionView(APIView):
  
-    def get(self, request, user_id):
-   
-        draft_records = EnergyAction.objects.filter(is_draft=True, user_id=user_id)
-        
-        serializer = EnergyActionSerializer(draft_records, many=True)
-        
-        return Response({
-            "count": draft_records.count(),
-            "draft_records": serializer.data
-        }, status=status.HTTP_200_OK)
-        
-    def post(self, request):
-  
-        serializer = EnergyActionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class SignificantEnergyCreateAPIView(APIView):
     """
@@ -22231,3 +22211,90 @@ class GetNextEnergyActionPlan(APIView):
 
         next_action_value = f"EAP-{next_action_no}"
         return Response({'next_action_plan': next_action_value}, status=status.HTTP_200_OK)
+
+
+class TrainingCancelAPIView(APIView):
+    """
+    Cancels a training and sends email notifications to evaluation_by,
+    requested_by, and attendees.
+    """
+    def post(self, request, pk):
+        try:
+            training = Training.objects.get(pk=pk)
+            
+            if training.status == "Cancelled":
+                return Response({"message": "Training is already cancelled."}, status=status.HTTP_200_OK)
+            
+            with transaction.atomic():
+                training.status = "Cancelled"
+                training.save()
+
+         
+                attendees = training.training_attendees.all()
+                users_to_notify = [training.evaluation_by, training.requested_by] + list(attendees)
+
+                for user in users_to_notify:
+                    if user and user.email:
+                        self._send_email_async(training, user)
+
+            return Response({"message": "Training cancelled and notifications sent."}, status=status.HTTP_200_OK)
+
+        except Training.DoesNotExist:
+            return Response({"error": "Training not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, training, recipient):
+        threading.Thread(target=self._send_notification_email, args=(training, recipient)).start()
+
+    def _send_notification_email(self, training, recipient):
+        subject = f"Training Cancelled: {training.training_title}"
+        recipient_email = recipient.email
+
+        context = {
+            'training_title': training.training_title,
+            'expected_results': training.expected_results,
+            'type_of_training': training.type_of_training,
+            'actual_results': training.actual_results,
+            'status': training.status,
+            'training_evaluation': training.training_evaluation,
+            'training_attendees': training.training_attendees.all(),
+            'date_planned': training.date_planned,
+            'date_conducted': training.date_conducted,
+            'start_time': training.start_time,
+            'end_time': training.end_time,
+            'venue': training.venue,
+            'requested_by': training.requested_by,
+            'evaluation_by': training.evaluation_by,
+            'created_by': training.user,
+            'notification_year': timezone.now().year
+        }
+
+        html_message = render_to_string('qms/training/training_cancelled.html', context)
+        plain_message = strip_tags(html_message)
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=config("DEFAULT_FROM_EMAIL"),
+            to=[recipient_email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        if training.attachment:
+            try:
+                file_name = training.attachment.name.rsplit('/', 1)[-1]
+                file_content = training.attachment.read()
+                email.attach(file_name, file_content)
+            except Exception as attachment_error:
+                print(f"Attachment error: {str(attachment_error)}")
+
+        connection = CertifiEmailBackend(
+            host=config('EMAIL_HOST'),
+            port=config('EMAIL_PORT'),
+            username=config('EMAIL_HOST_USER'),
+            password=config('EMAIL_HOST_PASSWORD'),
+            use_tls=True
+        )
+        email.connection = connection
+        email.send(fail_silently=False)

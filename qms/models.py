@@ -699,6 +699,7 @@ class Training(models.Model):
     TYPE_CHOICES = [
         ('Requested', 'Requested'),
         ('Completed', 'Completed'),
+        ('Cancelled', 'Cancelled'),
     ]
     training_title =  models.CharField(max_length=100,blank=True, null=True)
     expected_results = models.TextField(blank=True, null=True)
