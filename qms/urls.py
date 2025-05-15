@@ -549,8 +549,8 @@ urlpatterns = [
     
     #  Environment Incident Root Cause
     path('incident-root/create/', IncidentRootActivityView.as_view(), name='root-cause-list-create'),   
-    path('incident-root/company/<int:company_id>/', IncidentRootReviewDetailView.as_view(), name='company-agendas'), 
-    path('incident-root/<int:pk>/', IncidentRootReviewTypeCompanyView.as_view(), name='root-cause-detail-update-delete'),
+    path('incident-root/company/<int:company_id>/', IncidentRootReviewTypeCompanyView.as_view(), name='company-agendas'), 
+    path('incident-root/<int:pk>/', IncidentRootReviewDetailView.as_view(), name='root-cause-detail-update-delete'),
     
     # Environmental Incident
     path('incident/create/', IncidentCreateAPIView.as_view(), name='car-number-list-create'),
