@@ -13094,7 +13094,7 @@ class UserInboxReplayListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return ReplayMessage.objects.filter(to_users=user, is_trash=False,is_draft =False).order_by('-created_at')
+        return ReplayMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
 
  
 
@@ -13110,7 +13110,7 @@ class UserInboxForwardListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return ForwardMessage.objects.filter(to_users=user, is_trash=False,is_draft =False).order_by('-created_at')
+        return ForwardMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
     
     
 class MarkReplayMessageAsTrashView(APIView):
