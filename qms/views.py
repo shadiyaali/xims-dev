@@ -12861,7 +12861,17 @@ class UserInboxMessageListView(generics.ListAPIView):
             raise NotFound("User not found.")
 
         return Message.objects.filter(to_user=user, is_trash=False ,is_draft =False).order_by('-created_at')
-    
+
+class UserDraftxMessageListView(generics.ListAPIView):
+    serializer_class = MessageListSerializer
+    def get_queryset(self):
+        user_id = self.kwargs.get('user_id')
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            raise NotFound("User not found.")
+
+        return Message.objects.filter(to_user=user, is_trash=False ,is_draft =True).order_by('-created_at')    
     
 class MessageDetailView(generics.RetrieveAPIView):
     queryset = Message.objects.all()

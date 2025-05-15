@@ -391,6 +391,7 @@ urlpatterns = [
     path('forward/<int:id>/delete/', DeleteForwardView.as_view(), name='delete-message'),
     path('message/draft-create/', MessageDraftAPIView.as_view(), name='manual-create'),  
     path('message-draft/edit/<int:id>/', DraftMessageAsTrashView.as_view(), name='compliance_edit'),
+    path('messages/draft/<int:user_id>/', UserDraftxMessageListView.as_view(), name='user-inbox'),
     path('messages/trash/<int:user_id>/', UserTrashMessageListView.as_view(), name='user-inbox'), 
     path('messages/replay-trash/<int:user_id>/', UserTrashReplyMessageListView.as_view(), name='user-inbox'), 
     path('messages/forward-trash/<int:user_id>/', UserTrashForwardMessageListView.as_view(), name='user-inbox'), 
