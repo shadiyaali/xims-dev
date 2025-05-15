@@ -12871,7 +12871,7 @@ class UserDraftxMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(user=user, is_trash=False ,is_draft =True).order_by('-created_at')    
+        return Message.objects.filter(from_user=user, is_trash=False ,is_draft =True).order_by('-created_at')    
     
 class MessageDetailView(generics.RetrieveAPIView):
     queryset = Message.objects.all()
