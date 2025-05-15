@@ -13342,25 +13342,84 @@ class MessageDraftAPIView(APIView):
     
     
 class DraftMessageAsTrashView(APIView):
-
     def put(self, request, *args, **kwargs):
         message_id = self.kwargs.get('id')
+
         try:
-           
-            message = Message.objects.get(id=message_id)
+            # Step 1: Get original draft and mark it as not draft (trash/archive)
+            message = Message.objects.get(id=message_id, is_draft=True)
             message.is_draft = False
             message.save()
 
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
+            # Step 2: Create new message using request data
+            serializer = MessageSerializer(data=request.data)
+            if serializer.is_valid():
+                message_instance = serializer.save()
+
+                # Step 3: Send emails
+                for user in message_instance.to_user.all():
+                    if user.email:
+                        threading.Thread(
+                            target=self._send_notification_email,
+                            args=(message_instance, user)
+                        ).start()
+
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         except Message.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': 'Message not found or invalid request.'
+                'message': 'Draft message not found.'
             }, status=status.HTTP_404_NOT_FOUND)
-            
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if message.file:
+                try:
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
 
 class UserTrashMessageListView(generics.ListAPIView):
     serializer_class = MessageListSerializer
