@@ -13212,7 +13212,7 @@ class UserOutboxReplayMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(from_user=user).order_by('-created_at')
+        return ReplayMessage.objects.filter(from_user=user).order_by('-created_at')
     
     
 class UserOutboxForwardMessageListView(generics.ListAPIView):
@@ -13226,7 +13226,7 @@ class UserOutboxForwardMessageListView(generics.ListAPIView):
         except Users.DoesNotExist:
             raise NotFound("User not found.")
 
-        return Message.objects.filter(from_user=user).order_by('-created_at')
+        return ForwardMessage.objects.filter(from_user=user).order_by('-created_at')
     
     
 class DeleteMessageView(APIView):
