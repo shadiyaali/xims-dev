@@ -558,7 +558,7 @@ urlpatterns = [
     path('incident/draft-create/', IncidentDraftAPIView.as_view(), name='manual-create'),
     path('incident/company/<int:company_id>/', IncidentCompanyCauseView.as_view(), name='company-agendas'),
     path('incident/draft/<user_id>/', IncidentDraftCompanyCauseView.as_view(), name='company-agendas'),   
-    path('incident/next-action/<int:company_id>/', GetNextIncidentNumberView.as_view(), name='get-next-action-number'),
+    path('incident/next-action/<int:company_id>/', GetNextEnvironmentalIncidentNumberView.as_view(), name='get-next-action-number'),
     path('incident/update/<int:pk>/', EnvironmentalIncidentEditAPIView.as_view(), name='car-draft-update'),
     path('incident-draft/update/<int:pk>/', EnvironmentalInciDraftUpdateAPIView.as_view(), name='car-draft-update'),
     

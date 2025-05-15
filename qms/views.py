@@ -18461,7 +18461,7 @@ class IncidentDraftCompanyCauseView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
+# ..........................
 class GetNextIncidentNumberView(APIView):
     def get(self, request, company_id):
         try:        
@@ -21923,29 +21923,27 @@ class HealthIncidentDrafteView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class GetNextIncidentNumberView(APIView):
+class GetNextEnvironmentalIncidentNumberView(APIView):
     def get(self, request, company_id):
         try:
- 
             company = Company.objects.get(id=company_id)
- 
-            last_incident = HealthIncidents.objects.filter(company=company).order_by('-incident_no').first()
- 
+
+            last_incident = EnvironmentalIncidents.objects.filter(
+                company=company, incident_no__startswith="EI-"
+            ).order_by('-id').first()
+
             if not last_incident or not last_incident.incident_no:
-                next_incident_no = "HSI-1" 
+                next_incident_no = "EI-1"
             else:
                 try:
-       
                     last_number = int(last_incident.incident_no.split("-")[1])
-                    next_incident_no = f"HSI-{last_number + 1}"
+                    next_incident_no = f"EI-{last_number + 1}"
                 except (IndexError, ValueError):
-                    next_incident_no = "HSI-1" 
-            
-           
+                    next_incident_no = "EI-1"
+
             return Response({'next_incident_no': next_incident_no}, status=status.HTTP_200_OK)
-        
+
         except Company.DoesNotExist:
- 
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
         
         
