@@ -166,18 +166,14 @@
                     </div> {% endcomment %}
                 </div>
 
-                {% comment %} <div class="metadata-row">
-                    <div class="metadata-col" style="width: 100%;">
-                        <div class="metadata-label">Attendees</div>
-                        <div>
-                            {% for user in attendees %}
-                                • {{ user.name }}<br/>
-                            {% empty %}
-                                No attendees listed.
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div> {% endcomment %}
+                {% if file %}
+                <div class="lsatt">
+                  <div class="metadata-label">Attachment</div>
+                  <div>
+                    <a href="{{ file.url }}" download>Download File</a>
+                  </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 

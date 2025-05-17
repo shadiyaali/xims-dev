@@ -263,7 +263,8 @@ class ManualCreateView(APIView):
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
                         'date': manual.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':manual.upload_attachment
                     }
 
                     html_message = render_to_string('qms/manual/manual_to_checked_by.html', context)
@@ -511,7 +512,8 @@ class SubmitCorrectionView(APIView):
                 'checked_by': manual.checked_by,
                 'approved_by': manual.approved_by,
                 'date': manual.date,
-                 'notification_year': timezone.now().year 
+                 'notification_year': timezone.now().year ,
+                 'upload_attachment':manual.upload_attachment
             }
 
             # Render email message
@@ -683,8 +685,7 @@ class ManualReviewView(APIView):
                             'approved_by': manual.approved_by,
                              'notification_year': timezone.now().year ,
                             'date': manual.date,
-                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                           'upload_attachment':manual.upload_attachment
                         }
                         html_message = render_to_string('qms/manual/manual_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -705,8 +706,7 @@ class ManualReviewView(APIView):
                             'approved_by': manual.approved_by,
                             'date': manual.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-                            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+                            'upload_attachment':manual.upload_attachment
                         }
                         html_message = render_to_string('qms/manual/manual_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -859,7 +859,8 @@ class ManualUpdateView(APIView):
                         'checked_by': manual.checked_by,
                         'approved_by': manual.approved_by,
                         'date': manual.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':manual.upload_attachment
                     }
 
                     html_message = render_to_string('qms/manual/manual_update_to_checked_by.html', context)
@@ -1124,8 +1125,7 @@ class ManualPublishNotificationView(APIView):
             "approved_by": manual.approved_by,
             'date': manual.date,
              'notification_year': timezone.now().year ,
-            'document_url': manual.upload_attachment.url if manual.upload_attachment else None,
-            'document_name': manual.upload_attachment.name.rsplit('/', 1)[-1] if manual.upload_attachment else None,
+           'upload_attachment':manual.upload_attachment
         }
 
         html_message = render_to_string('qms/manual/manual_published_notification.html', context)
@@ -1307,7 +1307,8 @@ class ProcedureCreateView(APIView):
                         'checked_by': procedure.checked_by,
                         'approved_by': procedure.approved_by,
                         'date': procedure.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':procedure.upload_attachment
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_to_checked_by.html', context)
@@ -1486,7 +1487,8 @@ class ProcedureUpdateView(APIView):
                         "checked_by": procedure.checked_by,
                         "approved_by": procedure.approved_by,
                         'date': procedure.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                          'upload_attachment':procedure.upload_attachment
                     }
 
                     html_message = render_to_string('qms/procedure/procedure_update_to_checked_by.html', context)
@@ -1648,7 +1650,8 @@ class SubmitCorrectionProcedureView(APIView):
                 'checked_by': procedure.checked_by,
                 'approved_by': procedure.approved_by,
                 'date': procedure.date,
-                 'notification_year': timezone.now().year 
+                 'notification_year': timezone.now().year ,
+                  'upload_attachment':procedure.upload_attachment
             }
 
             html_message = render_to_string(template_name, context)
@@ -1810,8 +1813,7 @@ class ProcedureReviewView(APIView):
                             "approved_by": procedure.approved_by,
                             'date': procedure.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-                            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                            'upload_attachment':procedure.upload_attachment
                         }
                         html_message = render_to_string('qms/procedure/procedure_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -1832,8 +1834,7 @@ class ProcedureReviewView(APIView):
                             "approved_by": procedure.approved_by,
                              'notification_year': timezone.now().year ,
                             'date': procedure.date,
-                            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-                            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+                             'upload_attachment':procedure.upload_attachment
                         }
                         html_message = render_to_string('qms/procedure/procedure_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -2061,7 +2062,8 @@ class RecordCreateView(APIView):
                     'checked_by': record.checked_by,
                     'approved_by': record.approved_by,
                     'date': record.date,
-                     'notification_year': timezone.now().year 
+                     'notification_year': timezone.now().year ,
+                     'upload_attachment':record.upload_attachment
                 }
 
                 html_message = render_to_string('qms/record/record_to_checked_by.html', context)
@@ -2253,8 +2255,7 @@ class RecordUpdateView(APIView):
                     "approved_by": record.approved_by,
                     'date': record.date,
                      'notification_year': timezone.now().year ,
-                    'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                    'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                    'upload_attachment':record.upload_attachment
                 }
 
                 html_message = render_to_string('qms/record/record_update_to_checked_by.html', context)
@@ -2422,8 +2423,7 @@ class SubmitCorrectionRecordView(APIView):
                 "approved_by": record.approved_by,
                 'date': record.date,
                  'notification_year': timezone.now().year ,
-                'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+               'upload_attachment':record.upload_attachment
             }
 
             html_message = render_to_string(template_name, context)
@@ -2585,8 +2585,7 @@ class RecordReviewView(APIView):
                             'approved_by': record.approved_by,
                             'date': record.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                           'upload_attachment':record.upload_attachment
                         }
                         html_message = render_to_string('qms/record/record_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -2607,8 +2606,7 @@ class RecordReviewView(APIView):
                             'approved_by': record.approved_by,
                              'notification_year': timezone.now().year ,
                             'date': record.date,
-                            'document_url': record.upload_attachment.url if record.upload_attachment else None,
-                            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+                            'upload_attachment':record.upload_attachment
                         }
                         html_message = render_to_string('qms/record/record_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -2782,8 +2780,7 @@ class RecordPublishNotificationView(APIView):
              'notification_year': timezone.now().year ,
             'date': record.date,
             'publisher_name': publisher_name,
-            'document_url': record.upload_attachment.url if record.upload_attachment else None,
-            'document_name': record.upload_attachment.name.rsplit('/', 1)[-1] if record.upload_attachment else None,
+           'upload_attachment':record.upload_attachment
         }
 
         html_message = render_to_string('qms/record/record_published_notification.html', context)
@@ -3063,8 +3060,7 @@ class ProcedurePublishNotificationView(APIView):
             "checked_by": procedure.checked_by,
             "approved_by": procedure.approved_by,
             'date': procedure.date,
-            'document_url': procedure.upload_attachment.url if procedure.upload_attachment else None,
-            'document_name': procedure.upload_attachment.name.rsplit('/', 1)[-1] if procedure.upload_attachment else None,
+             'upload_attachment':procedure.upload_attachment
         }
 
         html_message = render_to_string('qms/procedure/procedure_published_notification.html', context)
@@ -3360,6 +3356,7 @@ class InterestedPartyCreateView(APIView):
                 'user_first_name': interested_party.user.first_name if interested_party.user else '',
                 'user_last_name': interested_party.user.last_name if interested_party.user else '',
                  'notification_year': timezone.now().year ,
+                  'file':interested_party.file
             }
 
             print(f"Email context prepared: {context}")
@@ -3773,7 +3770,8 @@ class EditInterestedParty(APIView):
                 'custom_legal_requirements': interested_party.custom_legal_requirements,
                 'user_first_name': interested_party.user.first_name if interested_party.user else '',
                 'user_last_name': interested_party.user.last_name if interested_party.user else '',
-                 'notification_year': timezone.now().year 
+                 'notification_year': timezone.now().year ,
+                  'file':interested_party.file
             }
 
             html_message = render_to_string('qms/interested_party/intereste_party_edit.html', context)
@@ -4129,6 +4127,7 @@ class ProcessCreateAPIView(APIView):
             'process_no': process.no,
             'process_remarks': process.custom_legal_requirements,
              'notification_year': timezone.now().year ,
+              'file':process.file,
           
             'legal_requirements': ", ".join([
                 f"{lr.document_type or 'Unknown'} - {lr.no or 'No Number'}"
@@ -4402,6 +4401,7 @@ class EditProcess(APIView):
             ]),
             
             'created_by': process.user,
+            'file':process.file,
 }
 
             html_message = render_to_string('qms/process/process_edit.html', context)
@@ -4616,7 +4616,8 @@ class ComplianceCreateAPIView(APIView):
             'relate_business_process': compliance.relate_business_process,
             'relate_document': compliance.relate_document,
             'created_by': compliance.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'attach_document':compliance.attach_document
         }
 
         try:
@@ -4758,7 +4759,8 @@ class EditsCompliance(APIView):
             'relate_business_process': compliance.relate_business_process,
             'relate_document': compliance.relate_document,
             'created_by': compliance.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'attach_document':compliance.attach_document
         }
 
         try:
@@ -4925,7 +4927,8 @@ class LegalCreateAPIView(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             'attach_document':legal.attach_document
         }
 
         try:
@@ -5052,7 +5055,8 @@ class EditsLegal(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'attach_document':legal.attach_document
         }
 
         try:
@@ -5201,7 +5205,8 @@ class EvaluationCreateView(APIView):
                         'checked_by': evaluation.checked_by,
                         'approved_by': evaluation.approved_by,
                         'date': evaluation.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':evaluation.upload_attachment
                     }
 
                     html_message = render_to_string('qms/evaluation/evaluation_to_checked_by.html', context)
@@ -5359,7 +5364,8 @@ class EvaluationUpdateView(APIView):
                         'checked_by': evaluation.checked_by,
                         'approved_by': evaluation.approved_by,
                         'date': evaluation.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                          'upload_attachment':evaluation.upload_attachment
                     }
 
                     html_message = render_to_string('evaluation/evaluation_update_to_checked_by.html', context)
@@ -5528,7 +5534,8 @@ class SubmitEvaluationCorrectionView(APIView):
                 'checked_by': evaluation.checked_by,
                 'approved_by': evaluation.approved_by,
                 'date': evaluation.date,
-                 'notification_year': timezone.now().year 
+                 'notification_year': timezone.now().year ,
+                  'upload_attachment':evaluation.upload_attachment
             }
 
             html_message = render_to_string(template_name, context)
@@ -5692,8 +5699,7 @@ class EvaluationReviewView(APIView):
                             'approved_by': evaluation.approved_by,
                              'notification_year': timezone.now().year ,
                             'date': evaluation.date,
-                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
-                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                            'upload_attachment':evaluation.upload_attachment
                         }
                         html_message = render_to_string('evaluation/evaluation_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -5714,8 +5720,7 @@ class EvaluationReviewView(APIView):
                             'approved_by': evaluation.approved_by,
                             'date': evaluation.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
-                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                            'upload_attachment':evaluation.upload_attachment
                         }
                         html_message = render_to_string('evaluation/evaluation_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -5851,8 +5856,7 @@ class EvaluationPublishNotificationView(APIView):
                             'approved_by': evaluation.approved_by,
                              'notification_year': timezone.now().year ,
                             'date': evaluation.date,
-                            'document_url': evaluation.upload_attachment.url if evaluation.upload_attachment else None,
-                            'document_name': evaluation.upload_attachment.name.rsplit('/', 1)[-1] if evaluation.upload_attachment else None,
+                            'upload_attachment':evaluation.upload_attachment
                         }
 
         html_message = render_to_string('evaluations/evaluation_published_notification.html', context)
@@ -6134,7 +6138,8 @@ class ChangesCreateAPIView(APIView):
             'potential_cosequences': changes.potential_cosequences,
             'moc_remarks': changes.moc_remarks,
             'created_by': changes.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             'attach_document':changes.attach_document
         }
       
 
@@ -6286,7 +6291,8 @@ class EditsChanges(APIView):
             'moc_remarks': changes.moc_remarks,
             'created_by': changes.user,
             'recipient': recipient,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'attach_document':changes.attach_document
         }
 
         try:
@@ -6469,7 +6475,9 @@ class SustainabilityCreateView(APIView):
                         'checked_by': sustainability.checked_by,
                         'approved_by': sustainability.approved_by,
                         'date': sustainability.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':sustainability.upload_attachment
+                         
                     }
 
                     html_message = render_to_string('qms/sustainability/sustainability_to_checked_by.html', context)
@@ -6648,7 +6656,8 @@ class SustainabilityUpdateView(APIView):
                         'checked_by': sustainability.checked_by,
                         'approved_by': sustainability.approved_by,
                         'date': sustainability.date,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':sustainability.upload_attachment
                     }
 
             html_message = render_to_string(
@@ -6819,7 +6828,8 @@ class SubmitCorrectionSustainabilityView(APIView):
                 'date': sustainability.date,
                 'correction_text': correction.correction,
                 'from_user_name': from_user.first_name,
-                 'notification_year': timezone.now().year 
+                 'notification_year': timezone.now().year ,
+                 'upload_attachment':sustainability.upload_attachment
             }
 
             # Render email message
@@ -6986,8 +6996,7 @@ class SustainabilityReviewView(APIView):
                              'notification_year': timezone.now().year ,
                             'date': sustainability.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
-                            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+                           'upload_attachment':sustainability.upload_attachment
                         }
                         html_message = render_to_string('sustainability/sustainability_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -7008,8 +7017,7 @@ class SustainabilityReviewView(APIView):
                             'approved_by': sustainability.approved_by,
                             'date': sustainability.date,
                              'notification_year': timezone.now().year ,
-                            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
-                            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+                            'upload_attachment':sustainability.upload_attachment
                         }
                         html_message = render_to_string('sustainability/sustainability_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -7178,8 +7186,7 @@ class SustainabilityPublishNotificationView(APIView):
             "approved_by": sustainability.approved_by,
             'date': sustainability.date,
              'notification_year': timezone.now().year ,
-            'document_url': sustainability.upload_attachment.url if sustainability.upload_attachment else None,
-            'document_name': sustainability.upload_attachment.name.rsplit('/', 1)[-1] if sustainability.upload_attachment else None,
+           'upload_attachment':sustainability.upload_attachment
         }
 
         html_message = render_to_string('sustainability/sustainability_published_notification.html', context)
@@ -7560,7 +7567,8 @@ class TrainingCreateAPIView(APIView):
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
              'created_by': training.user,
-              'notification_year': timezone.now().year 
+              'notification_year': timezone.now().year ,
+              'attachment':training.attachment
         }
 
         html_message = render_to_string('qms/training/training_add.html', context)
@@ -7703,7 +7711,8 @@ class TrainingUpdateAPIView(APIView):
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
              'created_by': training.user,
-              'notification_year': timezone.now().year 
+              'notification_year': timezone.now().year ,
+               'attachment':training.attachment
         }
 
         try:
@@ -7830,7 +7839,8 @@ class TrainingCompleteAndNotifyView(APIView):
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
              'created_by': training.user,
-              'notification_year': timezone.now().year 
+              'notification_year': timezone.now().year ,
+              'attachment':training.attachment
         }
 
         try:
@@ -8689,7 +8699,9 @@ class MeetingCreateView(APIView):
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
             'created_by': meeting.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             'file':meeting.file
+             
         }
 
         html_message = render_to_string('qms/meeting/meeting_add.html', context)
@@ -8832,7 +8844,8 @@ class MeetingUpdateAPIView(APIView):
             'attendees': meeting.attendees.all(),
             'recipient_name': recipient.first_name,
             'created_by':meeting.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'file':meeting.file
         }
 
         try:
@@ -12195,7 +12208,8 @@ class EditDraftTrainingAPIView(APIView):
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
             'created_by': training.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             'upload_file':training.upload_file
         }
 
         html_message = render_to_string('qms/training/training_add.html', context)
@@ -12873,594 +12887,11 @@ class UserDraftxMessageListView(generics.ListAPIView):
 
         return Message.objects.filter(from_user=user, is_trash=False ,is_draft =True).order_by('-created_at')    
     
-class MessageDetailView(generics.RetrieveAPIView):
-    queryset = Message.objects.all()
-    serializer_class = MessageListSerializer
- 
-    lookup_field = 'id'
 
-    def get_object(self):
-        try:
-            return Message.objects.get(id=self.kwargs['id'])
-        except Message.DoesNotExist:
-            raise NotFound("Message not found.")
-        
 
-    
- 
 
-class ReplyMessageCreateAPIView(APIView):
-    def post(self, request, format=None):
-        serializer = ReplayMessageSerializer(data=request.data)  
+       
 
-        if serializer.is_valid():
-            reply_message_instance = serializer.save()
-
-            for user in reply_message_instance.to_users.all():
-                if user.email:
-                    threading.Thread(
-                        target=self._send_notification_email,
-                        args=(reply_message_instance, user)
-                    ).start()
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def _send_notification_email(self, message, recipient):
-        subject = message.subject or "New Message Notification"
-        recipient_email = recipient.email
-
-        context = {
-            'message': message.message,
-            'subject': message.subject,
-            'sender': message.from_user,
-            'date': message.created_at,
-            'notification_year': timezone.now().year
-        }
-
-        try:
-            html_message = render_to_string('qms/messages/replay_message_template.html', context)
-            plain_message = strip_tags(html_message)
-
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=plain_message,
-                from_email=config("DEFAULT_FROM_EMAIL"),
-                to=[recipient_email]
-            )
-            email.attach_alternative(html_message, "text/html")
-
-            if message.file:
-                try:
-                    file_name = message.file.name.rsplit('/', 1)[-1]
-                    file_content = message.file.read()
-                    email.attach(file_name, file_content)
-                except Exception as attachment_error:
-                    print(f"Attachment Error: {attachment_error}")
-
- 
-            connection = CertifiEmailBackend(
-                host=config('EMAIL_HOST'),
-                port=config('EMAIL_PORT'),
-                username=config('EMAIL_HOST_USER'),
-                password=config('EMAIL_HOST_PASSWORD'),
-                use_tls=True
-            )
-            email.connection = connection
-            email.send(fail_silently=False)
-            print(f"Email sent to {recipient_email}")
-
-        except Exception as e:
-            print(f"Error sending email to {recipient_email}: {e}")
-
-    
-    
- 
-class ForwardMessageCreateAPIView(APIView):
-    def post(self, request, format=None):
-        serializer = ForwardMessageSerializer(data=request.data)   
-
-        if serializer.is_valid():
-            forward_message_instance = serializer.save()
-
-            for user in forward_message_instance.to_users.all():
-                if user.email:
-                    threading.Thread(
-                        target=self._send_notification_email,
-                        args=(forward_message_instance, user)
-                    ).start()
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def _send_notification_email(self, message, recipient):
-        subject = message.subject or "New Message Notification"
-        recipient_email = recipient.email
-
-        context = {
-            'message': message.message,
-            'subject': message.subject,
-            'sender': message.from_user,
-            'date': message.created_at,
-            'notification_year': timezone.now().year
-        }
-
-        try:
-            html_message = render_to_string('qms/messages/froward_message_template.html', context)
-            plain_message = strip_tags(html_message)
-
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=plain_message,
-                from_email=config("DEFAULT_FROM_EMAIL"),
-                to=[recipient_email]
-            )
-            email.attach_alternative(html_message, "text/html")
-
-            if message.file:
-                try:
-                    file_name = message.file.name.rsplit('/', 1)[-1]
-                    file_content = message.file.read()
-                    email.attach(file_name, file_content)
-                except Exception as attachment_error:
-                    print(f"Attachment Error: {attachment_error}")
-
- 
-            connection = CertifiEmailBackend(
-                host=config('EMAIL_HOST'),
-                port=config('EMAIL_PORT'),
-                username=config('EMAIL_HOST_USER'),
-                password=config('EMAIL_HOST_PASSWORD'),
-                use_tls=True
-            )
-            email.connection = connection
-            email.send(fail_silently=False)
-            print(f"Email sent to {recipient_email}")
-
-        except Exception as e:
-            print(f"Error sending email to {recipient_email}: {e}")
-
-    
-    
-class UserOutboxMessageListView(generics.ListAPIView):
-    serializer_class = MessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return Message.objects.filter(from_user=user,is_draft =False,is_trash=False).order_by('-created_at')
-    
-    
-    
-class MarkMessageAsTrashView(APIView):
-    def put(self, request, *args, **kwargs):
-        print("rrrrrrrr", request.data)
-        message_id = self.kwargs.get('id')
-
-        try:
-            message = Message.objects.get(id=message_id)
-
-            user_id = request.data.get('trash_user')
-            if not user_id:
-                return Response({'error': 'trash_user is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                user = Users.objects.get(id=user_id)
-            except Users.DoesNotExist:
-                return Response({'error': 'Invalid user ID provided.'}, status=status.HTTP_404_NOT_FOUND)
-
-            message.is_trash = request.data.get('is_trash', True)
-            message.trash_user = user
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-
-        except Message.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-
-class MarkRestoreAsTrashView(APIView):
-
-    def put(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')
-        try:
-           
-            message = Message.objects.get(id=message_id)
-            message.is_trash = False
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-        except Message.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-            
-class UserInboxReplayListView(generics.ListAPIView):
-    serializer_class = ReplayMessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ReplayMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
-
- 
-
-
-class UserInboxForwardListView(generics.ListAPIView):
-    serializer_class = ForwardMessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ForwardMessage.objects.filter(to_users=user, is_trash=False).order_by('-created_at')
-    
-    
-class MarkReplayMessageAsTrashView(APIView):
-    def put(self, request, *args, **kwargs):
-        print("rrrrrrrr", request.data)
-        message_id = self.kwargs.get('id')
-
-        try:
-            message = ReplayMessage.objects.get(id=message_id)
-
-            user_id = request.data.get('trash_user')
-            if not user_id:
-                return Response({'error': 'trash_user is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                user = Users.objects.get(id=user_id)
-            except Users.DoesNotExist:
-                return Response({'error': 'Invalid user ID provided.'}, status=status.HTTP_404_NOT_FOUND)
-
-            message.is_trash = request.data.get('is_trash', True)
-            message.trash_user = user
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-
-        except ReplayMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-
-
- 
-class MarkRestoreAsReplayTrashView(APIView):
-
-    def put(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')
-        try:
-           
-            message = ReplayMessage.objects.get(id=message_id)
-            message.is_trash = False
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-        except ReplayMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-            
-            
-class MarkForwardMessageAsTrashView(APIView):
-
-    def put(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')
-        try:
-           
-            message = ForwardMessage.objects.get(id=message_id)
-            message.is_trash = True
-            message.trash_user = request.user  
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-        except ForwardMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-
-class MarkRestoreAsForwardTrashView(APIView):
-
-    def put(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')
-        try:
-           
-            message = ForwardMessage.objects.get(id=message_id)
-            message.is_trash = False
-            message.save()
-
-            return Response({
-                'status': 'success',
-                'message': 'Message marked as trash.'
-            }, status=status.HTTP_200_OK)
-        except ForwardMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found or invalid request.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-            
-            
-class UserOutboxReplayMessageListView(generics.ListAPIView):
-    serializer_class = ReplayMessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ReplayMessage.objects.filter(from_user=user).order_by('-created_at')
-    
-    
-class UserOutboxForwardMessageListView(generics.ListAPIView):
-    serializer_class = ForwardMessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ForwardMessage.objects.filter(from_user=user).order_by('-created_at')
-    
-    
-class DeleteMessageView(APIView):
-
-    def delete(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')  
-
-        try:
-            message = Message.objects.get(id=message_id)
-            message.delete()  
-
-            return Response({
-                'status': 'success',
-                'message': 'Message deleted successfully.'
-            }, status=status.HTTP_200_OK)
-        except Message.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-            
-class DeleteReplayView(APIView):
-
-    def delete(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')  
-
-        try:
-            message = ReplayMessage.objects.get(id=message_id)
-            message.delete()  
-
-            return Response({
-                'status': 'success',
-                'message': 'Message deleted successfully.'
-            }, status=status.HTTP_200_OK)
-        except ReplayMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-            
-class DeleteForwardView(APIView):
-
-    def delete(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')  
-
-        try:
-            message = ForwardMessage.objects.get(id=message_id)
-            message.delete()  
-
-            return Response({
-                'status': 'success',
-                'message': 'Message deleted successfully.'
-            }, status=status.HTTP_200_OK)
-        except ForwardMessage.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Message not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-
-
-class MessageDraftAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-   
-        data = {}
-  
-        for key in request.data:
-            if key != 'file':
-                data[key] = request.data[key]
-        
- 
-        data['is_draft'] = True
-    
-        file_obj = request.FILES.get('file')
-        
-        serializer =MessageSerializer(data=data)
-        if serializer.is_valid():
-            compliance = serializer.save()
- 
-            if file_obj:
-                compliance.file = file_obj
-                compliance.save()
-                
-            return Response({"message": "Message saved as draft", "data": serializer.data}, 
-                           status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
-    
-class DraftMessageAsTrashView(APIView):
-    def put(self, request, *args, **kwargs):
-        message_id = self.kwargs.get('id')
-
-        try:
-            # Step 1: Get original draft and mark it as not draft (trash/archive)
-            message = Message.objects.get(id=message_id, is_draft=True)
-            message.is_draft = False
-            message.save()
-
-            # Step 2: Create new message using request data
-            serializer = MessageSerializer(data=request.data)
-            if serializer.is_valid():
-                message_instance = serializer.save()
-
-                # Step 3: Send emails
-                for user in message_instance.to_user.all():
-                    if user.email:
-                        threading.Thread(
-                            target=self._send_notification_email,
-                            args=(message_instance, user)
-                        ).start()
-
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        except Message.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Draft message not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-    def _send_notification_email(self, message, recipient):
-        subject = message.subject or "New Message Notification"
-        recipient_email = recipient.email
-
-        context = {
-            'message': message.message,
-            'subject': message.subject,
-            'sender': message.from_user,
-            'date': message.created_at,
-            'notification_year': timezone.now().year
-        }
-
-        try:
-            html_message = render_to_string('qms/messages/message_template.html', context)
-            plain_message = strip_tags(html_message)
-
-            email = EmailMultiAlternatives(
-                subject=subject,
-                body=plain_message,
-                from_email=config("DEFAULT_FROM_EMAIL"),
-                to=[recipient_email]
-            )
-            email.attach_alternative(html_message, "text/html")
-
-            if message.file:
-                try:
-                    file_name = message.file.name.rsplit('/', 1)[-1]
-                    file_content = message.file.read()
-                    email.attach(file_name, file_content)
-                except Exception as attachment_error:
-                    print(f"Attachment Error: {attachment_error}")
-
-            connection = CertifiEmailBackend(
-                host=config('EMAIL_HOST'),
-                port=config('EMAIL_PORT'),
-                username=config('EMAIL_HOST_USER'),
-                password=config('EMAIL_HOST_PASSWORD'),
-                use_tls=True
-            )
-            email.connection = connection
-            email.send(fail_silently=False)
-            print(f"Email sent to {recipient_email}")
-
-        except Exception as e:
-            print(f"Error sending email to {recipient_email}: {e}")
-
-
-class UserTrashMessageListView(generics.ListAPIView):
-    serializer_class = MessageListSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return Message.objects.filter(to_user=user, is_trash=True ,is_draft =False).order_by('-created_at')
-
-
-
-class UserTrashReplyMessageListView(generics.ListAPIView):
-    serializer_class = ReplayMessageSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ReplayMessage.objects.filter(to_users=user, is_trash=True ).order_by('-created_at')
-
-class UserTrashForwardMessageListView(generics.ListAPIView):
-    serializer_class = ForwardMessageSerializer
-  
-
-    def get_queryset(self):
-        user_id = self.kwargs.get('user_id')
-        try:
-            user = Users.objects.get(id=user_id)
-        except Users.DoesNotExist:
-            raise NotFound("User not found.")
-
-        return ForwardMessage.objects.filter(to_users=user, is_trash=True ).order_by('-created_at')
 
 class PreventiveActionCreateAPIView(APIView):
     def post(self, request):
@@ -13589,7 +13020,8 @@ class PreventiveActionCreateAPIView(APIView):
             'status': preventive_action.status,
             'action': preventive_action.action,
             'created_by': preventive_action.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             
         }
         
         logger.info(f"Email context prepared: {list(context.keys())}")
@@ -15099,7 +14531,8 @@ class EnergyReviewCreateAPIView(APIView):
             'relate_business_process': energy_review.relate_business_process,
             'relate_document_process': energy_review.relate_document_process,
             'created_by': energy_review.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             "upload_attachment":energy_review.upload_attachment
         }
 
         try:
@@ -15322,7 +14755,8 @@ class EnergyReviewEditAPIView(APIView):
             'revision': energy_review.revision,
             'status': energy_review.is_draft,
             'created_by': energy_review.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+               "upload_attachment":energy_review.upload_attachment
         }
 
         try:
@@ -15433,7 +14867,8 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             'revision': energy_review.revision,
             'status': energy_review.is_draft,
             'created_by': energy_review.user,
-            'notification_year': timezone.now().year
+            'notification_year': timezone.now().year,
+              "upload_attachment":energy_review.upload_attachment
         }
 
         try:
@@ -15792,6 +15227,7 @@ class EnergyActionView(APIView):
 
     def post(self, request):
         serializer =EnergyActionSerializer(data=request.data)
+        print("rrrrrrrrr",request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -15803,7 +15239,7 @@ class EnergyActionDetailView(APIView):
             baseline = EnergyAction.objects.prefetch_related('programs').get(pk=pk)
         except EnergyAction.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = EnergyActionSerializer(baseline)
+        serializer = EnergyActionGetSerializer(baseline)
         return Response(serializer.data)
 
     def put(self, request, pk):
@@ -15963,7 +15399,8 @@ class SignificantEnergyCreateAPIView(APIView):
             'impact': significant_energy.impact,
             'action': significant_energy.action,
             'created_by': significant_energy.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             "upload_attachment":significant_energy.upload_attachment
         }
 
         try:
@@ -16243,7 +15680,8 @@ class SignificantEnergyEditAPIView(APIView):
             'impact': significant_energy.impact,
             'action': significant_energy.action,
             'created_by': significant_energy.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              "upload_attachment":significant_energy.upload_attachment
         }
 
         try:
@@ -17583,7 +17021,8 @@ class ImpactCreateView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                         'upload_attachment':impact.upload_attachment
                     }
 
                     html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
@@ -17725,7 +17164,8 @@ class ImpactUpdateView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                          'upload_attachment':impact.upload_attachment
                     }
 
                     html_message = render_to_string('qms/impact/impact_update_to_checked_by.html', context)
@@ -17882,7 +17322,8 @@ class SubmitImpactCorrectionView(APIView):
                         'related_record':impact.related_record,
                         'review_frequency_year': impact.review_frequency_year or 0,
                         'review_frequency_month': impact.review_frequency_month or 0,
-                         'notification_year': timezone.now().year 
+                         'notification_year': timezone.now().year ,
+                          'upload_attachment':impact.upload_attachment
                     }
 
             html_message = render_to_string(template_name, context)
@@ -18049,7 +17490,8 @@ class ImpactReviewView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
-                             'notification_year': timezone.now().year 
+                             'notification_year': timezone.now().year ,
+                              'upload_attachment':impact.upload_attachment
                         }
                         html_message = render_to_string('qms/impact/impact_to_approved_by.html', context)
                         plain_message = strip_tags(html_message)
@@ -18068,7 +17510,8 @@ class ImpactReviewView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
-                             'notification_year': timezone.now().year 
+                             'notification_year': timezone.now().year ,
+                              'upload_attachment':impact.upload_attachment
                         }
                         html_message = render_to_string('qms/impact/impact_publish.html', context)
                         plain_message = strip_tags(html_message)
@@ -18215,7 +17658,8 @@ class ImpactPublishNotificationView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
-                             'notification_year': timezone.now().year 
+                             'notification_year': timezone.now().year ,
+                              'upload_attachment':impact.upload_attachment
                         }
 
         html_message = render_to_string('qms/impact/impact_published_notification.html', context)
@@ -18437,7 +17881,8 @@ class EnvironmentalImpactDraftEditView(APIView):
                             'related_record': impact.related_record,
                             'review_frequency_year': impact.review_frequency_year or 0,
                             'review_frequency_month': impact.review_frequency_month or 0,
-                             'notification_year': timezone.now().year 
+                             'notification_year': timezone.now().year ,
+                              'upload_attachment':impact.upload_attachment
                         }
 
                     html_message = render_to_string('qms/impact/impact_to_checked_by.html', context)
@@ -22534,7 +21979,8 @@ class TrainingCancelAPIView(APIView):
             'requested_by': training.requested_by,
             'evaluation_by': training.evaluation_by,
             'created_by': training.user,
-            'notification_year': timezone.now().year
+            'notification_year': timezone.now().year,
+            'attachment':training.attachment
         }
 
         html_message = render_to_string('qms/training/training_cancelled.html', context)
@@ -22565,3 +22011,453 @@ class TrainingCancelAPIView(APIView):
         )
         email.connection = connection
         email.send(fail_silently=False)
+        
+ 
+
+
+# class ComposeMessageView(APIView):
+#     def post(self, request):
+#         serializer = MessageSerializer(data=request.data)
+#         if serializer.is_valid():
+#             message_instance = serializer.save()
+
+#             for user in message_instance.to_user.all():
+#                 if user.email:
+#                     thread = threading.Thread(
+#                         target=self._send_notification_email,
+#                         args=(message_instance, user)
+#                     )
+#                     thread.daemon = True
+#                     thread.start()
+
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#     def _send_notification_email(self, message, recipient):
+#         subject = message.subject or "New Message Notification"
+#         recipient_email = recipient.email
+
+#         context = {
+#             'message': message.message,
+#             'subject': message.subject,
+#             'sender': message.from_user,
+#             'date': message.created_at,
+#             'notification_year': timezone.now().year
+#         }
+
+#         try:
+#             html_message = render_to_string('qms/messages/message_template.html', context)
+#             plain_message = strip_tags(html_message)
+
+#             email = EmailMultiAlternatives(
+#                 subject=subject,
+#                 body=plain_message,
+#                 from_email=config("DEFAULT_FROM_EMAIL"),
+#                 to=[recipient_email]
+#             )
+#             email.attach_alternative(html_message, "text/html")
+
+       
+#             if message.file:
+#                 try:
+#                     message.file.open()
+#                     file_name = message.file.name.rsplit('/', 1)[-1]
+#                     file_content = message.file.read()
+#                     email.attach(file_name, file_content)
+#                     message.file.close()
+#                 except Exception as attachment_error:
+#                     print(f"Attachment Error: {attachment_error}")
+
+        
+#             connection = CertifiEmailBackend(
+#                 host=config('EMAIL_HOST'),
+#                 port=config('EMAIL_PORT'),
+#                 username=config('EMAIL_HOST_USER'),
+#                 password=config('EMAIL_HOST_PASSWORD'),
+#                 use_tls=True
+#             )
+#             email.connection = connection
+#             email.send(fail_silently=False)
+#             print(f"Email sent to {recipient_email}")
+
+#         except Exception as e:
+#             print(f"Error sending email to {recipient_email}: {e}")
+
+ 
+    
+class MessagesByToUserView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(pk=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        messages = Message.objects.filter(to_user=user,is_trash=False).order_by('-created_at')
+        serializer = MessageGetSerializer(messages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+ 
+ 
+ 
+
+
+class ReplyMessageView(APIView):
+    def post(self, request, parent_id):
+        print("rrrrr",request.data)
+        try:
+            parent_message = Message.objects.get(pk=parent_id)
+        except Message.DoesNotExist:
+            return Response({'error': 'Parent message not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.copy()
+        if 'to_users' in data:
+            data.setlist('to_user', data.getlist('to_users'))
+        data['parent'] = parent_id
+
+        if 'thread_root' not in data:
+            data['thread_root'] = parent_message.thread_root.id if parent_message.thread_root else parent_message.id
+
+        serializer = MessageSerializer(data=data)
+        if serializer.is_valid():
+            message_instance = serializer.save()
+
+            for user in message_instance.to_user.all():
+                if user.email:
+                    thread = threading.Thread(
+                        target=self._send_notification_email,
+                        args=(message_instance, user)
+                    )
+                    thread.daemon = True
+                    thread.start()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if message.file:
+                try:
+                    message.file.open()
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                    message.file.close()
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+
+    
+    
+class MessagesByFromUserView(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(pk=user_id)
+        except Users.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        messages = Message.objects.filter(from_user=user,is_trash=False).order_by('-created_at')
+        serializer = MessageGetSerializer(messages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class ForwardMessageView(APIView):
+    def post(self, request, message_id):
+        try:
+            original_message = Message.objects.get(pk=message_id)
+        except Message.DoesNotExist:
+            return Response({'error': 'Original message not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.copy()
+
+ 
+        data.setdefault('subject', f"Fwd: {original_message.subject}")
+        data.setdefault('message', original_message.message)
+        data['parent'] = None   
+        data['thread_root'] = None  
+
+     
+        if original_message.file and not data.get('file'):
+            data['file'] = original_message.file
+
+  
+        serializer = MessageSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class CreateDraftMessageView(APIView):
+    def post(self, request):
+        print("Request data:", request.data)  
+        data = request.data.copy()
+        data['is_draft'] = True  
+
+        serializer = MessageSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Draft saved successfully.', 'data': serializer.data}, status=status.HTTP_201_CREATED)
+        print("Serializer errors:", serializer.errors )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class EditDraftMessageView(APIView):
+    def put(self, request, draft_id):
+        try:
+            draft_message = Message.objects.get(id=draft_id, is_draft=True)
+        except Message.DoesNotExist:
+            return Response({'error': 'Draft message not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = MessageSerializer(draft_message, data=request.data, partial=True)
+        if serializer.is_valid():
+            message_instance = serializer.save(is_draft=False)
+
+            for user in message_instance.to_user.all():
+                if user.email:
+                    thread = threading.Thread(
+                        target=self._send_notification_email,
+                        args=(message_instance, user)
+                    )
+                    thread.daemon = True
+                    thread.start()
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            if message.file:
+                try:
+                    message.file.open()
+                    file_name = message.file.name.rsplit('/', 1)[-1]
+                    file_content = message.file.read()
+                    email.attach(file_name, file_content)
+                    message.file.close()
+                except Exception as attachment_error:
+                    print(f"Attachment Error: {attachment_error}")
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            print(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            print(f"Error sending email to {recipient_email}: {e}")
+            
+            
+class MessageDetailAPIView(APIView):
+ 
+    def get(self, request, id, format=None):
+        message = get_object_or_404(Message, id=id)
+        serializer = MessageGetSerializer(message)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+class TrashMessageAPIView(APIView):
+    def patch(self, request, message_id):
+        try:
+            message = Message.objects.get(pk=message_id)
+        except Message.DoesNotExist:
+            return Response({'detail': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response({'detail': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        message.is_trash = True
+        message.trash_user_id = user_id  
+        message.save()
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class TrashedMessagesAPIView(APIView):
+    def get(self, request, user_id):
+        trashed_messages = Message.objects.filter(is_trash=True, trash_user_id=user_id)
+        serializer = MessageSerializer(trashed_messages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class UntrashMessageAPIView(APIView):
+    def patch(self, request, message_id):
+        try:
+            message = Message.objects.get(pk=message_id)
+        except Message.DoesNotExist:
+            return Response({'detail': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        message.is_trash = False
+        message.trash_user = None
+        message.save()
+
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class DeleteMessageAPIView(APIView):
+    def delete(self, request, message_id):
+        try:
+            message = Message.objects.get(pk=message_id)
+        except Message.DoesNotExist:
+            return Response({'detail': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        message.delete()
+        return Response({'detail': 'Message deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class DraftMessagesAPIView(APIView):
+    def get(self, request, user_id):
+        drafts = Message.objects.filter(is_draft=True, from_user=user_id)
+        serializer = MessageSerializer(drafts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+    
+    
+    
+class ComposeMessageView(APIView):
+    def post(self, request):
+        serializer = MessageSerializer(data=request.data)
+        if serializer.is_valid():
+            message_instance = serializer.save()
+
+            for user in message_instance.to_user.all():
+                if user.email:
+                    thread = threading.Thread(
+                        target=self._send_notification_email,
+                        args=(message_instance, user)
+                    )
+                    thread.daemon = True
+                    thread.start()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _send_notification_email(self, message, recipient):
+        subject = message.subject or "New Message Notification"
+        recipient_email = recipient.email
+
+        context = {
+            'message': message.message,
+            'subject': message.subject,
+            'sender': message.from_user,
+            'date': message.created_at,
+            'notification_year': timezone.now().year,
+            'file': message.file,
+        }
+
+        try:
+            html_message = render_to_string('qms/messages/message_template.html', context)
+            plain_message = strip_tags(html_message)
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=plain_message,
+                from_email=config("DEFAULT_FROM_EMAIL"),
+                to=[recipient_email]
+            )
+            email.attach_alternative(html_message, "text/html")
+
+            
+            if message.file:
+                try:
+                    file_field = message.file   
+                    file_name = file_field.name.rsplit('/', 1)[-1]
+                    
+              
+                    file_field.open()
+                    file_content = file_field.read()
+
+                
+                    import mimetypes
+                    content_type, _ = mimetypes.guess_type(file_name)
+
+                    email.attach(file_name, file_content, content_type or 'application/octet-stream')
+
+                    file_field.close()
+
+                except Exception as e:
+                    print(f"Attachment error: {e}")
+
+
+        
+
+            connection = CertifiEmailBackend(
+                host=config('EMAIL_HOST'),
+                port=config('EMAIL_PORT'),
+                username=config('EMAIL_HOST_USER'),
+                password=config('EMAIL_HOST_PASSWORD'),
+                use_tls=True
+            )
+            email.connection = connection
+            email.send(fail_silently=False)
+            logger.info(f"Email sent to {recipient_email}")
+
+        except Exception as e:
+            logger.error(f"Error sending email to {recipient_email}: {e}")
+        

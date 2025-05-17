@@ -211,6 +211,14 @@
                         </div>
                     </div>
                 </div>
+                {% if file %}
+                <div class="lsatt">
+                  <div class="metadata-label">Attachment</div>
+                  <div>
+                    <a href="{{ file.url }}" download>Download File</a>
+                  </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 

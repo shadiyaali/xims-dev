@@ -192,7 +192,14 @@
                     </div>
                 </div>
 
-                 
+                {% if attach_document %}
+                <div class="lsatt">
+                  <div class="metadata-label">Attachment</div>
+                  <div>
+                    <a href="{{ attach_document.url }}" download>Download File</a>
+                  </div>
+                </div>
+                {% endif %}
 
                
             </div>

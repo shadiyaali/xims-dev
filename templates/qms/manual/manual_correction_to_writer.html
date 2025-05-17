@@ -180,7 +180,14 @@
                         <div>{{ written_by.first_name }} {{ written_by.last_name }}</div>
                     </div>
                 </div>
-                
+                {% if upload_attachment %}
+                <div class="lsatt">
+                  <div class="metadata-label">Attachment</div>
+                  <div>
+                    <a href="{{ upload_attachment.url }}" download>Download File</a>
+                  </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 

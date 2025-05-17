@@ -213,6 +213,15 @@
                         <div class="metadata-value">{{ training_evaluation }}</div>
                     </div>
                 </div>
+       
+                {% if attachment %}
+                <div class="lsatt">
+                  <div class="metadata-label">Attachment</div>
+                  <div>
+                    <a href="{{ attachment.url }}" download>Download File</a>
+                  </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 

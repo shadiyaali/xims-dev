@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError
 
 class MediaStorage(S3Boto3Storage):
     location = 'media'
+ 
+   
     
 def generate_unique_filename(instance, filename):
     unique_filename = f'{uuid.uuid4().hex}{os.path.splitext(filename)[1]}'
@@ -850,8 +852,6 @@ class MeetingNotification(models.Model):
     
 
     
-
-    
 class Audit(models.Model):
     TITLE_CHOICES = [
         ('Internal', 'Internal'),
@@ -1198,54 +1198,39 @@ class EmployeeTrainingEvaluationQuestions(models.Model):
     
     
     
-class Message(models.Model):   
+class Message(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message', null=True, blank=True)
-    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_user', null=True, blank=True) 
-    to_user = models.ManyToManyField(Users, related_name='received_messages', blank=True) 
-    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
+    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_user', null=True, blank=True)
+    to_user = models.ManyToManyField(Users, related_name='received_messages', blank=True)
+
+    subject = models.CharField(max_length=255, blank=True, null=True)
     message = models.TextField(blank=True, null=True)
-    subject = models.CharField(max_length=255,blank=True, null=True)
+    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename, max_length=255, null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     is_trash = models.BooleanField(default=False)
-    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='trash_message_user', null=True, blank=True) 
-    is_draft= models.BooleanField(default=False)
-    
-    
+    trash_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='trash_message_user', null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
+
+   
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies')
+    thread_root = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='thread_messages')
+
+    def save(self, *args, **kwargs):
+  
+        if self.parent and not self.thread_root:
+            self.thread_root = self.parent.thread_root or self.parent
+        super().save(*args, **kwargs)
+
+    def is_root_message(self):
+        return self.parent is None
+
     def __str__(self):
-        return self.subject
+        return f"{self.subject or 'No Subject'} ({self.from_user})"
+
     
     
-class ReplayMessage(models.Model): 
-    message_related =  models.ForeignKey(Message, on_delete=models.CASCADE, related_name='messagess_com', null=True, blank=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message_com', null=True, blank=True)
-    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_users', null=True, blank=True) 
-    to_users = models.ManyToManyField(Users, related_name='received_replay_messages', blank=True) 
-    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
-    message = models.TextField(blank=True, null=True)
-    subject = models.CharField(max_length=255,blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='replay_message_user', null=True, blank=True) 
-    is_trash = models.BooleanField(default=False)
-    
-    
-    def __str__(self):
-        return self.subject
-    
-    
-class ForwardMessage(models.Model): 
-    message_related =  models.ForeignKey(Message, on_delete=models.CASCADE, related_name='messagess_for', null=True, blank=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='message_for', null=True, blank=True)
-    from_user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='message_for', null=True, blank=True) 
-    to_users = models.ManyToManyField(Users, related_name='received_replay_messages_for', blank=True) 
-    file = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename,max_length=255, null=True, blank=True)
-    message = models.TextField(blank=True, null=True)
-    subject = models.CharField(max_length=255,blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    trash_user =  models.ForeignKey(Users, on_delete=models.CASCADE, related_name='forard_message_user', null=True, blank=True) 
-    is_trash = models.BooleanField(default=False)
-    
-    def __str__(self):
-        return self.subject
+ 
 
 
 class PreventiveAction(models.Model):
@@ -1580,10 +1565,9 @@ class ProgramAction(models.Model):
     energy_action = models.ForeignKey(
     EnergyAction, on_delete=models.CASCADE, null=True, related_name="programs"
 )
-
     def __str__(self):
-        return f"Additional program for {self.energy_action.action_plan if self.energy_action else 'No Baseline'}"
-    
+        return f"{self.Program} {self.energy_action.action_plan if self.energy_action else 'No Baseline'}"
+
     
     
 class EnergySource(models.Model):

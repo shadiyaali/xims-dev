@@ -869,31 +869,7 @@ class MessageListSerializer(serializers.ModelSerializer):
         model = Message
         fields = '__all__'
    
-class ReplayMessageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ReplayMessage
-        fields = '__all__'
-        
-class ReplayMessageListSerializer(serializers.ModelSerializer):
-    from_user = UserSerializer()  
-    to_users = UserSerializer(many=True)
-    class Meta:
-        model = ReplayMessage
-        fields = '__all__'
-        
-class ForwardMessageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ForwardMessage
-        fields = '__all__'
-        
-
-
-class ForwardMessageListSerializer(serializers.ModelSerializer):
-    from_user = UserSerializer()  
-    to_users = UserSerializer(many=True)
-    class Meta:
-        model = ForwardMessage
-        fields = '__all__'
+ 
         
         
 class PreventiveActionSerializer(serializers.ModelSerializer):
@@ -1108,6 +1084,8 @@ class EnergyImprovementsGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = EnergyImprovement
         fields = '__all__' 
+
+ 
 
 
 class ProgramActionSerializer(serializers.ModelSerializer):
@@ -1639,6 +1617,25 @@ class RiskAssessmentUpdateSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class CorrectionAssessmentsSerializer(serializers.ModelSerializer):
+    to_user_email = serializers.EmailField(source='to_user.email', read_only=True)
+    from_user_email = serializers.EmailField(source='from_user.email', read_only=True)
+    assessment_correction_title = serializers.CharField(source='assessment_correction.title', read_only=True)
+
+    class Meta:
+        model = CorrectionAssessments
+        fields = [
+            'id', 
+            'assessment_correction', 
+            'assessment_correction_title',
+            'to_user', 
+            'to_user',
+            'from_user', 
+            'from_user',
+            'correction', 
+            'created_at'
+        ]
+
 
 class CorrectionAssessmentGetQMSSerializer(serializers.ModelSerializer):
     to_user = UserSerializer(read_only=True) 
@@ -1708,3 +1705,37 @@ class HealthIncidentsGetSerializer(serializers.ModelSerializer):
     class Meta:
         model = HealthIncidents
         fields = '__all__'
+
+
+class MessageGetSerializer(serializers.ModelSerializer):
+    to_user = UserSerializer(many=True)
+    from_user = UserSerializer()
+    class Meta:
+        model = Message
+        fields = '__all__'
+
+class MessageSerializer(serializers.ModelSerializer):
+    to_user = serializers.PrimaryKeyRelatedField(many=True, queryset=Users.objects.all())
+    from_user = serializers.PrimaryKeyRelatedField(queryset=Users.objects.all())
+
+    parent = serializers.PrimaryKeyRelatedField(queryset=Message.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = Message
+        fields = '__all__'
+         
+
+    def create(self, validated_data):
+  
+        to_users = validated_data.pop('to_user', [])
+        parent = validated_data.get('parent', None)
+        from_user = validated_data.get('from_user')
+
+        message = Message.objects.create(**validated_data)
+
+        if parent:
+            message.thread_root = parent.thread_root or parent
+            message.save()
+
+        message.to_user.set(to_users)
+        return message
