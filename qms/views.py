@@ -22460,4 +22460,169 @@ class ComposeMessageView(APIView):
 
         except Exception as e:
             logger.error(f"Error sending email to {recipient_email}: {e}")
+
+
+
+class MeetingCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Meeting.objects.filter(is_draft=True, user_id=user_id)
         
+        serializer = MeetingSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class InternalProblemCountView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = InternalProblem.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = InternalProblemSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class AuditCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Audit.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = AuditSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class InspectionCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Inspection.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = InspectionSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class InternalProblemCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = InternalProblem.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = InternalProblemSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class SupplierCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Supplier.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = SupplierSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class SupplierProblemCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = SupplierProblem.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = SupplierProblemSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class CustomerCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Customer.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = CustomerSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class ComplianceCountDraftView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Complaints.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = ComplaintsSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class messagesDraftCountView(APIView):
+ 
+    def get(self, request, user_id):
+   
+        draft_records = Message.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = MessageSerializer(draft_records, many=True)
+        
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class AHealthIncidentscountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        
+        draft_manuals = HealthIncidents.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = HealthIncidentsSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class CarcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+        
+        draft_manuals = CarNumber.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = CarNumberSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)

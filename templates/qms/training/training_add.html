@@ -82,7 +82,7 @@
         .action {
             padding: 15px;
             padding-top: 0;
-            text-align: center;
+            text-align: left;
         }
 
         .button {
@@ -155,7 +155,7 @@
         <div class="title">
             <h1>Quality Management System</h1>
             <h2>Training {{ training_title }}</h2>
-            <p>{{ created_by.first_name }}{{ created_by.last_name }} has published a Training "{{ training_title }}. </p>
+            <p>{{ created_by.first_name }}{{ created_by.last_name }} has published a Training {{ training_title }}. </p>
           
         </div>
   

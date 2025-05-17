@@ -238,6 +238,7 @@ urlpatterns = [
     path('meeting/draft-create/', MeetingDraftAPIView.as_view(), name='manual-create'), 
     path('meeting-draft/<int:user_id>/', MeetingDraftAllList.as_view(), name='manual-list'),
     path('meeting-draft/edit/<int:pk>/', MeetingUpdateDraftView.as_view(), name='compliance_edit'),
+    path('meeting/drafts-count/<int:user_id>/',  MeetingCountDraftView.as_view(), name='draft-manuals'),
     
     # Audit
     path('audit/create/', AuditCreateAPIView.as_view(), name='audit-list-create'),
@@ -248,6 +249,7 @@ urlpatterns = [
     path('audit-get/<int:pk>/', AuditDetailAPIView.as_view(), name='audit-detail'),
     path('audits/<int:audit_id>/upload-reports/', AuditReportUploadView.as_view(), name='upload-audit-reports'),
     path('audit/<int:audit_id>/report/', GetAuditReportView.as_view(), name='get-audit-report'),
+    path('audit/drafts-count/<int:user_id>/',  AuditCountDraftView.as_view(), name='draft-manuals'),
     
     # Inspection
     path('inspection/create/', InspectionCreateAPIView.as_view(), name='audit-list-create'),
@@ -258,6 +260,7 @@ urlpatterns = [
     path('inspection-get/<int:pk>/', InspectionDetailAPIView.as_view(), name='audit-detail'),
     path('inspection/<int:audit_id>/upload-reports/', InspectionReportUploadView.as_view(), name='upload-audit-reports'),
     path('inspection/<int:audit_id>/report/', GetInspectionReportView.as_view(), name='get-audit-report'),
+    path('inspection/drafts-count/<int:user_id>/',  InspectionCountDraftView.as_view(), name='draft-manuals'),
     
     # cause in Internal Problems
     path('cause/create/', CauseListCreateView.as_view(), name='agenda-list-create'), 
@@ -278,6 +281,7 @@ urlpatterns = [
     path('car-number/next-action/<int:company_id>/', GetNextActionNumberView.as_view(), name='get-next-action-number'),
     path('car-number/update/<int:pk>/', CarNumberEditAPIView.as_view(), name='car-draft-update'),
     path('car-draft/update/<int:pk>/', CarDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path('car/drafts-count/<int:user_id>/',  CarcountAPIView.as_view(), name='draft-manuals'),
  
     
     
@@ -287,6 +291,8 @@ urlpatterns = [
     path('internal-problems/<int:pk>/', InternalDetailView.as_view(), name='car-number-detail'),
     path('internal-problems/draft-create/', InternalDraftAPIView.as_view(), name='manual-create'),
     path('internal-problems-draft/<int:user_id>/', IternalDraftAllList.as_view(), name='manual-list'),
+    path('internal-problemsrvey/drafts-count/<int:user_id>/',  InternalProblemCountView.as_view(), name='draft-manuals'),
+    path('internal-problems/drafts-count/<int:user_id>/',  InternalProblemCountDraftView.as_view(), name='draft-manuals'),
     
     # Supplier 
     path('suppliers/create/', SupplierAPIView.as_view(), name='supplier-list'), 
@@ -294,6 +300,7 @@ urlpatterns = [
     path('suppliers/<int:pk>/', SupplierDetailAPIView.as_view(), name='supplier-detail'),
     path('suppliers/draft-create/', SupplierDraftAPIView.as_view(), name='manual-create'),
     path('suppliers-draft/<int:user_id>/', SupplierDraftAllList.as_view(), name='manual-list'),
+    path('suppliers/drafts-count/<int:user_id>/',  SupplierCountDraftView.as_view(), name='draft-manuals'),
     
     # supplier Problems
     path('supplier-problems/', SupplierProblemAPIView.as_view(), name='supplier-problems'),
@@ -301,6 +308,7 @@ urlpatterns = [
     path('supplier-problems/company/<int:company_id>/',  SupplierProblemView.as_view(), name='company-agendas'),
     path('supplier-problems/draft-create/', SupplierproblemDraftAPIView.as_view(), name='manual-create'),
     path('supplier-problems-draft/<int:user_id>/', SupplierproblemDraftAllList.as_view(), name='manual-list'),
+    path('ssupplier-problems/drafts-count/<int:user_id>/',  SupplierProblemCountDraftView.as_view(), name='draft-manuals'),
    
  
     
@@ -325,6 +333,7 @@ urlpatterns = [
     path('customer/<int:pk>/', CustomerDetailAPIView.as_view(), name='supplier-detail'),
     path('customer/draft-create/', CustomerDraftAPIView.as_view(), name='manual-create'),
     path('customer-draft/<int:user_id>/', CustomerDraftAllList.as_view(), name='manual-list'),
+    path('customer/drafts-count/<int:user_id>/',  CustomerCountDraftView.as_view(), name='draft-manuals'),
     
     # category in customer
     path('category/create/', CategoryListCreateView.as_view(), name='agenda-list-create'), 
@@ -337,6 +346,7 @@ urlpatterns = [
     path('complaints/<int:pk>/', ComplaintsDetailView.as_view(), name='car-number-detail'),
     path('complaints/draft-create/', ComplaintsDraftAPIView.as_view(), name='manual-create'),
     path('complaints-draft/<int:user_id>/', ComplaintDraftAllList.as_view(), name='manual-list'),
+    path('complaints/drafts-count/<int:user_id>/',  ComplianceCountDraftView.as_view(), name='draft-manuals'),
     
     
     # Customer satisfaction survey
@@ -383,6 +393,7 @@ urlpatterns = [
     path('messages/untrash/<int:message_id>/', UntrashMessageAPIView.as_view()),
     path('messages/delete/<int:message_id>/', DeleteMessageAPIView.as_view()),
     path('messages/drafts/<int:user_id>/', DraftMessagesAPIView.as_view()),
+    path('messages/drafts-count/<int:user_id>/',  messagesDraftCountView.as_view(), name='draft-manuals'),
     
     # Preventive Action
     path('preventive/create/', PreventiveActionCreateAPIView.as_view(), name='message-create'), 
@@ -628,6 +639,7 @@ urlpatterns = [
     path('safety_incidents/next-action/<int:company_id>/', GetNextIncidentNumberView.as_view(), name='get-next-action-number'),
     path('safety_incidents/update/<int:pk>/', HealthIncidentEditAPIView.as_view(), name='car-draft-update'),
     path('safety_incidents-draft/update/<int:pk>/', HealthIncidentDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path('safety_incidents/drafts-count/<int:user_id>/', AHealthIncidentscountAPIView.as_view(), name='draft-manuals'),    
        
 ]
 
