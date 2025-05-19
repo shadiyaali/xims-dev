@@ -11997,7 +11997,10 @@ class EditsDraftManagementChanges(APIView):
         # Get the existing ManagementChanges record
         change = get_object_or_404(ManagementChanges, pk=pk)
 
-        mutable_data = request.data.copy()
+        mutable_data = {}
+        for key, value in request.data.items():
+            if key != 'attach_document':  
+                mutable_data[key] = value
 
         # Remove non-file 'attach_document' if it's not being re-uploaded
         if 'attach_document' in mutable_data and not request.FILES.get('attach_document'):

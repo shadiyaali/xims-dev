@@ -144,7 +144,7 @@ urlpatterns = [
     path('changes/<int:pk>/edit/', EditsChanges.as_view(), name='edit-interested-party'),
     path('changes-draft/<int:user_id>/', ChangesDraftAllList.as_view(), name='manual-list'),
     path('changes/drafts-count/<int:user_id>/',  ChangesView.as_view(), name='draft-manuals'),
-    path('changes/create/<int:id>/',  EditsDraftManagementChanges.as_view(), name='manual-update'),
+    path('changes/create/<int:pk>/',  EditsDraftManagementChanges.as_view(), name='manual-update'),
  
     # Sustainability
     path('sustainability-create/', SustainabilityCreateView.as_view(), name='manual-list-create'),
