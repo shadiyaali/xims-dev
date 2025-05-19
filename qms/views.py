@@ -12531,20 +12531,29 @@ class SustainabilityDraftEditView(APIView):
             
             
             
+ 
+
 class EditDraftLegalAPIView(APIView):
     def put(self, request, pk):
         print("Received Data for Edit Draft Legal:", request.data)
+        print("Received Files:", request.FILES)
 
-        legal = get_object_or_404(Legal, pk=pk)
+        legal = get_object_or_404(LegalRequirement, pk=pk)
 
-        mutable_data = request.data.copy()
+        # Create a mutable data dictionary, excluding file fields
+        mutable_data = {}
+        for key, value in request.data.items():
+            if key != 'attach_document':  # Skip file fields
+                mutable_data[key] = value
+
         file_obj = request.FILES.get('attach_document')
 
+        # Remove attach_document from mutable_data if no valid file is provided
         if 'attach_document' in mutable_data and not file_obj:
             print("Removing attach_document from request as it is not a valid file.")
-            mutable_data.pop('attach_document')
+            mutable_data.pop('attach_document', None)
 
-        mutable_data['is_draft'] = False  # Automatically set is_draft to False
+        mutable_data['is_draft'] = False
 
         serializer = LegalSerializer(legal, data=mutable_data, partial=True)
         if serializer.is_valid():
@@ -12591,7 +12600,8 @@ class EditDraftLegalAPIView(APIView):
             'date': legal.date,
             'related_record_format': legal.related_record_format,
             'created_by': legal.user,
-             'notification_year': timezone.now().year 
+            'notification_year': timezone.now().year,
+            'attach_document': legal.attach_document.url if legal.attach_document else None
         }
 
         try:
@@ -12608,11 +12618,11 @@ class EditDraftLegalAPIView(APIView):
 
             if legal.attach_document:
                 try:
-                    legal.attach_document.seek(0)
-                    file_name = legal.attach_document.name.rsplit('/', 1)[-1]
-                    file_content = legal.attach_document.read()
-                    content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
-                    email.attach(file_name, file_content, content_type)
+                    with legal.attach_document.open('rb') as f:
+                        file_name = legal.attach_document.name.rsplit('/', 1)[-1]
+                        file_content = f.read()
+                        content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+                        email.attach(file_name, file_content, content_type)
                 except Exception as attachment_error:
                     print(f"Error attaching document: {attachment_error}")
                     traceback.print_exc()
@@ -12632,7 +12642,6 @@ class EditDraftLegalAPIView(APIView):
         except Exception as e:
             print(f"Error sending email to {recipient_email}: {e}")
             traceback.print_exc()
-            
             
 class TrainingEvaluationCreateView(APIView):
     def post(self, request):
