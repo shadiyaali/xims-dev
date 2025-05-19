@@ -22117,31 +22117,50 @@ class MessagesByToUserView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
- 
- 
- 
 
-
+ 
 class ReplyMessageView(APIView):
     def post(self, request, parent_id):
-        print("rrrrr",request.data)
+        print("Request data:", request.data)
+        print("Request files:", request.FILES)
+
         try:
             parent_message = Message.objects.get(pk=parent_id)
         except Message.DoesNotExist:
             return Response({'error': 'Parent message not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        data = request.data.copy()
-        if 'to_users' in data:
-            data.setlist('to_user', data.getlist('to_users'))
-        data['parent'] = parent_id
+  
+        data = {}
+        for key in request.data:
+            if key not in request.FILES:
+                data[key] = request.data.getlist(key) if key == 'to_users' else request.data[key]
 
+        # Handle to_users as to_user
+        if 'to_users' in data:
+            data['to_user'] = data.pop('to_users')  # Preserve as list
+        else:
+            data['to_user'] = []  # Ensure to_user is present as empty list if missing
+
+        # Set parent and thread_root
+        data['parent'] = parent_id
         if 'thread_root' not in data:
             data['thread_root'] = parent_message.thread_root.id if parent_message.thread_root else parent_message.id
 
+        # Get the file object
+        file_obj = request.FILES.get('file')
+
+        # Initialize serializer
         serializer = MessageSerializer(data=data)
         if serializer.is_valid():
+            # Save the instance
             message_instance = serializer.save()
 
+            # Assign file if provided
+            if file_obj:
+                message_instance.file = file_obj
+                message_instance.save()
+
+            # Send notification emails in separate threads
             for user in message_instance.to_user.all():
                 if user.email:
                     thread = threading.Thread(
@@ -22153,6 +22172,7 @@ class ReplyMessageView(APIView):
 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+        print("Serializer errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def _send_notification_email(self, message, recipient):
@@ -22202,7 +22222,6 @@ class ReplyMessageView(APIView):
 
         except Exception as e:
             print(f"Error sending email to {recipient_email}: {e}")
-
     
     
 class MessagesByFromUserView(APIView):
@@ -22382,7 +22401,7 @@ class TrashMessageAPIView(APIView):
 class TrashedMessagesAPIView(APIView):
     def get(self, request, user_id):
         trashed_messages = Message.objects.filter(is_trash=True, trash_user_id=user_id)
-        serializer = MessageSerializer(trashed_messages, many=True)
+        serializer = MessageGetSerializer(trashed_messages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class UntrashMessageAPIView(APIView):
