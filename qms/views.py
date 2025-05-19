@@ -618,7 +618,7 @@ class ManualReviewView(APIView):
                     if manual.send_email_to_approved_by:
                         self.send_email_notification(
                             manual=manual,
-                            recipients=[manual.approved_by],  # list of one
+                            recipients=[manual.approved_by], 
                             action_type="review"
                         )
 
@@ -1734,6 +1734,13 @@ class ProcedureReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == procedure.checked_by:
+                    
+                    if not procedure.approved_by:
+                        print("Error: Procedure does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'Procedure does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     procedure.status = 'Reviewed,Pending for Approval'
                     procedure.checked_at = now()
                     procedure.save()
@@ -2507,6 +2514,12 @@ class RecordReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == record.checked_by:
+                    if not record.approved_by:
+                        print("Error: Record does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'Record does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     record.status = 'Reviewed,Pending for Approval'
                     record.checked_at = now()
                     record.save()
@@ -5620,6 +5633,13 @@ class EvaluationReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == evaluation.checked_by:
+                    if not evaluation.approved_by:
+                        print("Error: Evaluation does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'Evaluation does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
                     evaluation.status = 'Reviewed,Pending for Approval'
                     evaluation.checked_at = now()
                     evaluation.save()
@@ -6917,6 +6937,12 @@ class SustainabilityReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == sustainability.checked_by:
+                    if not sustainability.approved_by:
+                        print("Error: sustainability does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'sustainability does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     sustainability.status = 'Reviewed,Pending for Approval'
                     sustainability.checked_at = now()
                     sustainability.save()
@@ -16488,6 +16514,12 @@ class AspectReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == aspect.checked_by:
+                    if not aspect.approved_by:
+                        print("Error:  does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': ' does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     aspect.status = 'Reviewed,Pending for Approval'
                     aspect.checked_at = now()
                     aspect.save()
@@ -17450,6 +17482,13 @@ class ImpactReviewView(APIView):
                 print(f"Current status: {current_status}")
 
                 if current_status == 'Pending for Review/Checking' and current_user == impact.checked_by:
+                    if not impact.approved_by:
+                        print("Error:  does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': ' does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
                     impact.status = 'Reviewed,Pending for Approval'
                     impact.checked_at = now()
                     impact.save()
@@ -18938,6 +18977,12 @@ class WasteReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == waste.checked_by:
+                    if not waste.approved_by:
+                        print("Error:  does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': ' does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     waste.status = 'Reviewed,Pending for Approval'
                     waste.checked_at = now()
                     waste.save()
@@ -19953,6 +19998,12 @@ class HealthReviewView(APIView):
                 current_status = health.status
 
                 if current_status == 'Pending for Review/Checking' and current_user == health.checked_by:
+                    if not health.approved_by:
+                        print("Error: health does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'health does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     health.status = 'Reviewed,Pending for Approval'
                     health.checked_at = now()
                     health.save()
@@ -20948,6 +20999,12 @@ class AssessmentReviewView(APIView):
                 print(f"Current assessment status: {current_status}")
 
                 if current_status == 'Pending for Review/Checking' and current_user == assessment.checked_by:
+                    if not assessment.approved_by:
+                        print("Error: assessment does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'assessment does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
                     print("Changing status to 'Reviewed, Pending for Approval'")
                     assessment.status = 'Reviewed,Pending for Approval'
                     assessment.checked_at = now()
