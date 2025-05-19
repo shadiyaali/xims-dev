@@ -10832,7 +10832,7 @@ class CustomerSurveyByEvaluationAPIView(APIView):
 class DeleteCustomerSurveyQuestionAPIView(APIView):
     def delete(self, request, question_id, *args, **kwargs):
         try:
-            question = CustomerQuestionSerializer.objects.get(id=question_id)
+            question = CustomerQuestions.objects.get(id=question_id)
             question.delete()
             return Response({"message": "Question deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except CustomerQuestions.DoesNotExist:
