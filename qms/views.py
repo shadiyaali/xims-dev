@@ -595,7 +595,7 @@ class ManualReviewView(APIView):
 
                 current_status = manual.status
 
-                # Case 1: Checked_by reviews
+                
                 if current_status == 'Pending for Review/Checking' and current_user == manual.checked_by:
                     if not manual.approved_by:
                         print("Error: Manual does not have an approved_by user assigned.")  
