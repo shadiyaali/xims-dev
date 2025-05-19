@@ -22198,6 +22198,9 @@ class MessagesByFromUserView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     
+ 
+
+
 class ForwardMessageView(APIView):
     def post(self, request, message_id):
         try:
@@ -22207,22 +22210,42 @@ class ForwardMessageView(APIView):
 
         data = request.data.copy()
 
- 
-        data.setdefault('subject', f"Fwd: {original_message.subject}")
-        data.setdefault('message', original_message.message)
-        data['parent'] = None   
-        data['thread_root'] = None  
+        # Validate and fetch required FK instances
+        company_id = data.get('company')
+        from_user_id = data.get('from_user')
+        to_user_ids = request.data.getlist('to_user')
 
-     
-        if original_message.file and not data.get('file'):
-            data['file'] = original_message.file
+        try:
+            company = Company.objects.get(pk=company_id) if company_id else None
+            from_user = Users.objects.get(pk=from_user_id) if from_user_id else None
+        except Company.DoesNotExist:
+            return Response({'error': 'Invalid company ID.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Users.DoesNotExist:
+            return Response({'error': 'Invalid from_user ID.'}, status=status.HTTP_400_BAD_REQUEST)
 
-  
-        serializer = MessageSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Create the forwarded message
+        forwarded_message = Message.objects.create(
+            company=company,
+            from_user=from_user,
+            subject=f"Fwd: {original_message.subject}",
+            message=original_message.message,
+            file=original_message.file if original_message.file else None,
+            parent=None,
+            thread_root=None,
+        )
+
+        # Add many-to-many to_user relationships
+        for user_id in to_user_ids:
+            try:
+                user = Users.objects.get(pk=user_id)
+                forwarded_message.to_user.add(user)
+            except Users.DoesNotExist:
+                continue  # Skip invalid user IDs
+
+        serializer = MessageSerializer(forwarded_message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
     
     
 class CreateDraftMessageView(APIView):
