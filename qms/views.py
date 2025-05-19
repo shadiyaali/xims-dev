@@ -22613,7 +22613,7 @@ class messagesDraftCountView(APIView):
  
     def get(self, request, user_id):
    
-        draft_records = Message.objects.filter(is_draft=True, user_id=user_id)
+        draft_records = Message.objects.filter(is_draft=True, from_user=user_id)
         
         serializer = MessageSerializer(draft_records, many=True)
         
