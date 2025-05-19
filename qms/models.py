@@ -1109,7 +1109,7 @@ class Customer(models.Model):
     is_draft = models.BooleanField(default=False)
      
     def __str__(self):
-        return self.name
+        return self.name if self.name else "Unnamed Customer"
 
    
 class Category(models.Model):
@@ -1138,11 +1138,15 @@ class Complaints(models.Model):
     date = models.DateField(blank=True, null=True)
     corrective_action_need = models.CharField(max_length=50, choices=TITLE_CHOICES ,default ='Yes')
     no_car = models.ForeignKey(CarNumber, on_delete=models.CASCADE, null=True )
-    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit, blank=True, null=True)
+    upload_attachment =  models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     is_draft = models.BooleanField(default=False)
     
     def __str__(self):
-        return str(self.customer.name)
+        return f"Complaint by {self.customer.name}" if self.customer else "Complaint with no customer"
+
+
+    
+    
     
     
 

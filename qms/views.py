@@ -10659,35 +10659,54 @@ class ComplaintsDetailView(APIView):
         car_number.delete()
         return Response({"message": "Complaint deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
+ 
 
 class ComplaintsDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-      
+        print("Request data:", request.data)
+        print("Request files:", request.FILES)
+
+        # Extract data from the 'data' key if it exists
         data = {}
-        
-        # Copy over simple data fields 
-        for key in request.data:
-            if key != 'upload_attachment':
-                data[key] = request.data[key]
-        
+        if 'data' in request.data:
+            try:
+           
+                data = json.loads(request.data['data'])
+            except json.JSONDecodeError:
+                return Response(
+                    {"error": "Invalid JSON in 'data' field"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+    
+            data = request.data.copy()
+
         # Set is_draft flag
         data['is_draft'] = True
-        
-        # Handle file separately
+
+      
         file_obj = request.FILES.get('upload_attachment')
-        
+
+       
         serializer = ComplaintsSerializer(data=data)
         if serializer.is_valid():
-            manual = serializer.save()
-            
-            # Assign file if provided
-            if file_obj:
-                manual.upload_attachment = file_obj
-                manual.save()
-                
-            return Response({"message": "Complaints saved as draft", "data": serializer.data}, 
-                           status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+               
+                manual = serializer.save()
+           
+                if file_obj:
+                    manual.upload_attachment = file_obj
+                    manual.save()
+            return Response(
+                {
+                    "message": "Complaint saved as draft",
+                    "data": ComplaintsSerializer(manual).data
+                },
+                status=status.HTTP_201_CREATED
+            )
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class ComplaintDraftAllList(APIView):
     def get(self, request, user_id):
