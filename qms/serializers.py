@@ -1633,7 +1633,9 @@ class CorrectionAssessmentsSerializer(serializers.ModelSerializer):
             'from_user', 
             'from_user',
             'correction', 
-            'created_at'
+            'created_at',
+             'to_user_email',        
+            'from_user_email'  
         ]
 
 

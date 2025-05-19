@@ -597,6 +597,13 @@ class ManualReviewView(APIView):
 
                 # Case 1: Checked_by reviews
                 if current_status == 'Pending for Review/Checking' and current_user == manual.checked_by:
+                    if not manual.approved_by:
+                        print("Error: Manual does not have an approved_by user assigned.")  
+                        return Response(
+                            {'error': 'Manual does not have an approved_by user assigned.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+
                     manual.status = 'Reviewed,Pending for Approval'
                     manual.checked_at = now()
                     manual.save()
@@ -19676,8 +19683,9 @@ class HealthUpdateView(APIView):
                     updated_health.status = 'Pending for Review/Checking'
 
                     # ✅ Match request keys
-                    updated_health.send_notification_to_checked_by = parse_bool(request.data.get('send_notification_to_checked_by'))
-                    updated_health.send_email_to_checked_by = parse_bool(request.data.get('send_email_to_checked_by'))
+                    updated_health.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_health.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
+
 
                     print("send_notification_to_checked_by:", updated_health.send_notification_to_checked_by)
                     print("send_email_to_checked_by:", updated_health.send_email_to_checked_by)
@@ -20634,8 +20642,8 @@ class RiskAssessmentUpdateView(APIView):
                     updated_assessment.status = 'Pending for Review/Checking'
 
                   
-                    updated_assessment.send_notification_to_checked_by = parse_bool(request.data.get('send_notification_to_checked_by'))
-                    updated_assessment.send_email_to_checked_by = parse_bool(request.data.get('send_email_to_checked_by'))
+                    updated_assessment.send_notification_to_checked_by = parse_bool(request.data.get('send_system_checked'))
+                    updated_assessment.send_email_to_checked_by = parse_bool(request.data.get('send_email_checked'))
                     updated_assessment.save()
 
                     # Handle notification/email to checked_by
