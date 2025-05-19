@@ -10610,6 +10610,12 @@ class ComplaintsCreateView(generics.CreateAPIView):
     queryset = Complaints.objects.all()
     serializer_class = ComplaintsSerializer
 
+    def perform_create(self, serializer):
+    
+        print("Creating Complaint with data:", serializer.validated_data)
+
+        # Save the object
+        serializer.save()
     
 class ComplaintsView(APIView):
     def get(self, request, company_id):
@@ -10617,7 +10623,8 @@ class ComplaintsView(APIView):
         serializer = ComplaintGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    
+from django.http import QueryDict
+ 
 class ComplaintsDetailView(APIView):
    
     def get_object(self, pk):
@@ -10634,21 +10641,25 @@ class ComplaintsDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
+        print("rrrrrrrrrr", request.data)
         internal_problem = self.get_object(pk)
         if not internal_problem:
             return Response({"error": "Complaint not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = ComplaintsSerializer(internal_problem, data=request.data, partial=True)   
+
+        serializer = ComplaintsSerializer(internal_problem, data=request.data, partial=True)
         if serializer.is_valid():
             complaint = serializer.save(is_draft=False)
-            
-           
+
+            # Proper handling of category list
             if 'category' in request.data:
-                complaint.category.set(request.data['category'])   
-            
+                category_ids = request.data.getlist('category') if isinstance(request.data, QueryDict) else request.data['category']
+                # Convert string IDs to integers
+                complaint.category.set([int(cid) for cid in category_ids])
+
             return Response(ComplaintsSerializer(complaint).data, status=status.HTTP_200_OK)
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
