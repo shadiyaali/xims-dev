@@ -301,9 +301,24 @@ class Compliances(models.Model):
     send_notification = models.BooleanField(default=False)
     is_draft = models.BooleanField(default=False)
     
+    
+    def save(self, *args, **kwargs):
+        if not self.compliance_no and self.company:
+            last_incident = Compliances.objects.filter(
+                company=self.company, compliance_no__startswith="C-"
+            ).order_by('-id').first()
+            if last_incident and last_incident.compliance_no:
+                try:
+                    last_number = int(last_incident.compliance_no.split("-")[1])
+                    self.compliance_no = f"C-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.compliance_no = "C-1"
+            else:
+                self.compliance_no = "C-1"
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.compliance_name
+        return self.compliance_name or "Unnamed Compliance"
     
 class ComplianceNotification(models.Model):
     
@@ -559,8 +574,25 @@ class ManagementChanges(models.Model):
     send_notification = models.BooleanField(default=False)
     is_draft = models.BooleanField(default=False)
 
+    
+    def save(self, *args, **kwargs):
+        if not self.moc_no and self.company:
+            last_incident = ManagementChanges.objects.filter(
+                company=self.company, moc_no__startswith="MOC-"
+            ).order_by('-id').first()
+
+            if last_incident and last_incident.moc_no:
+                try:
+                    last_number = int(last_incident.moc_no.split("-")[1])
+                    self.moc_no = f"MOC-{last_number + 1}"
+                except (IndexError, ValueError):
+                    self.moc_no = "MOC-1"
+            else:
+                self.moc_no = "MOC-1"
+        super().save(*args, **kwargs)
+        
     def __str__(self):
-        return self.moc_title
+        return self.moc_title or "Unnamed Management Change"
     
     
 class NotificationChanges(models.Model):       

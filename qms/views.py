@@ -22699,3 +22699,48 @@ class CarcountAPIView(APIView):
             "count": draft_manuals.count(),
             "draft_manuals": serializer.data
         }, status=status.HTTP_200_OK)
+        
+        
+class GetNextComplianceNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+
+            last_compliance = Compliances.objects.filter(
+                company=company, compliance_no__startswith="C-"
+            ).order_by('-id').first()
+
+            next_compliance_no = "C-1"
+            if last_compliance and last_compliance.compliance_no:
+                try:
+                    last_number = int(last_compliance.compliance_no.split("-")[1])
+                    next_compliance_no = f"C-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_compliance_no = "C-1"
+
+            return Response({'next_compliance_no': next_compliance_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+class GetNextMocNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+
+            last_moc = ManagementChanges.objects.filter(
+                company=company, moc_no__startswith="MOC-"
+            ).order_by('-id').first()
+
+            next_moc_no = "MOC-1"
+            if last_moc and last_moc.moc_no:
+                try:
+                    last_number = int(last_moc.moc_no.split("-")[1])
+                    next_moc_no = f"MOC-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_moc_no = "MOC-1"
+
+            return Response({'next_moc_no': next_moc_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)

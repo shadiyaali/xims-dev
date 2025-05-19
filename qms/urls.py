@@ -78,6 +78,8 @@ urlpatterns = [
     path('compliance-draft/<int:user_id>/', ComplianceDraftAllList.as_view(), name='manual-list'),
     path('compliance/drafts-count/<int:user_id>/',  ComplainceView.as_view(), name='draft-manuals'),
     path('compliances-draft/edit/<int:pk>/', EditsDraftCompliance.as_view(), name='compliance_edit'),
+    path('compliances/next-action/<int:company_id>/', GetNextComplianceNumberView.as_view(), name='get-next-action-number'),
+    
     
    
     # interested party type 
@@ -145,6 +147,7 @@ urlpatterns = [
     path('changes-draft/<int:user_id>/', ChangesDraftAllList.as_view(), name='manual-list'),
     path('changes/drafts-count/<int:user_id>/',  ChangesView.as_view(), name='draft-manuals'),
     path('changes/create/<int:pk>/',  EditsDraftManagementChanges.as_view(), name='manual-update'),
+    path('changes/next-action/<int:company_id>/', GetNextMocNumberView.as_view(), name='get-next-action-number'),
  
     # Sustainability
     path('sustainability-create/', SustainabilityCreateView.as_view(), name='manual-list-create'),
