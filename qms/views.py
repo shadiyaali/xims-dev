@@ -14677,36 +14677,59 @@ class EnergyReviewCompanyCauseView(APIView):
         serializer = EnergyReviewGetSerializer(agendas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    
+
+
 class EnergyReviewDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Don't copy the entire request.data, just extract what we need
+        print("Incoming data:", request.data)
         data = {}
-        
-        # Copy over simple data fields 
-        for key in request.data:
-            if key != 'upload_attachment':
-                data[key] = request.data[key]
-        
-        # Set is_draft flag
+
+        # Normalize incoming data
+        for key, val in request.data.items():
+            if key == 'upload_attachment':
+                continue  # Skip file, handle separately
+            
+            # Convert 'null' string and empty strings to None
+            if val == 'null' or val == '':
+                data[key] = None
+            elif val == 'true':
+                data[key] = True
+            elif val == 'false':
+                data[key] = False
+            # Convert fields expected as integers
+            elif key in ['company', 'user']:
+                try:
+                    data[key] = int(val)
+                except ValueError:
+                    data[key] = None
+            else:
+                data[key] = val
+
+        # Explicitly set is_draft to True
         data['is_draft'] = True
-        
-        # Handle file separately
+
+        # Handle file upload separately
         file_obj = request.FILES.get('upload_attachment')
-        
+
+        # Serialize and validate
         serializer = EnergyReviewSerializer(data=data)
         if serializer.is_valid():
-            compliance = serializer.save()
-            
-            # Assign file if provided
+            energy_review = serializer.save()
+
+            # Save file if uploaded
             if file_obj:
-                compliance.upload_attachment = file_obj
-                compliance.save()
-                
-            return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
-                           status=status.HTTP_201_CREATED)
+                energy_review.upload_attachment = file_obj
+                energy_review.save()
+
+            return Response(
+                {"message": "Energy Review saved as draft", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+
+        # Print and return serializer errors
+        print("Serializer Errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     
     
 class EnergyReviewDraftCompanyView(APIView):
@@ -14916,7 +14939,7 @@ class EnergyReviewDraftUpdateAPIView(APIView):
                         )
 
                         if user.email:
-                            self._send_notification_email(updated_review, user)  # Send email synchronously
+                            self.send_notification_email_with_attachment(updated_review, user.email)   
 
                 return Response(
                     {"message": "Energy Review updated successfully", "data": serializer.data},
@@ -14931,7 +14954,8 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             logger.error(f"Error updating Energy Review: {str(e)}")
             return Response({"error": f"Internal Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
-    def send_notification_email_with_attachment(energy_review, recipient_email):
+    def send_notification_email_with_attachment(self, energy_review, recipient_email):
+
         subject = f"Energy Review Updated: {energy_review.energy_name}"
         context = {
             'energy_name': energy_review.energy_name,
