@@ -15331,12 +15331,13 @@ class EnergyActionView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer =EnergyActionSerializer(data=request.data)
-        print("rrrrrrrrr",request.data)
+        serializer = EnergyActionSerializer(data=request.data, context={'request': request})
+        print("rrrrrrrrr", request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class EnergyActionDetailView(APIView):
     def get(self, request, pk):
@@ -15438,7 +15439,8 @@ class EnergyActionDraftAPIView(APIView):
 
         file_obj = request.FILES.get('upload_attachment')
 
-        serializer = EnergyActionSerializer(data=data)
+        serializer = EnergyActionSerializer(data=data, context={'request': request})
+
         if serializer.is_valid():
             compliance = serializer.save()
 

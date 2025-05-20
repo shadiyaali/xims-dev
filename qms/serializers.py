@@ -3,7 +3,8 @@ from rest_framework import serializers
 from .models import *
 from django.contrib.auth.hashers import make_password
 from company.serializers import *
-from django.conf import settings       
+from django.conf import settings     
+import json  
 
 
 
@@ -1102,14 +1103,24 @@ class EnergyActionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def create(self, validated_data):
-        
-        program_data = validated_data.pop('programs', [])
+        request = self.context.get('request')  
+
+ 
+        raw_programs = request.data.get('programs')
+        try:
+            program_data = json.loads(raw_programs) if raw_programs else []
+        except json.JSONDecodeError:
+            program_data = []
+
+        validated_data.pop('programs', None)  # Remove programs from validated_data
+
+        # Create the EnergyAction instance
         energy_action = EnergyAction.objects.create(**validated_data)
-        
-      
-        for program_data in program_data:
-            ProgramAction.objects.create(energy_action=energy_action, **program_data)
-        
+
+        # Create related ProgramAction entries
+        for program in program_data:
+            ProgramAction.objects.create(energy_action=energy_action, **program)
+
         return energy_action
 
     def update(self, instance, validated_data):
