@@ -1169,6 +1169,7 @@ class EnergyActionSerializer(serializers.ModelSerializer):
 class EnergyActionGetSerializer(serializers.ModelSerializer):
     user = UserSerializer()
     responsible = UserSerializer()
+    programs = ProgramActionSerializer(many=True, read_only=True) 
     
     class Meta:
         model = EnergyAction
