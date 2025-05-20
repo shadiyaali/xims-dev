@@ -14902,59 +14902,66 @@ class EnergyReviewEditAPIView(APIView):
 
 class EnergyReviewDraftUpdateAPIView(APIView):
     """
-    Endpoint to edit an existing (non-draft) Energy Review and notify all users in the same company.
+    Endpoint to update an existing draft Energy Review.
     """
 
-    def put(self, request, pk, *args, **kwargs):
+    def put(self, request, pk):
+        print("Draft Update Request Data:", request.data)
         try:
-            # Fetch the Energy Review instance or return 404
-            energy_review = get_object_or_404(EnergyReview, pk=pk)
+            # Get the EnergyReview instance by pk
+            try:
+                energy_review = EnergyReview.objects.get(id=pk)
+                if not energy_review.is_draft:
+                    return Response(
+                        {"error": "Cannot edit a non-draft review using this endpoint."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except EnergyReview.DoesNotExist:
+                return Response(
+                    {"error": "Energy Review not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            # Copy data and ensure 'is_draft' is set to False
-            data = request.data.copy()
-            data['is_draft'] = False
+            serializer = EnergyReviewSerializer(energy_review, data=request.data, partial=True)
 
-            # Serialize the data and validate
-            serializer = EnergyReviewSerializer(energy_review, data=data, partial=True)
             if serializer.is_valid():
-                updated_review = serializer.save()
+                with transaction.atomic():
+                    # Save the update but avoid holding file objects around after save
+                    updated_review = serializer.save()
+                    logger.info(f"Draft Energy Review updated: {updated_review.energy_name}")
 
-                # Handle file attachment upload
-                if 'upload_attachment' in request.FILES:
-                    updated_review.upload_attachment = request.FILES['upload_attachment']
-                    updated_review.save()
-                    logger.info(f"Attachment uploaded: {updated_review.upload_attachment.name}")
-
-                # Send notifications if needed
-                send_notification = request.data.get('send_notification', False)
-                if send_notification:
-                    company_users = Users.objects.filter(company=updated_review.company)
-
-                    for user in company_users:
-                        EnergyReviewNotification.objects.create(
-                            user=user,
-                            energy_review=updated_review,
-                            title=f"Updated Energy Review: {updated_review.energy_name}",
-                            message=f"The energy review '{updated_review.energy_name}' has been updated."
-                        )
-
-                        if user.email:
-                            self.send_notification_email_with_attachment(updated_review, user.email)   
+                    # Optional: Send notifications if requested
+                    send_notification = request.data.get('send_notification', False)
+                    if send_notification:
+                        company_users = Users.objects.filter(company=updated_review.company)
+                        for user in company_users:
+                            EnergyReviewNotification.objects.create(
+                                user=user,
+                                energy_review=updated_review,
+                                title=f"Updated Draft Energy Review: {updated_review.energy_name}",
+                                message=f"The draft review '{updated_review.energy_name}' has been updated."
+                            )
+                            logger.info(f"Notification saved for user {user.id}")
+                            if user.email:
+                                self._send_email_async(updated_review, user)
 
                 return Response(
-                    {"message": "Energy Review updated successfully", "data": serializer.data},
+                    {"message": "Draft Energy Review updated successfully", "notification_sent": send_notification},
                     status=status.HTTP_200_OK
                 )
 
+            logger.warning(f"Validation error on draft update: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        except EnergyReview.DoesNotExist:
-            return Response({"error": "Energy Review not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            logger.error(f"Error updating Energy Review: {str(e)}")
-            return Response({"error": f"Internal Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error updating draft Energy Review: {str(e)}")
+            return Response({"error": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _send_email_async(self, energy_review, recipient):
+        threading.Thread(target=self._send_notification_email, args=(energy_review, recipient)).start()
+
  
-    def send_notification_email_with_attachment(self, energy_review, recipient_email):
+    def _send_notification_email(self, energy_review, recipient): 
 
         subject = f"Energy Review Updated: {energy_review.energy_name}"
         context = {
@@ -14982,22 +14989,21 @@ class EnergyReviewDraftUpdateAPIView(APIView):
             )
             email.attach_alternative(html_message, "text/html")
 
-            # Handle the file attachment properly
+          
             if energy_review.upload_attachment:
                 try:
                     file_name = energy_review.upload_attachment.name.rsplit('/', 1)[-1]
 
-                    # Open and read the attachment
+                  
                     with energy_review.upload_attachment.open('rb') as attachment_file:
-                        file_content = attachment_file.read()  # Read file content into memory
+                        file_content = attachment_file.read()   
 
-                    # Attach the file content to the email
+                
                     email.attach(file_name, file_content)
 
                 except Exception as attachment_error:
                     logger.error(f"Error attaching energy review file: {str(attachment_error)}")
-
-            # Send the email with the attachment
+ 
             connection = CertifiEmailBackend(
                 host=config('EMAIL_HOST'),
                 port=config('EMAIL_PORT'),
@@ -15340,18 +15346,58 @@ class EnergyActionDetailView(APIView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = EnergyActionGetSerializer(baseline)
         return Response(serializer.data)
-
+    
     def put(self, request, pk):
         try:
             baseline = EnergyAction.objects.get(pk=pk)
+            print("rrrrrrrr", request.data)
         except EnergyAction.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = EnergyActionSerializer(baseline, data=request.data)
+        upload_attachment = request.FILES.get('upload_attachment')
+
+        processed_data = {}
+        for key, value in request.data.items():
+            if key == 'upload_attachment':
+                continue
+            if key == 'programs':
+                continue
+            if isinstance(value, list) and value:
+                processed_data[key] = value[0]
+            else:
+                processed_data[key] = value
+
+        # Fix "null" string for date or other fields
+        for k, v in processed_data.items():
+            if v == 'null':
+                processed_data[k] = None
+
+        # Parse programs JSON string
+        programs_data = request.data.get('programs', '[]')
+        try:
+            programs_parsed = json.loads(programs_data) if isinstance(programs_data, str) else programs_data
+        except json.JSONDecodeError:
+            programs_parsed = []
+
+        processed_data['programs'] = programs_parsed
+
+        processed_data['is_draft'] = False
+
+        serializer = EnergyActionSerializer(baseline, data=processed_data, partial=True)
+
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+
+            if upload_attachment:
+                instance.upload_attachment = upload_attachment
+                instance.save(update_fields=['upload_attachment'])
+
             return Response(serializer.data)
+
+        print("pppp", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
     def delete(self, request, pk):
         try:
@@ -15831,64 +15877,56 @@ class SignificantEnergyDraftUpdateAPIView(APIView):
     Endpoint to update an existing Significant Energy record and notify all users in the same company.
     """
 
-    def put(self, request, pk, *args, **kwargs):
+
+    def put(self, request, pk):
+        print("Edit Request Data:", request.data)
         try:
-            # Fetch the SignificantEnergy instance by pk
+            send_notification = request.data.get('send_notification', False)
+
+            # Fetch the existing record or return 404 if not found
             significant_energy = get_object_or_404(SignificantEnergy, pk=pk)
 
-            # Explicitly set 'is_draft' to False before saving
-            data = request.data.copy()
-            data['is_draft'] = False  # Ensure that the record is not a draft
+            # Now pass the instance to serializer for update
+            serializer = SignificantEnergySerializer(significant_energy, data=request.data, partial=True)
 
-            # Serialize and validate the incoming data
-            serializer = SignificantEnergySerializer(significant_energy, data=data, partial=True)
             if serializer.is_valid():
-                # Save the updated record
-                updated_record = serializer.save()
+                with transaction.atomic():
+                    updated_review = serializer.save()
+                    logger.info(f"Significant Energy review updated: {updated_review.significant}")
 
-                # Handle file attachment if provided
-                if 'upload_attachment' in request.FILES:
-                    updated_record.upload_attachment = request.FILES['upload_attachment']
-                    updated_record.save()
-                    logger.info(f"Attachment uploaded: {updated_record.upload_attachment.name}")
+                    # If send_notification is true, send notifications to all users in the company
+                    if send_notification:
+                        company_users = Users.objects.filter(company=updated_review.company)
 
-                # Send notifications and emails if 'send_notification' is True
-                send_notification = request.data.get('send_notification', False)
-                if send_notification:
-                    company_users = Users.objects.filter(company=updated_record.company)
-
-                    for user in company_users:
-                        # Create notification
-                        notification = SignificantEnergyNotification(
-                            user=user,
-                            significant=updated_record,
-                            title=f"Create Significant Energy Record: {updated_record.significant}",
-                            message=f"The significant energy record '{updated_record.significant}' has been Created."
-                        )
-                        notification.save()
-
-                        # Send email if user has email
-                        if user.email:
-                            self._send_email_async(updated_record, user)
+                        for user in company_users:
+                            SignificantEnergyNotification.objects.create(
+                                user=user,
+                                significant=updated_review,
+                                title=f"Updated Significant Energy Review: {updated_review.significant}",
+                                message=f"The review '{updated_review.significant}' has been updated."
+                            )
+                            logger.info(f"Notification saved for user {user.id}")
+                            if user.email:
+                                self._send_email_async(updated_review, user)
 
                 return Response(
-                    {"message": "Significant Energy record created successfully", "data": serializer.data},
+                    {
+                        "message": "Significant Energy Review updated successfully",
+                        "notification_sent": send_notification
+                    },
                     status=status.HTTP_200_OK
                 )
 
+            print("Validation error on update:" ,serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        except SignificantEnergy.DoesNotExist:
-            return Response(
-                {"error": "Significant Energy record not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
         except Exception as e:
-            logger.error(f"Error updating Significant Energy record: {str(e)}")
+            logger.error(f"Error updating Significant Energy Review: {str(e)}")
             return Response(
-                {"error": f"Internal Server Error: {str(e)}"},
+                {"error": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
     def _send_email_async(self, record, recipient):
        
@@ -15910,7 +15948,9 @@ class SignificantEnergyDraftUpdateAPIView(APIView):
             'impact': record.impact,
             'action': record.action,
             'created_by': record.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              "upload_attachment":record.upload_attachment
+             
         }
         try:
             # Prepare the email content

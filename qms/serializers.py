@@ -1127,6 +1127,7 @@ class EnergyActionSerializer(serializers.ModelSerializer):
         instance.means = validated_data.get('means', instance.means)
         instance.responsible = validated_data.get('responsible', instance.responsible)
         instance.statement = validated_data.get('statement', instance.statement)
+        instance.is_draft = False
         instance.save()
 
      
