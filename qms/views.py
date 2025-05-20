@@ -15371,34 +15371,41 @@ class EnergyActionCompanyView(APIView):
     
 
 
+import json
+
 class EnergyActionDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Don't copy the entire request.data, just extract what we need
+        print("rrrrr", request.data)
+
         data = {}
-        
-        # Copy over simple data fields 
         for key in request.data:
             if key != 'upload_attachment':
-                data[key] = request.data[key]
-        
-        # Set is_draft flag
+                if key == 'programs':
+                    try:
+                        data['programs'] = json.loads(request.data[key])
+                    except json.JSONDecodeError:
+                        data['programs'] = []
+                else:
+                    data[key] = request.data[key]
+
         data['is_draft'] = True
-        
-        # Handle file separately
+
         file_obj = request.FILES.get('upload_attachment')
-        
+
         serializer = EnergyActionSerializer(data=data)
         if serializer.is_valid():
             compliance = serializer.save()
-            
-            # Assign file if provided
+
             if file_obj:
                 compliance.upload_attachment = file_obj
                 compliance.save()
-                
+
             return Response({"message": "Compliance saved as draft", "data": serializer.data}, 
-                           status=status.HTTP_201_CREATED)
+                            status=status.HTTP_201_CREATED)
+
+        print("rrrrrrrr", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -15830,7 +15837,7 @@ class SignificantEnergyDraftUpdateAPIView(APIView):
             significant_energy = get_object_or_404(SignificantEnergy, pk=pk)
 
             # Explicitly set 'is_draft' to False before saving
-            data = request.data
+            data = request.data.copy()
             data['is_draft'] = False  # Ensure that the record is not a draft
 
             # Serialize and validate the incoming data
@@ -21721,6 +21728,7 @@ class HealthIncidentDetailView(APIView):
 
 class HealthIncidentDraftAPIView(APIView):
     def post(self, request, *args, **kwargs):
+        print("rrrrr",request.data)
         data = {}
 
         
@@ -21729,6 +21737,8 @@ class HealthIncidentDraftAPIView(APIView):
 
        
         data['is_draft'] = True
+        if not data.get('status'):
+            data['status'] = 'Pending'
 
        
         serializer = HealthIncidentsSerializer(data=data)
@@ -21744,7 +21754,7 @@ class HealthIncidentDraftAPIView(APIView):
                 status=status.HTTP_201_CREATED
             )
         
-      
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -21810,7 +21820,12 @@ class HealthIncidentEditAPIView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-            serializer = HealthIncidentsSerializer(health_incident, data=request.data, partial=True)
+            data = request.data.copy()
+            if isinstance(data.get('root_cause'), dict):
+                data['root_cause'] = data['root_cause'].get('id')  
+
+            serializer = HealthIncidentsSerializer(health_incident, data=data, partial=True)
+
 
             if serializer.is_valid():
                 with transaction.atomic():
@@ -22841,6 +22856,30 @@ class GetNextMocNumberView(APIView):
                     next_moc_no = "MOC-1"
 
             return Response({'next_moc_no': next_moc_no}, status=status.HTTP_200_OK)
+
+        except Company.DoesNotExist:
+            return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        
+class GetNextHealthIncidentNumberView(APIView):
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+            last_incident = HealthIncidents.objects.filter(
+                company=company,
+                incident_no__startswith="HSI-"
+            ).order_by('-id').first()
+
+            next_incident_no = "HSI-1"  # Default if no prior incidents found
+
+            if last_incident and last_incident.incident_no:
+                try:
+                    last_number = int(last_incident.incident_no.split("-")[1])
+                    next_incident_no = f"HSI-{last_number + 1}"
+                except (IndexError, ValueError):
+                    next_incident_no = "HSI-1"
+
+            return Response({'next_incident_no': next_incident_no}, status=status.HTTP_200_OK)
 
         except Company.DoesNotExist:
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
