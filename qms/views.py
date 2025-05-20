@@ -17243,8 +17243,8 @@ class ImpactDetailView(APIView):
 
     def delete(self, request, pk):
         try:
-            manual = EnvironmentalImpactGetSerializer.objects.get(pk=pk)
-        except EnvironmentalImpactGetSerializer.DoesNotExist:
+            manual = EnvironmentalImpactSerializer.objects.get(pk=pk)
+        except EnvironmentalImpactSerializer.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         manual.delete()
