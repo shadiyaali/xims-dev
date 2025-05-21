@@ -972,7 +972,7 @@ class Supplier(models.Model):
     alternate_phone =models.CharField(max_length=50,blank =True,null = True)
     fax =models.CharField(max_length=50,blank =True,null = True)
     contact_person = models.CharField(max_length=50,blank =True,null = True)
-    qualified_to_supply = models.CharField(max_length=50,blank =True,null = True)
+    qualified_to_supply = models.CharField(max_length=250,blank =True,null = True)
     notes = models.TextField(blank=True,null=True)
     analysis_needed = models.BooleanField(default=False)
     resolution = models.CharField(max_length=50,blank =True,null = True)
