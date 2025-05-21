@@ -22925,3 +22925,210 @@ class GetNextHealthIncidentNumberView(APIView):
 
         except Company.DoesNotExist:
             return Response({'error': 'Company not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ConfirmityNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = ConformityNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = NotificationConfirmitySerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+class NotificationsConfirmity(APIView):
+    def get(self, request, user_id):
+        try:
+            user = Users.objects.get(id=user_id)
+        except Users.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        notifications = ConformityNotification.objects.filter(user=user).order_by('-created_at')
+
+        serializer = NotificationConfirmitySerializer(notifications, many=True)
+
+        return Response({
+            "notifications": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+class UnreadonfirmityNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = ConformityNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationConformityAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(ConformityNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = NotificationConfirmitySerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class CarNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = CarNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = CarNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadcarNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = CarNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationcarAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(CarNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = CarNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class PreventiveNotificationNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = PreventiveActionNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = PreventiveNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadcPreventiveAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = PreventiveActionNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkPreventiveAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(PreventiveActionNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = PreventiveNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class EnergyreviewNotificationNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = EnergyReviewNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = EnergyReviewNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadcEnergyreviewAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = EnergyReviewNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkEnergyreviewAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(EnergyReviewNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = EnergyReviewNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class significantNotificationNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = SignificantEnergyNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = SignificantNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadcsignificantAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = SignificantNotificationSerializer.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarksignificantAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(SignificantEnergyNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = SignificantNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class lIncidentNotificationNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = IncidentNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = IncidentNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadclIncidentAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = IncidentNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarklIncidentAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(IncidentNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = IncidentNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

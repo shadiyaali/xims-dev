@@ -1754,3 +1754,48 @@ class MessageSerializer(serializers.ModelSerializer):
 
         message.to_user.set(to_users)
         return message
+
+
+
+class NotificationConfirmitySerializer(serializers.ModelSerializer):
+    conformity = ConformitySerializer()  
+    class Meta:
+        model = ConformityNotification
+        fields = "__all__"
+        
+        
+class CarNotificationSerializer(serializers.ModelSerializer):
+    carnumber = CarNumberSerializer()  
+    class Meta:
+        model = CarNotification
+        fields = "__all__"
+        
+        
+class PreventiveNotificationSerializer(serializers.ModelSerializer):
+    preventive_action = PreventiveActionSerializer()  
+    class Meta:
+        model = PreventiveActionNotification
+        fields = "__all__"
+        
+        
+class EnergyReviewNotificationSerializer(serializers.ModelSerializer):
+    energy_review = EnergyReviewSerializer()  
+    class Meta:
+        model = EnergyReviewNotification
+        fields = "__all__"
+        
+        
+        
+class SignificantNotificationSerializer(serializers.ModelSerializer):
+    energy_review = EnergyReviewSerializer()  
+    class Meta:
+        model = SignificantEnergyNotification
+        fields = "__all__"
+        
+        
+        
+class IncidentNotificationSerializer(serializers.ModelSerializer):
+    incident = EnvironmentalIncidentsSerializer()  
+    class Meta:
+        model = IncidentNotification
+        fields = "__all__"

@@ -285,6 +285,9 @@ urlpatterns = [
     path('car-number/update/<int:pk>/', CarNumberEditAPIView.as_view(), name='car-draft-update'),
     path('car-draft/update/<int:pk>/', CarDraftUpdateAPIView.as_view(), name='car-draft-update'),
     path('car/drafts-count/<int:user_id>/',  CarcountAPIView.as_view(), name='draft-manuals'),
+    path("car/notifications/<int:user_id>/", CarNotificationView.as_view(), name="user-notifications"), 
+    path('car/count-notifications/<int:user_id>/', UnreadcarNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('car/notifications/<int:notification_id>/read/', MarkNotificationcarAPIView.as_view(), name='mark-notification-read'),
  
     
     
@@ -407,6 +410,9 @@ urlpatterns = [
     path('preventive-draft/<int:user_id>/', PreventiveDraftAllList.as_view(), name='manual-list'),
     path('preventive/drafts-count/<int:user_id>/',  PreventiveView.as_view(), name='draft-manuals'),
     path('preventive-draft/edit/<int:pk>/', PreventiveDraftUpdateAPIView.as_view(), name='compliance_edit'),
+    path("preventive/notifications/<int:user_id>/", PreventiveNotificationNotificationView.as_view(), name="user-notifications"), 
+    path('preventive/count-notifications/<int:user_id>/', UnreadcPreventiveAPIView.as_view(), name='unread-notifications'),
+    path('preventive/notifications/<int:notification_id>/read/', MarkPreventiveAPIView.as_view(), name='mark-notification-read'),
      
    
     # Objectives
@@ -441,7 +447,10 @@ urlpatterns = [
     path('conformity/update/<int:pk>/', ConformityEditAPIView.as_view(), name='car-draft-update'),
     path('conformity-draft/update/<int:pk>/', ConformityDraftUpdateAPIView.as_view(), name='car-draft-update'),
     path('conformity/drafts-count/<int:user_id>/', conformityView.as_view(), name='draft-manuals'),
-    
+    path("conformity/notifications/<int:user_id>/", ConfirmityNotificationView.as_view(), name="user-notifications"), 
+    path('conformity/count-notifications/<int:user_id>/', UnreadonfirmityNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('conformity/notifications/<int:notification_id>/read/', MarkNotificationConformityAPIView.as_view(), name='mark-notification-read'),
+     # path("notifications/conformity/<int:user_id>/", NotificationsConfirmity.as_view(), name="notifications_by_user"),
     # Review Type
     path('review-type/create/', ReviewTypeCreateView.as_view(), name='agenda-list-create'), 
     path('review-type/company/<int:company_id>/', ReviewTypeCompanyView.as_view(), name='company-agendas'),  
@@ -457,6 +466,10 @@ urlpatterns = [
     path('energy-review/update/<int:pk>/', EnergyReviewEditAPIView.as_view(), name='car-draft-update'),
     path('energy-review-draft/update/<int:pk>/', EnergyReviewDraftUpdateAPIView.as_view(), name='car-draft-update'),
     path('energy-review/drafts-count/<int:user_id>/', EnergyReviewCountView.as_view(), name='draft-manuals'),
+    path("energy-review/notifications/<int:user_id>/", EnergyreviewNotificationNotificationView.as_view(), name="user-notifications"), 
+    path('energy-review/count-notifications/<int:user_id>/', UnreadcEnergyreviewAPIView.as_view(), name='unread-notifications'),
+    path('energy-review/notifications/<int:notification_id>/read/', MarkEnergyreviewAPIView.as_view(), name='mark-notification-read'),
+     
     
     
     # Energy Baseline Review Type
@@ -504,6 +517,9 @@ urlpatterns = [
     path('significant/update/<int:pk>/', SignificantEnergyEditAPIView.as_view(), name='car-draft-update'),
     path('significant-draft/update/<int:pk>/', SignificantEnergyDraftUpdateAPIView.as_view(), name='car-draft-update'),
     path('significant/drafts-count/<int:user_id>/', SignificantCountView.as_view(), name='draft-manuals'),
+    path("significant/notifications/<int:user_id>/", significantNotificationNotificationView.as_view(), name="user-notifications"), 
+    path('significant/count-notifications/<int:user_id>/', UnreadcsignificantAPIView.as_view(), name='unread-notifications'),
+    path('significant/notifications/<int:notification_id>/read/', MarksignificantAPIView.as_view(), name='mark-notification-read'),
     
    #  Process Activity  in Environmental Aspect
     path('process-activity/create/', ProcessActivityView.as_view(), name='root-cause-list-create'),   
@@ -562,6 +578,10 @@ urlpatterns = [
     path('incident/next-action/<int:company_id>/', GetNextEnvironmentalIncidentNumberView.as_view(), name='get-next-action-number'),
     path('incident/update/<int:pk>/', EnvironmentalIncidentEditAPIView.as_view(), name='car-draft-update'),
     path('incident-draft/update/<int:pk>/', EnvironmentalInciDraftUpdateAPIView.as_view(), name='car-draft-update'),
+    path("incident/notifications/<int:user_id>/", lIncidentNotificationNotificationView.as_view(), name="user-notifications"), 
+    path('incident/count-notifications/<int:user_id>/', UnreadclIncidentAPIView.as_view(), name='unread-notifications'),
+    path('incident/notifications/<int:notification_id>/read/', MarklIncidentAPIView.as_view(), name='mark-notification-read'),
+    
     
     
     # Environmental Waste Management   
@@ -633,7 +653,7 @@ urlpatterns = [
     path('safety-root/company/<int:company_id>/', SafetyRootCompanyView.as_view(), name='company-agendas'), 
     path('safety-root/<int:pk>/', SafetyRootDetailView.as_view(), name='root-cause-detail-update-delete'),
     
-    
+    # Health and Safety Incidents in Risk
     path('safety_incidents/', HealthIncidentCreateAPIView.as_view(), name='car-number-list-create'),
     path('safety_incidents/<int:pk>/', HealthIncidentDetailView.as_view(), name='car-number-detail'),
     path('safety_incidents/draft-create/', HealthIncidentDraftAPIView.as_view(), name='manual-create'),
