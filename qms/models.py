@@ -1139,6 +1139,7 @@ class Customer(models.Model):
     notes = models.TextField(blank=True,null=True)
     upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     is_draft = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True,blank =True,null = True)
      
     def __str__(self):
         return self.name if self.name else "Unnamed Customer"
