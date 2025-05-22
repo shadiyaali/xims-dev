@@ -9821,19 +9821,19 @@ class CarDraftUpdateAPIView(APIView):
 
     def put(self, request, pk, *args, **kwargs):
         try:
-            car_draft = get_object_or_404(CarNumber, pk=pk, is_draft=True)
+            car_draft = get_object_or_404(CarNumber, pk=pk)
 
+            data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+            data['is_draft'] = False
            
 
-            file_obj = request.FILES.get('upload_attachment')
+            
 
             serializer = CarNumberSerializer(car_draft, data=data, partial=True)
             if serializer.is_valid():
                 car = serializer.save()
 
-                if file_obj:
-                    car.upload_attachment = file_obj
-                    car.save()
+               
 
                 # Send notifications if requested
                 send_notification = data.get('send_notification', False)
