@@ -1030,7 +1030,6 @@ class CarNumber(models.Model):
     send_notification = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-       
         if self.action_no is None and self.company:
             last_action = CarNumber.objects.filter(company=self.company).order_by('-action_no').first()
             self.action_no = 1 if not last_action or not last_action.action_no else last_action.action_no + 1

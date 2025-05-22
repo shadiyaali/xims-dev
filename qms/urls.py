@@ -602,7 +602,7 @@ urlpatterns = [
     path("incident/notifications/<int:user_id>/", lIncidentNotificationNotificationView.as_view(), name="user-notifications"), 
     path('incident/count-notifications/<int:user_id>/', UnreadclIncidentAPIView.as_view(), name='unread-notifications'),
     path('incident/notifications/<int:notification_id>/read/', MarklIncidentAPIView.as_view(), name='mark-notification-read'),
-    
+    path('incident/drafts-count/<int:user_id>/', DraftincidentcountAPIView.as_view(), name='draft-manuals'),   
     
     
     # Environmental Waste Management   

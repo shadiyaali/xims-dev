@@ -23369,3 +23369,18 @@ class EnergyactioncountsView(APIView):
             "count": draft_records.count(),
             "draft_records": serializer.data
         }, status=status.HTTP_200_OK)
+
+
+class DraftincidentcountAPIView(APIView):
+ 
+    def get(self, request, user_id):
+ 
+        draft_manuals = EnvironmentalIncidents.objects.filter(is_draft=True, user_id=user_id)
+        
+        serializer = EnvironmentalIncidentsSerializer(draft_manuals, many=True)
+        
+        return Response({
+            "count": draft_manuals.count(),
+            "draft_manuals": serializer.data
+        }, status=status.HTTP_200_OK)
+
