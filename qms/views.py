@@ -23135,3 +23135,238 @@ class MarklIncidentAPIView(APIView):
                 {"error": str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
+class ComplianceNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = ComplianceNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = ComplianceNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadComplianceNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = ComplianceNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationComplianceAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(ComplianceNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = ComplianceNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+class LegaleNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationLegal.objects.filter(user=user ).order_by("-created_at")
+        serializer = LegalNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadLegalNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationLegal.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationLegalAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationLegal, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = LegalNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class ChangeseNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationChanges.objects.filter(user=user ).order_by("-created_at")
+        serializer = NotificationChangesSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadChangeseNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationChanges.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationChangeseAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationChanges, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = NotificationChangesSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class MeetingNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = MeetingNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = MeetingNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadMeetingeNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = MeetingNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationMeetingAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(MeetingNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = MeetingNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class TrainingNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = TrainingNotification.objects.filter(user=user ).order_by("-created_at")
+        serializer = TrainingNotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadTrainingNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = TrainingNotification.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationTrainingAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(TrainingNotification, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = TrainingNotificationSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class ProcessesNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationProcess.objects.filter(user=user ).order_by("-created_at")
+        serializer = NotificationProcessSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadProcessesNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationProcess.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationProcessesAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationProcess, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = NotificationProcessSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+            
+class InterestedNotificationView(APIView):
+    def get(self, request, user_id):
+        user = get_object_or_404(Users, id=user_id)
+        notifications = NotificationInterest.objects.filter(user=user ).order_by("-created_at")
+        serializer = NotificationInterestSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UnreadInterestedNotificationsAPIView(APIView):
+    def get(self, request, user_id):
+        try:
+            unread_count = NotificationInterest.objects.filter(user_id=user_id, is_read=False).count()
+            return Response({"unread_count": unread_count}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MarkNotificationInterestedAPIView(APIView):
+    
+    def patch(self, request, notification_id):
+        try:
+            notification = get_object_or_404(NotificationInterest, id=notification_id)          
+            notification.is_read = True
+            notification.save()
+            serializer = NotificationInterestSerializer(notification)
+            return Response(serializer.data, status=status.HTTP_200_OK)        
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+class EnergyactioncountsView(APIView):
+    def get(self, request, user_id):
+        draft_records = EnergyAction.objects.filter(is_draft=True, user_id=user_id)
+        serializer = EnergyActionCountSerializer(draft_records, many=True)
+        return Response({
+            "count": draft_records.count(),
+            "draft_records": serializer.data
+        }, status=status.HTTP_200_OK)

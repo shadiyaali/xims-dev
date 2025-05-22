@@ -1094,6 +1094,10 @@ class ProgramActionSerializer(serializers.ModelSerializer):
         model = ProgramAction
         fields = ['id', 'Program']
 
+class EnergyActionCountSerializer(serializers.ModelSerializer):
+     class Meta:
+        model = EnergyAction
+        fields = '__all__'
 
 class EnergyActionSerializer(serializers.ModelSerializer):
     programs = ProgramActionSerializer(many=True, required=False)
@@ -1799,3 +1803,50 @@ class IncidentNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = IncidentNotification
         fields = "__all__"
+        
+        
+class ComplianceNotificationSerializer(serializers.ModelSerializer):
+    compliance = ComplianceSerializer() 
+    class Meta:
+        model = ComplianceNotification
+        fields = '__all__'
+
+
+        
+class LegalNotificationSerializer(serializers.ModelSerializer):
+    legal = LegalSerializer() 
+    class Meta:
+        model = NotificationLegal
+        fields = '__all__'
+        
+class NotificationChangesSerializer(serializers.ModelSerializer):
+    changes = ChangesSerializer() 
+    class Meta:
+        model = NotificationChanges
+        fields = '__all__'
+
+
+class MeetingNotificationSerializer(serializers.ModelSerializer):
+    meeting = MeetingSerializer() 
+    class Meta:
+        model = MeetingNotification
+        fields = '__all__'
+
+class TrainingNotificationSerializer(serializers.ModelSerializer):
+    training = TrainingSerializer() 
+    class Meta:
+        model = TrainingNotification
+        fields = '__all__'
+
+class NotificationProcessSerializer(serializers.ModelSerializer):
+    processes = ProcessSerializer() 
+    class Meta:
+        model = NotificationProcess
+        fields = '__all__'
+
+class NotificationInterestSerializer(serializers.ModelSerializer):
+    interest = InterestedPartySerializer() 
+    class Meta:
+        model = NotificationInterest
+        fields = '__all__'
+

@@ -79,6 +79,9 @@ urlpatterns = [
     path('compliance/drafts-count/<int:user_id>/',  ComplainceView.as_view(), name='draft-manuals'),
     path('compliances-draft/edit/<int:pk>/', EditsDraftCompliance.as_view(), name='compliance_edit'),
     path('compliances/next-action/<int:company_id>/', GetNextComplianceNumberView.as_view(), name='get-next-action-number'),
+    path("compliances/notifications/<int:user_id>/", ComplianceNotificationView.as_view(), name="user-notifications"), 
+    path('compliances/count-notifications/<int:user_id>/', UnreadComplianceNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('compliances/notifications/<int:notification_id>/read/', MarkNotificationComplianceAPIView.as_view(), name='mark-notification-read'),
     
     
    
@@ -96,6 +99,9 @@ urlpatterns = [
     path('interested-parties/<int:pk>/edit/', EditInterestedParty.as_view(), name='edit-interested-party'),
     path('interst/drafts-count/<int:user_id>/', DrafInterstAPIView.as_view(), name='draft-manuals'),
     path('interst/create/<draft_id>/', InterestedPartyEditDraftView.as_view(), name='process-draft-edit'),
+    path("interst/notifications/<int:user_id>/", InterestedNotificationView.as_view(), name="user-notifications"), 
+    path('interst/count-notifications/<int:user_id>/', UnreadInterestedNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('interst/notifications/<int:notification_id>/read/', MarkNotificationInterestedAPIView.as_view(), name='mark-notification-read'),
    
     # Processes
     path('processes/<int:company_id>/', ProcessList.as_view(), name='manual-list'),
@@ -107,6 +113,9 @@ urlpatterns = [
     path('process-draft/<int:user_id>/', ProcessesDraftAllList.as_view(), name='manual-list'),
     path('processes/drafts-count/<int:user_id>/', ProcessAPIView.as_view(), name='draft-manuals'),
     path('processes/create/<int:pk>/', ProcessDraftEditView.as_view(), name='process-draft-edit'),
+    path("processes/notifications/<int:user_id>/", ProcessesNotificationView.as_view(), name="user-notifications"), 
+    path('processes/count-notifications/<int:user_id>/', UnreadProcessesNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('processes/notifications/<int:notification_id>/read/', MarkNotificationProcessesAPIView.as_view(), name='mark-notification-read'),
     
     # Legal And other Requirements
     path('legal/<int:company_id>/', LegalList.as_view(), name='manual-list'),
@@ -117,6 +126,9 @@ urlpatterns = [
     path('legal-draft/<int:user_id>/', LegalDraftAllList.as_view(), name='manual-list'),
     path('legal/drafts-count/<int:user_id>/',  LegalView.as_view(), name='draft-manuals'),
     path('legal/create/<int:pk>/', EditDraftLegalAPIView.as_view(), name='process-draft-edit'),
+    path("legal/notifications/<int:user_id>/", LegaleNotificationView.as_view(), name="user-notifications"), 
+    path('legal/count-notifications/<int:user_id>/', UnreadLegalNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('legal/notifications/<int:notification_id>/read/', MarkNotificationLegalAPIView.as_view(), name='mark-notification-read'),
     
      
     
@@ -148,6 +160,9 @@ urlpatterns = [
     path('changes/drafts-count/<int:user_id>/',  ChangesView.as_view(), name='draft-manuals'),
     path('changes/create/<int:pk>/',  EditsDraftManagementChanges.as_view(), name='manual-update'),
     path('changes/next-action/<int:company_id>/', GetNextMocNumberView.as_view(), name='get-next-action-number'),
+    path("changes/notifications/<int:user_id>/", ChangeseNotificationView.as_view(), name="user-notifications"), 
+    path('changes/count-notifications/<int:user_id>/', UnreadChangeseNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('changes/notifications/<int:notification_id>/read/', MarkNotificationChangeseAPIView.as_view(), name='mark-notification-read'),
  
     # Sustainability
     path('sustainability-create/', SustainabilityCreateView.as_view(), name='manual-list-create'),
@@ -189,6 +204,10 @@ urlpatterns = [
     path('training/evaluated-by/<int:user_id>/', TrainingsEvaluatedByUserAPIView.as_view(), name='trainings-evaluated-by-user'),
     path('training/create/<int:pk>/',  EditDraftTrainingAPIView.as_view(), name='manual-update'),
     path('training/<int:pk>/cancel/', TrainingCancelAPIView.as_view(), name='training-cancel'),
+    path("training/notifications/<int:user_id>/", TrainingNotificationView.as_view(), name="user-notifications"), 
+    path('training/count-notifications/<int:user_id>/', UnreadTrainingNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('training/notifications/<int:notification_id>/read/', MarkNotificationTrainingAPIView.as_view(), name='mark-notification-read'),
+        
     
     
     # Performance Evaluation
@@ -242,6 +261,9 @@ urlpatterns = [
     path('meeting-draft/<int:user_id>/', MeetingDraftAllList.as_view(), name='manual-list'),
     path('meeting-draft/edit/<int:pk>/', MeetingUpdateDraftView.as_view(), name='compliance_edit'),
     path('meeting/drafts-count/<int:user_id>/',  MeetingCountDraftView.as_view(), name='draft-manuals'),
+    path("meeting/notifications/<int:user_id>/", MeetingNotificationView.as_view(), name="user-notifications"), 
+    path('meeting/count-notifications/<int:user_id>/', UnreadMeetingeNotificationsAPIView.as_view(), name='unread-notifications'),
+    path('meeting/notifications/<int:notification_id>/read/', MarkNotificationMeetingAPIView.as_view(), name='mark-notification-read'),
     
     # Audit
     path('audit/create/', AuditCreateAPIView.as_view(), name='audit-list-create'),
@@ -383,8 +405,7 @@ urlpatterns = [
     path('training-evaluation/question/<int:question_id>/delete/', DeleteTrainingEvaluationQuestionAPIView.as_view(), name='delete-performance-question'),
     path('training-evaluation/question/answer/<int:question_id>/', TrainingAddAnswerToQuestionAPIView.as_view(), name='add-answer-to-question'),
     path('training-evaluation/<int:company_id>/evaluation/<int:evaluation_id>/',TrainingUsersNotSubmittedAnswersView.as_view(),name='unsubmitted-users'),
-    
-        
+   
     # System message
     path('messages/create/', ComposeMessageView.as_view(), name='message-create'), 
     path('messages/received/<int:user_id>/', MessagesByToUserView.as_view(), name='messages-by-to-user'), 
@@ -500,7 +521,7 @@ urlpatterns = [
     path('energy-action/<int:pk>/', EnergyActionDetailView.as_view(), name='baseline-detail'), 
     path('energy-action/draft-create/', EnergyActionDraftAPIView.as_view(), name='manual-create'),  
     path('energy-action-draft/<int:user_id>/', EnergyActionDraftAllList.as_view(), name='manual-list'),
-    path('energy-action/drafts-count/<int:user_id>/',  EnergyActionView.as_view(), name='draft-manuals'),
+    path('energy-action/drafts-count/<int:user_id>/',  EnergyactioncountsView.as_view(), name='draft-manuals'),
     path('energy-action/next-action/<int:company_id>/', GetNextEnergyActionPlan.as_view(), name='get-next-action-number'),    
     # Source type
     path('source-type/create/', EnergySourceView.as_view(), name='root-cause-list-create'),   
