@@ -9684,7 +9684,8 @@ class CarNumberCreateAPIView(APIView):
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
             'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
             'created_by': car_number.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+             'upload_attachment':car_number.upload_attachment
         }
 
         try:
@@ -9893,7 +9894,8 @@ class CarDraftUpdateAPIView(APIView):
             'status': car_number.status,
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
             'created_by': car_number.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'upload_attachment':car_number.upload_attachment
         }
 
         try:
@@ -14460,7 +14462,8 @@ class CarNumberEditAPIView(APIView):
             'root_cause': car_number.root_cause.title if car_number.root_cause else "N/A",
             'supplier': car_number.supplier.company_name if car_number.supplier else "N/A",
             'created_by': car_number.user,
-             'notification_year': timezone.now().year 
+             'notification_year': timezone.now().year ,
+              'upload_attachment':car_number.upload_attachment
         }
 
         try:

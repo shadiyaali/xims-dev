@@ -1014,7 +1014,7 @@ class CarNumber(models.Model):
     description = models.TextField(blank=True, null=True)
     date_raised = models.DateField(blank=True, null=True)
     date_completed = models.DateField(blank=True, null=True)
-
+    upload_attachment = models.FileField(storage=MediaStorage(), upload_to=generate_unique_filename_audit,max_length=255, blank=True, null=True)
     Status_CHOICES = [
         ('Pending', 'Pending'),
         ('Completed', 'Completed'),
