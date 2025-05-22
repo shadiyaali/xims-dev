@@ -9823,8 +9823,7 @@ class CarDraftUpdateAPIView(APIView):
         try:
             car_draft = get_object_or_404(CarNumber, pk=pk, is_draft=True)
 
-            data = request.data.copy()
-            data['is_draft'] = False  # Finalize the draft
+           
 
             file_obj = request.FILES.get('upload_attachment')
 
