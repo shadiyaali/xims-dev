@@ -321,7 +321,7 @@ class Compliances(models.Model):
         return self.compliance_name or "Unnamed Compliance"
     
 class ComplianceNotification(models.Model):
-    
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="comp", blank=True,null=True)
     compliance = models.ForeignKey(Compliances, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()
@@ -377,6 +377,7 @@ class Needs(models.Model):
     
 
 class NotificationInterest(models.Model):
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="int", blank=True,null=True)
     interest = models.ForeignKey(InterestedParty, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()
@@ -415,7 +416,7 @@ class Processes(models.Model):
 
 
 class NotificationProcess(models.Model):
-    
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="pro", blank=True,null=True)
     processes = models.ForeignKey(Processes, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()
@@ -453,7 +454,7 @@ class LegalRequirement(models.Model):
         return self.legal_name
     
 class NotificationLegal(models.Model):
-    
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="leg", blank=True,null=True)
     legal = models.ForeignKey(LegalRequirement, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()
@@ -595,7 +596,8 @@ class ManagementChanges(models.Model):
         return self.moc_title or "Unnamed Management Change"
     
     
-class NotificationChanges(models.Model):       
+class NotificationChanges(models.Model):    
+    user = models.ForeignKey(Users, on_delete=models.CASCADE, related_name="ch", null=True, blank=True)   
     changes = models.ForeignKey(ManagementChanges, on_delete=models.CASCADE, null=True, blank=True)
     title = models.TextField(blank=True,null=True)
     message = models.TextField()

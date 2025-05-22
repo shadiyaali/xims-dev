@@ -625,13 +625,13 @@ urlpatterns = [
     path('waste/next-action/<int:company_id>/', GetNextWMPNumberView.as_view(), name='get-next-action-number'),
     
     
-    # Health and Safety Incident process
+    # Health and Safety Hazard
     path('health-root/create/', ProcessHealthView.as_view(), name='root-cause-list-create'),   
     path('health-root/company/<int:company_id>/', ProcessHealthCompanyView.as_view(), name='company-agendas'), 
     path('health-root/<int:pk>/', ProcessHealthDetailView.as_view(), name='root-cause-detail-update-delete'),
     
       
-    # Health and Safety
+#    Health and Safety Hazards
     path('health/<int:company_id>/', HealthAllList.as_view(), name='manual-list'),
     path('health-detail/<int:pk>/', HealthDetailView.as_view(), name='manual-detail'),
     path('heath-create/', HealthSafetyCreateView.as_view(), name='manual-list-create'),

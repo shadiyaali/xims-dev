@@ -3140,14 +3140,12 @@ class ComplianecesList(APIView):
  
 
 class InterestedPartyCreateView(APIView):
-    """
-    Endpoint to handle creation of Interested Party, Needs with both needs and expectations fields,
-    and optionally send notifications.
-    """
+ 
     def post(self, request):
         print("Received Data:", request.data)   
+     
         try:
-            # First, check if there's a 'data' field containing JSON
+      
             json_data = {}
             if 'data' in request.data:
                 try:
@@ -3158,14 +3156,14 @@ class InterestedPartyCreateView(APIView):
                 except (json.JSONDecodeError, TypeError) as e:
                     print(f"Failed to parse 'data' field: {e}")
 
-            # Extract data, prioritizing direct fields but falling back to json_data
+           
             company_id = request.data.get('company') or json_data.get('company')
             send_notification = request.data.get('send_notification', json_data.get('send_notification', False))
             
-            # Get needs data from json_data if it exists there
+           
             needs_data = []
             
-            # First check for needs in regular request.data
+      
             if 'needs' in request.data:
                 if isinstance(request.data['needs'], str):
                     try:
@@ -3175,35 +3173,33 @@ class InterestedPartyCreateView(APIView):
                 else:
                     needs_data = request.data['needs']
             
-            # If no needs found yet, check in the json_data
+          
             if not needs_data and 'needs' in json_data:
                 needs_data = json_data.get('needs', [])
             
-            # Debugging print statements
+            
             print(f"Company ID: {company_id}")
             print(f"Send Notification: {send_notification}")
             print(f"Needs Data: {needs_data}")
 
-            # Check if company_id is provided
+           
             if not company_id:
                 return Response(
                     {"error": "Company ID is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Create a merged data dictionary for the serializer
-            # This combines direct fields with those in the json_data
+          
             merged_data = {}
-            
-            # First add all json_data fields
+             
             merged_data.update(json_data)
             
-            # Then add direct fields, which will override json_data if duplicated
+           
             for key, value in request.data.items():
-                if key != 'data':  # Skip the raw json data field
+                if key != 'data':   
                     merged_data[key] = value
             
-            # Ensure we can get the company record
+             
             try:
                 company = Company.objects.get(id=company_id)
                 print(f"Found company: {company.name if hasattr(company, 'name') else company.id}")
@@ -3216,23 +3212,24 @@ class InterestedPartyCreateView(APIView):
             
             serializer = InterestedPartySerializer(data=merged_data)
 
-            # Validate the serializer and proceed if valid
+             
             if serializer.is_valid():
                 with transaction.atomic():
                     interested_party = serializer.save()
                     logger.info(f"Interested Party created: {interested_party.name}")
 
-                    # Log the interested party data
+                    
                     print(f"Interested Party Created: {interested_party.name}")
                     print(f"Interested Party ID: {interested_party.id}")
                     print(f"Interested Party Send Notification: {interested_party.send_notification}")
 
-                    # Create needs with both needs and expectations if provided
+                    
                     if needs_data:
                         needs_instances = []
                         for need_item in needs_data:
                             needs_instances.append(
                                 Needs(
+                                   
                                     interested_party=interested_party,
                                     needs=need_item.get('needs', ''),
                                     expectation=need_item.get('expectation', '')
@@ -3243,11 +3240,11 @@ class InterestedPartyCreateView(APIView):
                         logger.info(f"Created {len(needs_instances)} Needs for Interested Party {interested_party.id}")
                         print(f"Created {len(needs_instances)} Needs records for IP {interested_party.id}")
                         
-                        # Debug: Print created needs details
+                         
                         for i, need in enumerate(needs_instances):
                             print(f"Need {i+1}: needs='{need.needs}', expectation='{need.expectation}'")
 
-                    # Save the send_notification flag - make sure we handle string values too
+                     
                     print(f"Setting Send Notification Flag to: {send_notification}")
                     if isinstance(send_notification, str):
                         interested_party.send_notification = send_notification.lower() == 'true'
@@ -3256,24 +3253,26 @@ class InterestedPartyCreateView(APIView):
                     interested_party.save()
                     print(f"Updated send_notification to: {interested_party.send_notification}")
 
-                    # If send_notification is True, send notifications and emails
+                     
                     if interested_party.send_notification:
                         print(f"Preparing to send notifications for company ID: {company.id}")
                         
-                        # Get all users for the company - add debugging
+                       
                         company_users = Users.objects.filter(company=company)
                         user_count = company_users.count()
                         print(f"Found {user_count} users for company {company.id}")
                         
-                        # Debug: List users found
+                         
                         for i, user in enumerate(company_users):
                             print(f"User {i+1}: ID={user.id}, Email={user.email}, Name={user.first_name} {user.last_name if hasattr(user, 'last_name') else ''}")
                         
                         if user_count == 0:
                             print("WARNING: No users found for this company! Cannot send notifications.")
-                            
+                       
                         notifications = [
+                           
                             NotificationInterest(
+                                user = user,
                                 interest=interested_party,
                                 title=f"New Interested Party: {interested_party.name}",
                                 message=f"A new interested party '{interested_party.name}' has been added."
@@ -3282,7 +3281,7 @@ class InterestedPartyCreateView(APIView):
                         ]
 
                         if notifications:
-                            # Check the NotificationInterest model fields
+                            
                             print(f"Creating {len(notifications)} notifications")
                             try:
                                 NotificationInterest.objects.bulk_create(notifications)
@@ -3294,7 +3293,7 @@ class InterestedPartyCreateView(APIView):
                         else:
                             print("No notifications to create - no users in company.")
 
-                        # Send email notifications to users
+                         
                         print("Preparing to send email notifications")
                         for i, user in enumerate(company_users):
                             if user.email:
@@ -3320,7 +3319,7 @@ class InterestedPartyCreateView(APIView):
                     status=status.HTTP_201_CREATED
                 )
             else:
-                # Log serializer errors for debugging
+                
                 logger.warning(f"Validation error: {serializer.errors}")
                 print(f"Validation error: {serializer.errors}")
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -3328,7 +3327,7 @@ class InterestedPartyCreateView(APIView):
             logger.error(f"Error occurred: {str(e)}")
             print(f"Error occurred: {str(e)}")
             import traceback
-            print(traceback.format_exc())  # Print full stack trace
+            print(traceback.format_exc())   
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -3349,12 +3348,12 @@ class InterestedPartyCreateView(APIView):
             print(f"Preparing email for {recipient_email}")
             subject = f"New Interested Party Created: {interested_party.name}"
  
-            # Get all needs objects for this interested party
+            
             all_needs = interested_party.needs.all()
             needs_count = all_needs.count()
             print(f"Found {needs_count} needs records for this interested party")
             
-            # Debug: Print what we found
+            
             needs_list = []
             expectations_list = []
             for i, need in enumerate(all_needs):
@@ -3391,7 +3390,7 @@ class InterestedPartyCreateView(APIView):
                 raise
 
             try:
-                # Try to get email configuration values for debugging
+               
                 email_host = config("EMAIL_HOST", default="Not configured")
                 email_port = config("EMAIL_PORT", default="Not configured")
                 email_user = config("EMAIL_HOST_USER", default="Not configured")
@@ -3448,8 +3447,7 @@ class InterestedPartyCreateView(APIView):
             logger.error(f"Failed to send notification email to {recipient_email}: {str(e)}")
             print(f"Failed to send notification email to {recipient_email}: {str(e)}")
             import traceback
-            print(traceback.format_exc())  # Print full stack trace
-
+            print(traceback.format_exc())   
 
 
 
@@ -3746,6 +3744,7 @@ class EditInterestedParty(APIView):
                 company_users = Users.objects.filter(company=instance.company)
                 notifications = [
                     NotificationInterest(
+                        user=user,
                         interest=instance,
                         title=f"Updated Interested Party: {instance.name}",
                         message=f"The interested party '{instance.name}' has been updated."
@@ -4077,6 +4076,7 @@ class ProcessCreateAPIView(APIView):
                         company_users = Users.objects.filter(company=company)
                         notifications = [
                             NotificationProcess(
+                                user=user,
                                 processes=process,
                                 title=f"New Process: {process.name}",
                                 message=f"A new process '{process.name}' has been added."
@@ -4333,6 +4333,7 @@ class EditProcess(APIView):
                             # Create notification object
                             notifications.append(
                                 NotificationProcess(
+                                    user=user,
                                     processes=instance,
                                     title=f"Process Updated: {instance.name}",
                                     message=f"The process '{instance.name}' has been updated."
@@ -4575,6 +4576,7 @@ class ComplianceCreateAPIView(APIView):
                         company_users = Users.objects.filter(company=company)
                         notifications = [
                             ComplianceNotification(
+                                 user=user,
                                 compliance=compliance,
                                 title=f"New Interested Party: {compliance.compliance_name}",
                                 message=f"A new interested party '{compliance.compliance_name}' has been added."
@@ -4740,6 +4742,7 @@ class EditsCompliance(APIView):
                 # Create notifications
                 notifications = [
                     ComplianceNotification(
+                        user=user,
                         compliance=instance,
                         title=f"Updated Compliance: {instance.compliance_name}",
                         message=f"The compliance '{instance.compliance_name}' has been updated."
@@ -4901,6 +4904,7 @@ class LegalCreateAPIView(APIView):
 
                         notifications = [
                             NotificationLegal(
+                                user=user,
                                 legal=legal,
                                 title=f"New Legal: {legal.legal_name}",
                                 message=f"A new legal requirement '{legal.legal_name}' has been added."
@@ -5041,6 +5045,7 @@ class EditsLegal(APIView):
 
                 notifications = [
                     NotificationLegal(
+                        user=user,
                         legal=instance,
                         title=f"Updated legal: {instance.legal_name}",
                         message=f"The legal '{instance.legal_name}' has been updated."
@@ -6097,6 +6102,7 @@ class ChangesCreateAPIView(APIView):
 
                         notifications = [
                             NotificationChanges(
+                                user=user,
                                 changes=changes,
                                 title=f"New Change: {changes.moc_title}",
                                 message=f"A new management change '{changes.moc_title}' has been added."
@@ -6281,6 +6287,7 @@ class EditsChanges(APIView):
 
                 notifications = [
                     NotificationChanges(
+                        user=user,
                         changes=instance,
                         title=f"Updated MOC: {instance.moc_title}",
                         message=f"The MOC '{instance.moc_title}' has been updated."
@@ -11494,6 +11501,7 @@ class ProcessDraftEditView(APIView):
                             # Create notification object
                             notifications.append(
                                 NotificationProcess(
+                                    user=user,
                                     processes=instance,
                                     title=f"New Process Published: {instance.name}",
                                     message=f"The draft process '{instance.name}' has been finalized and published."
@@ -11748,6 +11756,7 @@ class InterestedPartyEditDraftView(APIView):
                             # Handle single need as dictionary
                             needs_instances.append(
                                 Needs(
+                                   
                                     interested_party=interested_party,
                                     needs=needs_data.get('needs', ''),
                                     expectation=needs_data.get('expectation', '')
@@ -11776,6 +11785,7 @@ class InterestedPartyEditDraftView(APIView):
                         company_users = Users.objects.filter(company=company)
                         notifications = [
                             NotificationInterest(
+                                 user=user,
                                 interest=interested_party,
                                 title=f"Interested Party Published: {interested_party.name}",
                                 message=f"An interested party '{interested_party.name}' has been published from draft."
@@ -11937,6 +11947,7 @@ class EditsDraftCompliance(APIView):
 
                 notifications = [
                     ComplianceNotification(
+                        user=user,
                         compliance=compliance_instance,
                         title=f"Add Compliance: {compliance_instance.compliance_name}",
                         message=f"The compliance '{compliance_instance.compliance_name}' has been created."
@@ -12074,6 +12085,7 @@ class EditsDraftManagementChanges(APIView):
 
                     notifications = [
                         NotificationChanges(
+                            user=user,
                             changes=change_instance,
                             title=f"Updated Change: {change_instance.moc_title}",
                             message=f"The management change '{change_instance.moc_title}' has been updated."
@@ -12620,6 +12632,7 @@ class EditDraftLegalAPIView(APIView):
 
                 notifications = [
                     NotificationLegal(
+                        user=user,
                         legal=legal_instance,
                         title=f"Updated Legal: {legal_instance.legal_name}",
                         message=f"The legal requirement '{legal_instance.legal_name}' has been updated."

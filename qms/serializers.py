@@ -439,7 +439,7 @@ class EvaluationViewAllSerializer(serializers.ModelSerializer):
         fields = '__all__'  
 
 class NotificationEvaluationSerializer(serializers.ModelSerializer):
-    procedure = EvaluationViewAllSerializer()  
+    evaluation = EvaluationViewAllSerializer()  
     class Meta:
         model = NotificationEvaluations
         fields = "__all__"
@@ -521,7 +521,7 @@ class SustainabilityViewAllSerializer(serializers.ModelSerializer):
         fields = '__all__' 
                
 class NotificationSustainabilitySerializer(serializers.ModelSerializer):
-    procedure = SustainabilityViewAllSerializer()  
+    sustainability = SustainabilityViewAllSerializer()  
     class Meta:
         model = NotificationSustainability
         fields = "__all__"
@@ -1517,6 +1517,7 @@ class HealthSafetyGetSerializer(serializers.ModelSerializer):
     approved_by = UserSerializer(read_only=True) 
     written_by = UserSerializer(read_only=True) 
     checked_by =UserSerializer(read_only=True) 
+    process_activity = ProcessHealthSerializer()
     
     
     class Meta:

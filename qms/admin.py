@@ -81,6 +81,7 @@ admin.site.register(ConformityNotification)
 
 admin.site.register(ReviewType)
 admin.site.register(EnergyReview)
+admin.site.register(EnergyReviewNotification)
 
 admin.site.register(BaselineReview)
 admin.site.register(Baseline)
